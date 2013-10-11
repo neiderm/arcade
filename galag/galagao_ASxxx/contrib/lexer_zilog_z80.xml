@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<!DOCTYPE CodeBlocks_lexer_properties>
+<CodeBlocks_lexer_properties>
+		<Lexer name="zilog asm z80"
+		       index="34"
+		       filemasks="*.s,*.inc">
+				<Style  name="Default"
+						index="0"
+						fg="0,0,0"
+						bg="255,255,255"
+						bold="0"
+						italics="0"
+						underlined="0"/>
+				<Style  name="Comment"
+						index="1"
+						fg="18,100,18"
+						italics="1"/>
+				<Style  name="Number"
+						index="2"
+						fg="192,88,0"/>
+				<Style  name="String"
+						index="3"
+						fg="37,80,37"/>
+				<Style  name="Operator"
+						index="4"
+						fg="0,0,0"
+						bold="1"/>
+				<Style  name="Identifier"
+						index="5"
+						fg="47,38,16"/>
+				<Style  name="CPU instruction"
+						index="6"
+						fg="21,21,71"
+						bold="1"/>
+				<Style  name="Register"
+						index="8"
+						fg="255,0,0"/>
+				<Style  name="Directive"
+						index="9"
+						fg="0,0,128"
+						bold="1"/>
+				<Style  name="Character"
+						index="12"
+						fg="128,18,18"/>
+				<Style  name="Extended instruction"
+						index="14"
+						fg="0,0,0"
+						bold="1"/>
+				<LanguageAttributes	LineComment=";"
+							CaseSensitive="0"/>
+				<Keywords>
+					<!-- Instructions -->
+					<Set index="0" value="abcd abcd.b
+								push pop cli ldi ldi ink lia dek ldx ld inc and jr rst im cpl add exx
+								ex call xor djnz bit jp or rrca dec set res cp lddr ldd scf daa ccf adc rra rrc 
+								ldir di ei ret sbc sub rr neg srl sra rlc rlca sla rla rld rl rrd cpi halt
+								unlk"/>
+
+					<!-- Registers -->
+					<Set index="2" value="r p pe nc z a d e b c h l hl sp bc de af af' ixl ixh ix iy iyl iyh"/>
+
+					<!-- Directives -->
+					<Set index="3" value=".include .section .area
+								.db .dw .ds .macro .endm .equ .globl .ascii
+								.ifeq .ifne .ifge .ifgt .ifle 
+								.org .page .module"/>
+
+					<!-- Extended instructions -->
+					<Set index="5" value=""/>
+
+				</Keywords>
+				<SampleCode value="lexer_zilog_z80.sample"/>
+		</Lexer>
+</CodeBlocks_lexer_properties>

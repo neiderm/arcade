@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="galag" />
+		<Option makefile_is_custom="1" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="roms">
+				<Option output="galaga" prefix_auto="1" extension_auto="1" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+		</Compiler>
+		<Unit filename="rom0\game_ctrl.s" />
+		<Unit filename="rom0\gg1-2.s" />
+		<Unit filename="rom0\gg1-2_fx.s" />
+		<Unit filename="rom0\gg1-3.s" />
+		<Unit filename="rom0\gg1-4.s" />
+		<Unit filename="rom0\gg1-5.s" />
+		<Unit filename="rom0\gg1-7.s" />
+		<Unit filename="rom0\int.s" />
+		<Unit filename="rom0\mrw.s" />
+		<Unit filename="rom0\new_stage.s" />
+		<Unit filename="rom0\sfrs.inc" />
+		<Unit filename="rom0\structs.inc" />
+		<Unit filename="rom0\task_man.s" />
+		<Extensions>
+			<code_completion />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
