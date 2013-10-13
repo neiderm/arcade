@@ -85,7 +85,7 @@ int main (int argc,char *argv[])
  filelen=ftell (f);
  fseek (f,begin,SEEK_SET);
  len=(filelen>end)? (end-begin+1):(filelen-begin);
- filebuf=malloc(len+16);
+ filebuf=(unsigned char *)malloc(len+16);
  if (!filebuf)
  {
   printf ("Memory allocation error\n");

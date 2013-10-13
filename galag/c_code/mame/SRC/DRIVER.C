@@ -1,6 +1,13 @@
 #include "driver.h"
 
-
+#ifndef ALL
+extern struct GameDriver galaga_driver;
+const struct GameDriver *drivers[] =
+{
+        &galaga_driver,
+        0
+};
+#else
 
 extern struct GameDriver pacman_driver;
 extern struct GameDriver pacmod_driver;
@@ -232,3 +239,5 @@ const struct GameDriver *drivers[] =
         &galagabl_driver,
 	0	/* end of array */
 };
+#endif
+

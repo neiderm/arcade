@@ -51,7 +51,7 @@ int readroms(const struct RomModule *rommodule,const char *basename)
 		}
 
 		region_size = romp->offset;
-		if ((Machine->memory_region[region] = malloc(region_size)) == 0)
+		if ((Machine->memory_region[region] = (unsigned char *)malloc(region_size)) == 0)
 		{
 			printf("Unable to allocate %d bytes of RAM\n",region_size);
 			goto getout;

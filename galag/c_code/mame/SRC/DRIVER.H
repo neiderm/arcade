@@ -26,9 +26,8 @@ struct MemoryReadAddress
 };
 
 #define MRA_NOP 0	/* don't care, return 0 */
-#define MRA_RAM ((int(*)())-1)	/* plain RAM location (return its contents) */
-#define MRA_ROM ((int(*)())-2)	/* plain ROM location (return its contents) */
-
+#define MRA_RAM ((int(*)(int))-1)	/* plain RAM location (return its contents) */
+#define MRA_ROM ((int(*)(int))-2)	/* plain ROM location (return its contents) */
 
 struct MemoryWriteAddress
 {
@@ -39,8 +38,7 @@ struct MemoryWriteAddress
 
 #define MWA_NOP 0	/* do nothing */
 #define MWA_RAM ((void(*)())-1)	/* plain RAM location (store the value) */
-#define MWA_ROM ((void(*)())-2)	/* plain ROM location (do nothing) */
-
+#define MWA_ROM ((void(*)(int, int))-2)	/* plain ROM location (do nothing) */
 
 /***************************************************************************
 

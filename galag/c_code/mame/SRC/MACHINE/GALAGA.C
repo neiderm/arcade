@@ -28,7 +28,7 @@ void galaga_sharedram_w(int offset,int data)
 	galaga_sharedram[offset] = data;
         if (offset == 0x1ab9 && Machine->samples) {
           if (data && testdone && Machine->samples->sample[0]) {
-                osd_play_sample(7,Machine->samples->sample[0]->data,
+                osd_play_sample(7,(unsigned char *)Machine->samples->sample[0]->data,
                         Machine->samples->sample[0]->length,
                         Machine->samples->sample[0]->smpfreq,
                         Machine->samples->sample[0]->volume,0);

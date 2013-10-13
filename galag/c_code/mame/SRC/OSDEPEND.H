@@ -1,11 +1,38 @@
 #ifndef OSDEPEND_H
 #define OSDEPEND_H
 
+// 12/2010 (GN): This is the stock osdepend header from mame261 which will be 
+// included into mame.c through common.h
+// I made the few necessary additions below for WIn32.
+// <GN>
+#if defined (WIN32)
+#include <windows.h>
+
+// uclock defs provided by win32.c, but were eventually moved 
+//  into Mame36/src/Win32/uclock.[ch] 
+#ifdef USE_UCLOCK_C
+#include "uclock.h"
+#else
+#define uclock_t DWORDLONG
+
+uclock_t osd_win32_uclocks_per_sec();
+#define UCLOCKS_PER_SEC  osd_win32_uclocks_per_sec()
+
+uclock_t osd_win32_uclock();
+#define uclock osd_win32_uclock
+
+#endif // use uclock.c
+
+ // define needed for common.c ( I move here from M32Util.c)
+#define strcasecmp stricmp
+
+#endif // WIN32
+// </GN>
 
 struct osd_bitmap
 {
 	int width,height;	/* width and hegiht of the bitmap */
-	void *private;	/* don't touch! - reserved for osdepend use */
+	void *_private;	/* don't touch! - reserved for osdepend use */
 	unsigned char *line[0];	/* pointers to the start of each line */
 };
 
@@ -106,6 +133,8 @@ struct osd_bitmap
 #define OSD_JOY_FIRE3	7
 #define OSD_JOY_FIRE4	8
 #define OSD_JOY_FIRE	9	/* any of the fire buttons */
+
+#define NO_TRAK         1000000
 
 
 extern int play_sound;

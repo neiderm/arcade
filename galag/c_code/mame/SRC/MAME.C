@@ -209,7 +209,7 @@ int init_machine(const char *gamename,int argc,char **argv)
 		j = 0;
 		while (Machine->memory_region[j]) j++;
 
-		if ((ROM = malloc(0x10000)) == 0)
+		if ((ROM = (unsigned char *)malloc(0x10000)) == 0)
 			return 1;
 
 		Machine->memory_region[j] = ROM;

@@ -212,7 +212,7 @@ static int Z80_Dasm (unsigned char *buffer,char *dest,unsigned PC)
  char *S;
  char *r;
  int i,j,k;
- unsigned char buf[10];
+ char buf[10];
  char Offset;
  i=Offset=0;
  r="INTERNAL PROGRAM ERROR";

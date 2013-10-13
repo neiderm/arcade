@@ -37,7 +37,7 @@ int generic_vh_start(void)
 	/* layout, and for Popeye, using a 512x480 screen but a 64x64 memory. */
 	len = (len + 0x3ff) & 0xfffffc00;
 
-	if ((dirtybuffer = malloc(len)) == 0)
+	if ((dirtybuffer = (unsigned char *)malloc(len)) == 0)
 		return 1;
 	memset(dirtybuffer,0,len);
 

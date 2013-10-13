@@ -48,7 +48,7 @@ void pengo_sh_update(void)
 {
 	if (play_sound == 0) return;
 
-	if (sound_enable && sound_changed)
+	if (sound_enable ) // if (sound_enable && sound_changed)
 	{
 		int voice;
 		static int currwave[3] = { -1,-1,-1 };

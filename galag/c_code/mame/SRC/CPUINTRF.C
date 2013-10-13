@@ -90,6 +90,11 @@ void cpu_run(void)
 		totalcpu++;
 	}
 
+#ifdef BUGS
+extern void bugs_exec(void);
+bugs_exec();
+#else // BUGS
+
 reset:
 	for (activecpu = 0;activecpu < totalcpu;activecpu++)
 	{
@@ -114,6 +119,8 @@ reset:
 					ctxt->irq = Z80_IGNORE_INT;
 				}
 				break;
+
+#if 0
 			case CPU_M6502:
 				{
 					M6502 *ctxt;
@@ -148,6 +155,7 @@ reset:
 					ctxt->irq = INT_NONE;
 				}
 				break;
+#endif
 			/* ...DS */
 		}
 	}
@@ -195,6 +203,7 @@ reset:
 						}
 						break;
 
+#if 0
 					case CPU_M6502:
 						for (loops = 0;loops < Machine->drv->cpu[activecpu].interrupts_per_frame;loops++)
 							Run6502((M6502 *)cpucontext[activecpu]);
@@ -225,6 +234,7 @@ reset:
 							ctxt->irq = m6809_IRequest;
 						}
 						break;
+#endif
 					/* ...DS */
 				}
 			}
@@ -234,6 +244,7 @@ reset:
 		if (usres == 2)	/* user asked to reset the machine */
 			goto reset;
 	} while (usres == 0);
+#endif // BUGS
 }
 
 
@@ -259,7 +270,7 @@ int cpu_getpc(void)
 		case CPU_Z80:
 			return Z80_GetPC();
 			break;
-
+#if 0 // GN:
 		case CPU_M6502:
 			return ((M6502 *)cpucontext[activecpu])->PC.W;
 			break;
@@ -269,7 +280,7 @@ int cpu_getpc(void)
 			return m6809_GetPC();
 			break;
 		/* ...DS */
-
+#endif // GN:
 		default:
 	if (errorlog) fprintf(errorlog,"cpu_getpc: unsupported CPU type %02x\n",Machine->drv->cpu[activecpu].cpu_type);
 			return -1;
@@ -286,7 +297,7 @@ int cpu_geticount(void)
 		case CPU_Z80:
 			return Z80_ICount;
 			break;
-
+#if 0 // GN:
 		case CPU_M6502:
 			return ((M6502 *)cpucontext[activecpu])->ICount;
 			break;
@@ -296,7 +307,7 @@ int cpu_geticount(void)
 			return m6809_ICount;
 			break;
 		/* ...DS */
-
+#endif // GN:
 		default:
 	if (errorlog) fprintf(errorlog,"cpu_geticycles: unsupported CPU type %02x\n",Machine->drv->cpu[activecpu].cpu_type);
 			return -1;
@@ -313,7 +324,7 @@ void cpu_seticount(int cycles)
 		case CPU_Z80:
 			Z80_ICount = cycles;
 			break;
-
+#if 0 // GN:
 		case CPU_M6502:
 			((M6502 *)cpucontext[activecpu])->ICount = cycles;
 			break;
@@ -323,7 +334,7 @@ void cpu_seticount(int cycles)
 			m6809_ICount = cycles;
 			break;
 		/* ...DS */
-
+#endif // GN:
 		default:
 	if (errorlog) fprintf(errorlog,"cpu_seticycles: unsupported CPU type %02x\n",Machine->drv->cpu[activecpu].cpu_type);
 			break;
@@ -465,7 +476,7 @@ int interrupt(void)
 			if (interrupt_enable == 0) return Z80_IGNORE_INT;
 			else return interrupt_vector;
 			break;
-
+#if 0 // GN:
 		case CPU_M6502:
 			if (interrupt_enable == 0) return INT_NONE;
 			else return INT_IRQ;
@@ -477,7 +488,7 @@ int interrupt(void)
 			else return INT_IRQ;
 			break;
 		/* ...DS */
-
+#endif // GN:
 		default:
 	if (errorlog) fprintf(errorlog,"interrupt: unsupported CPU type %02x\n",Machine->drv->cpu[activecpu].cpu_type);
 			return -1;
@@ -495,12 +506,12 @@ int nmi_interrupt(void)
 			if (interrupt_enable == 0) return Z80_IGNORE_INT;
 			else return Z80_NMI_INT;
 			break;
-
+#if 0 // GN:
 		case CPU_M6502:
 			if (interrupt_enable == 0) return INT_NONE;
 			else return INT_NMI;
 			break;
-
+#endif // GN:
 		default:
 	if (errorlog) fprintf(errorlog,"nmi_interrupt: unsupported CPU type %02x\n",Machine->drv->cpu[activecpu].cpu_type);
 			return -1;
@@ -525,7 +536,7 @@ int cpu_readmem(register int A)
 	{
 		if (A >= mra->start && A <= mra->end)
 		{
-			int (*handler)() = mra->handler;
+			int (*handler)(int) = mra->handler;
 
 
 			if (handler == MRA_NOP) return 0;
@@ -557,8 +568,7 @@ void cpu_writemem(register int A,register unsigned char V)
 	{
 		if (A >= mwa->start && A <= mwa->end)
 		{
-			void (*handler)() = mwa->handler;
-
+			void (*handler)(int, int) = mwa->handler;
 
 			if (handler == MWA_NOP) return;
 			else if (handler == MWA_RAM) RAM[A] = V;
@@ -597,8 +607,7 @@ int cpu_readport(int Port)
 		{
 			if (Port >= iorp->start && Port <= iorp->end)
 			{
-				int (*handler)() = iorp->handler;
-
+				int (*handler)(int) = iorp->handler;
 
 				if (handler == IORP_NOP) return 0;
 				else return (*handler)(Port - iorp->start);
@@ -631,8 +640,7 @@ void cpu_writeport(int Port,int Value)
 		{
 			if (Port >= iowp->start && Port <= iowp->end)
 			{
-				void (*handler)() = iowp->handler;
-
+				void (*handler)(int, int) = iowp->handler;
 
 				if (handler == IOWP_NOP) return;
 				else (*handler)(Port - iowp->start,Value);
