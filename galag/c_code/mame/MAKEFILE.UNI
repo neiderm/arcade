@@ -1,0 +1,164 @@
+# Makefile for MAME 0.20
+# Configuration options can be found under lines marked with '***'
+
+# *** Choose your compiler. Make it ANSI-compatible (e.g. 'cc -ansi').
+# for SGI irix native compiler use next line
+CC	= gcc
+LD	= $(CC)
+
+# *** If you have the MIT-SHM extension, uncomment the following:
+MS		= -DMITSHM
+
+# *** If you have the Linux joystick module, uncomment the following:
+JS		= -DJOYSTICK
+
+# *** set to aproppiate flag if want to debug
+# DBGFLAGS     = -g
+
+# *** choose your OS (one of linux, FREEBSD,  sunos, solaris, irix).
+ARCH  = linux
+
+# *** architecture.
+
+# Linux
+DEFS.linux   = -DX86_ASM -DLSB_FIRST -DUNIX -Dlinux -m486
+LIBS.linux   = -L/usr/X11/lib -lX11 -lXext -lm
+
+# FreeBSD
+DEFS.FREEBSD   = -DX86_ASM -DLSB_FIRST -DUNIX -Dlinux -DFREEBSD -DFREEBSD_SOUND_WORKAROUND -m486 -I/usr/X11R6/include
+LIBS.FREEBSD   = -L/usr/X11R6/lib -lX11 -lXext -lm
+
+# SunOS
+DEFS.sunos	 = -DUNIX -Dsun -Dsunos -DCLOCKS_PER_SEC=1000000
+LIBS.sunos   = -L/usr/X11/lib -lX11 -lXext -lm
+
+# Solaris
+DEFS.solaris	 = -DUNIX -Dsun -Dsolaris
+LIBS.solaris   = -L/usr/X11/lib -lX11 -lXext -lnsl -lsocket -lm
+
+# IRIX
+DEFS.irix	 = -DUNIX -Dsgi
+LIBS.irix   = -L/usr/X11/lib -lX11 -lXext -lm -laudio
+
+# *** If using IRIX native C compiler, use next line as CFLAGS
+#CFLAGS = $(DBGFLAGS) -Isrc -Isrc/Z80 -Isrc/M6502 -Isrc/unix -DINLINE=static -O3 -w
+CFLAGS = $(DBGFLAGS) -Isrc -Isrc/Z80 -Isrc/M6502 -Isrc/unix -fstrength-reduce -funroll-loops -fomit-frame-pointer -O3 -Wall
+
+###########################################################################
+# No configurable options below this line....
+
+COMMON = obj.$(ARCH)/mame.o obj.$(ARCH)/common.o \
+	     obj.$(ARCH)/driver.o obj.$(ARCH)/cpuintrf.o \
+             obj.$(ARCH)/vidhrdw/generic.o obj.$(ARCH)/sndhrdw/generic.o \
+	     obj.$(ARCH)/sndhrdw/psg.o obj.$(ARCH)/sndhrdw/8910intf.o \
+	     obj.$(ARCH)/sndhrdw/pokey.o obj.$(ARCH)/sndhrdw/sn76496.o
+
+OBJMICROS = obj.$(ARCH)/Z80/Z80.o obj.$(ARCH)/M6502/M6502.o obj.$(ARCH)/I86/I86.o
+
+OBJOSDEP = obj.$(ARCH)/unix/osdepend.a
+
+OBJGAMES = obj.$(ARCH)/machine/pacman.o obj.$(ARCH)/vidhrdw/pacman.o obj.$(ARCH)/drivers/pacman.o \
+         obj.$(ARCH)/vidhrdw/pengo.o obj.$(ARCH)/sndhrdw/pengo.o obj.$(ARCH)/drivers/pengo.o \
+         obj.$(ARCH)/machine/ladybug.o obj.$(ARCH)/vidhrdw/ladybug.o obj.$(ARCH)/sndhrdw/ladybug.o obj.$(ARCH)/drivers/ladybug.o \
+         obj.$(ARCH)/machine/mrdo.o obj.$(ARCH)/vidhrdw/mrdo.o obj.$(ARCH)/drivers/mrdo.o \
+         obj.$(ARCH)/machine/docastle.o obj.$(ARCH)/vidhrdw/docastle.o obj.$(ARCH)/drivers/docastle.o \
+         obj.$(ARCH)/vidhrdw/cclimber.o obj.$(ARCH)/sndhrdw/cclimber.o obj.$(ARCH)/drivers/cclimber.o \
+         obj.$(ARCH)/machine/seicross.o obj.$(ARCH)/drivers/seicross.o \
+         obj.$(ARCH)/vidhrdw/ckong.o obj.$(ARCH)/drivers/ckong.o \
+         obj.$(ARCH)/drivers/ckongs.o \
+         obj.$(ARCH)/vidhrdw/dkong.o obj.$(ARCH)/sndhrdw/dkong.o obj.$(ARCH)/drivers/dkong.o \
+         obj.$(ARCH)/vidhrdw/dkong3.o obj.$(ARCH)/drivers/dkong3.o \
+         obj.$(ARCH)/machine/bagman.o obj.$(ARCH)/vidhrdw/bagman.o obj.$(ARCH)/sndhrdw/bagman.o obj.$(ARCH)/drivers/bagman.o \
+         obj.$(ARCH)/vidhrdw/wow.o obj.$(ARCH)/drivers/wow.o \
+         obj.$(ARCH)/drivers/galaxian.o \
+         obj.$(ARCH)/vidhrdw/mooncrst.o obj.$(ARCH)/sndhrdw/mooncrst.o obj.$(ARCH)/drivers/mooncrst.o \
+         obj.$(ARCH)/vidhrdw/moonqsr.o obj.$(ARCH)/drivers/moonqsr.o \
+         obj.$(ARCH)/vidhrdw/frogger.o obj.$(ARCH)/sndhrdw/frogger.o obj.$(ARCH)/drivers/frogger.o \
+         obj.$(ARCH)/machine/scramble.o obj.$(ARCH)/vidhrdw/scramble.o obj.$(ARCH)/sndhrdw/scramble.o obj.$(ARCH)/drivers/scramble.o \
+         obj.$(ARCH)/drivers/scobra.o \
+         obj.$(ARCH)/vidhrdw/warpwarp.o obj.$(ARCH)/drivers/warpwarp.o \
+         obj.$(ARCH)/vidhrdw/popeye.o obj.$(ARCH)/sndhrdw/popeye.o obj.$(ARCH)/drivers/popeye.o \
+         obj.$(ARCH)/vidhrdw/amidar.o obj.$(ARCH)/sndhrdw/amidar.o obj.$(ARCH)/drivers/amidar.o \
+         obj.$(ARCH)/vidhrdw/rallyx.o obj.$(ARCH)/drivers/rallyx.o \
+         obj.$(ARCH)/vidhrdw/pooyan.o obj.$(ARCH)/sndhrdw/pooyan.o obj.$(ARCH)/drivers/pooyan.o \
+         obj.$(ARCH)/vidhrdw/timeplt.o obj.$(ARCH)/drivers/timeplt.o \
+         obj.$(ARCH)/machine/phoenix.o obj.$(ARCH)/vidhrdw/phoenix.o obj.$(ARCH)/sndhrdw/phoenix.o obj.$(ARCH)/drivers/phoenix.o \
+         obj.$(ARCH)/machine/carnival.o obj.$(ARCH)/vidhrdw/carnival.o obj.$(ARCH)/drivers/carnival.o \
+         obj.$(ARCH)/machine/invaders.o obj.$(ARCH)/vidhrdw/invaders.o obj.$(ARCH)/sndhrdw/invaders.o obj.$(ARCH)/drivers/invaders.o \
+         obj.$(ARCH)/vidhrdw/mario.o obj.$(ARCH)/drivers/mario.o \
+         obj.$(ARCH)/machine/zaxxon.o obj.$(ARCH)/vidhrdw/zaxxon.o obj.$(ARCH)/drivers/zaxxon.o \
+         obj.$(ARCH)/vidhrdw/congo.o obj.$(ARCH)/drivers/congo.o \
+         obj.$(ARCH)/vidhrdw/bombjack.o obj.$(ARCH)/sndhrdw/bombjack.o obj.$(ARCH)/drivers/bombjack.o \
+         obj.$(ARCH)/machine/centiped.o obj.$(ARCH)/drivers/centiped.o \
+         obj.$(ARCH)/vidhrdw/milliped.o obj.$(ARCH)/sndhrdw/milliped.o obj.$(ARCH)/drivers/milliped.o \
+         obj.$(ARCH)/machine/nibbler.o obj.$(ARCH)/vidhrdw/nibbler.o obj.$(ARCH)/drivers/nibbler.o \
+         obj.$(ARCH)/machine/mpatrol.o obj.$(ARCH)/vidhrdw/mpatrol.o obj.$(ARCH)/drivers/mpatrol.o \
+         obj.$(ARCH)/machine/btime.o obj.$(ARCH)/vidhrdw/btime.o obj.$(ARCH)/sndhrdw/btime.o obj.$(ARCH)/drivers/btime.o \
+         obj.$(ARCH)/sndhrdw/jumpbug.o obj.$(ARCH)/drivers/jumpbug.o \
+         obj.$(ARCH)/machine/vanguard.o obj.$(ARCH)/vidhrdw/vanguard.o obj.$(ARCH)/drivers/vanguard.o \
+         obj.$(ARCH)/machine/gberet.o obj.$(ARCH)/vidhrdw/gberet.o obj.$(ARCH)/sndhrdw/gberet.o obj.$(ARCH)/drivers/gberet.o \
+         obj.$(ARCH)/vidhrdw/venture.o obj.$(ARCH)/drivers/venture.o \
+         obj.$(ARCH)/drivers/pepper2.o \
+         obj.$(ARCH)/vidhrdw/gottlieb.o obj.$(ARCH)/drivers/reactor.o \
+         obj.$(ARCH)/sndhrdw/gottlieb.o obj.$(ARCH)/drivers/qbert.o \
+         obj.$(ARCH)/drivers/krull.o \
+         obj.$(ARCH)/drivers/mplanets.o \
+         obj.$(ARCH)/vidhrdw/junglek.o obj.$(ARCH)/sndhrdw/junglek.o obj.$(ARCH)/drivers/junglek.o \
+         obj.$(ARCH)/machine/elevator.o obj.$(ARCH)/vidhrdw/elevator.o obj.$(ARCH)/drivers/elevator.o \
+         obj.$(ARCH)/machine/panic.o obj.$(ARCH)/vidhrdw/panic.o obj.$(ARCH)/drivers/panic.o \
+         obj.$(ARCH)/machine/arabian.o obj.$(ARCH)/vidhrdw/arabian.o obj.$(ARCH)/sndhrdw/arabian.o obj.$(ARCH)/drivers/arabian.o \
+         obj.$(ARCH)/machine/1942.o obj.$(ARCH)/vidhrdw/1942.o obj.$(ARCH)/sndhrdw/1942.o obj.$(ARCH)/drivers/1942.o \
+         obj.$(ARCH)/vidhrdw/gyruss.o obj.$(ARCH)/sndhrdw/gyruss.o obj.$(ARCH)/drivers/gyruss.o
+
+OBJS = $(COMMON) $(OBJMACHINE) $(OBJGAMES) $(OBJMICROS) $(OBJOSDEP)
+
+VPATH = src src/Z80 src/M6502 src/I86
+
+all: objdirs xmame.$(ARCH) sndserver
+
+objdirs: 
+	-mkdir obj.$(ARCH) obj.$(ARCH)/msdos obj.$(ARCH)/unix 2>/dev/null
+	-mkdir obj.$(ARCH)/I86 obj.$(ARCH)/Z80 obj.$(ARCH)/M6502 2>/dev/null
+	-mkdir obj.$(ARCH)/drivers obj.$(ARCH)/machine obj.$(ARCH)/sndhrdw obj.$(ARCH)/vidhrdw 2>/dev/null
+
+xmame.$(ARCH):	$(OBJS)
+	$(LD) -g3 -o  xmame.$(ARCH) $(OBJS) $(LIBS.$(ARCH))
+
+obj.$(ARCH)/unix/osdepend.a:
+	 ( \
+	 cd src/unix; \
+	  make CC="$(CC)" ARCH="$(ARCH)" DEFS="$(DEFS.$(ARCH))" MS="$(MS)" JS="$(JS)" CFLAGS="$(CFLAGS)" \
+	 )
+
+sndserver: obj.$(ARCH)/unix/sndserver.o obj.$(ARCH)/unix/osdepend.a 
+	$(LD) -g3 -o  sndserver.$(ARCH) obj.$(ARCH)/unix/sndserver.o $(LIBS.$(ARCH))
+	
+obj.$(ARCH)/%.o: src/%.c
+	 $(CC) $(DEFS.$(ARCH)) $(MS) $(JS) $(CFLAGS) -o $@ -c $<
+
+sndtest: sndtest.c
+	gcc -o sndtest sndtest.c
+
+# dependencies
+obj.$(ARCH)/sndhrdw/cclimber.o:  src/sndhrdw/psg.c src/sndhrdw/psg.h
+obj.$(ARCH)/Z80/Z80.o:  src/Z80/Z80.c src/Z80/Z80.h src/Z80/Z80Codes.h src/Z80/Z80IO.h src/Z80/Z80DAA.h
+obj.$(ARCH)/M6502/M6502.o:	src/M6502/M6502.c src/M6502/M6502.h src/M6502/Tables.h src/M6502/Codes.h
+obj.$(ARCH)/I86/I86.o:	src/I86/I86.c src/I86/I86.h src/I86/global.h src/I86/instr.h src/I86/mytypes.h
+
+clean:
+	rm -f obj.$(ARCH)/*.o 
+	rm -f obj.$(ARCH)/Z80/*.o 
+	rm -f obj.$(ARCH)/M6502/*.o 
+	rm -f obj.$(ARCH)/I86/*.o 
+	rm -f obj.$(ARCH)/drivers/*.o 
+	rm -f obj.$(ARCH)/machine/*.o 
+	rm -f obj.$(ARCH)/vidhrdw/*.o 
+	rm -f obj.$(ARCH)/sndhrdw/*.o 
+	rm -f obj.$(ARCH)/unix/*.o 
+	rm -f obj.$(ARCH)/msdos/*.o 
+	rm -f xmame.$(ARCH)
+
+pristine:
+	rm -rf *.o */*.o */*/*.o
+	rm -rf obj.*
+	rm -f xmame.* Makefile
