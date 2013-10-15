@@ -1,7 +1,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; mrw.s:
-;;  defines variables in "read-write" memory. 
+;;  defines variables in "read-write" memory.
 ;;
 ;;  This project provides information about the design of the software
 ;;  programming of the original Galaga arcade game, (c) 1981 NAMCO LTD.
@@ -344,8 +344,8 @@ ds3_9288_tmp_IO_data:
 . = b_9280
 
 ;;-----------------------------------------------------------------------------
-p_sptiles_displ:
-         .ds     $$02       ; temp pointer to sprite tile data (parameter to subroutines)
+p_attrmode_sptiles:
+         .ds     $$02       ; persistent pointer to static sprite tile data for demo (parameter to _sprite_tiles_displ)
 pdb_demo_state_params:
          .ds     $$02       ; f_1700, tracks state of demo mode by setting an offset to the data table
 ds2_stg_chllg_rnd_attrib:   ; attributes selected for hit all 8 bonus on challenge round convoy i.e. score, sprite tile

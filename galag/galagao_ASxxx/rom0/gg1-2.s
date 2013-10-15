@@ -776,21 +776,20 @@ l_1289:
 ;;   Display sprite tiles in specific arrangements loaded from table data.
 ;;   This is for demo or game-start (bonus-info ) screen but not gameplay.
 ;; IN:
-;;  p_sptiles_displ: ptr to sprite tiles data
-;;                                 ( d_sptiles_displ_ships[] or d_195C[] )
+;;  _attrmode_sptiles: ptr to sprite tiles data
 ;; OUT:
-;;  p_sptiles_displ: advanced to next data group
+;;  _attrmode_sptiles: advanced to next data group
 ;;-----------------------------------------------------------------------------
 c_sprite_tiles_displ:
        ld   h,#>ds_sprite_code
 
-; L = p_sptiles_displ[E+0] ... index/offset of object to use
-       ld   de,(p_sptiles_displ)                  ; pointer to d_sptiles_displ_ships[] or d_195C[] ...see _12BE
-       ld   a,(de)                                ; p_sptiles_displ[ E + 0 ]
+; L = p_sptiles_displ[idx*4 + 0] ... index/offset of object to use
+       ld   de,(p_attrmode_sptiles)               ; load the persistent pointer (not always needed)
+       ld   a,(de)                                ; _attrmode_sptiles[ E + 0 ]
        ld   l,a
 
 ; C = p_sptiles_displ[E+1] ... color/code
-       inc  de                                    ; p_sptiles_displ[ E + 1 ]  ... color/code
+       inc  de                                    ; _attrmode_sptiles[DE].b01  ... color/code
        ld   a,(de)
        ld   c,a
 
@@ -819,7 +818,7 @@ l_12A6:
 
        dec  l                                     ; object_data[ n + 0 ] ... object state
        ld   h,#>b_8800
-       ld   (hl),#1
+       ld   (hl),#1                               ; disposition = ACTIVE
 
        ld   h,#>ds_sprite_posn
        ld   a,(de)                                ; L/R offset
@@ -841,7 +840,7 @@ l_12A6:
 
 ; advance the pointer
        inc  de                                    ; e.g., DE:=$1960
-       ld   (p_sptiles_displ),de                  ; parameter to c_128C ... advance ptr to next parameter
+       ld   (p_attrmode_sptiles),de               ; += 1
 
        ret
 

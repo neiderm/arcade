@@ -29,18 +29,17 @@
 ;;  ...
 ;;-----------------------------------------------------------------------------
 f_1700:
-       ld   de,(pdb_demo_state_params)            ; the table entry
-                                                  ; provides an index into the list of sub-tasks at _1713 amd _1786
-                                                  ; subtasks from table _1928 ...training mode
-                                                  ; subtasks from table _1887 ...demo-mode
+; labels for "case" blocks in _1713
+; switch( *pdb_demo_state_params >> 5) & 0x07 )
+       ld   de,(pdb_demo_state_params)            ; cases for switch
        ld   a,(de)
        rlca
        rlca
        rlca
        and  #0x07
-       ld   hl,#d_1713                            ; ld the table address
+       ld   hl,#d_1713                            ; &table
        rst  0x08                                  ; HL += 2A
-       ld   a,(hl)                                ; HL== some offset from $1713
+       ld   a,(hl)
        inc  hl
        ld   h,(hl)
        ld   l,a
@@ -55,8 +54,7 @@ d_1713:
        .dw case_172D
 
 case_171F:
-       ld   a,(ds3_92A0_frame_cts + 0)            ; stopped here at each changing frequency of the first portion of the sound
-                                                  ; when the far-right and far-left bosses got hit in training mode
+       ld   a,(ds3_92A0_frame_cts + 0)
        and  #0x0F
        ret  nz
 
@@ -78,7 +76,7 @@ case_1734:
        and  #0x0A
        jr   l_1755
 l_1741:
-       ld   a,(ds_9200_glbls + 0x09)              ; 5 bosses, 3 reds and the ship first appear in training mode
+       ld   a,(ds_9200_glbls + 0x09)              ; position of attacking object
        ld   l,a
        ld   h,#>ds_sprite_posn
        ld   a,(ds_sprite_posn + 0x62)             ; ship (1) position
@@ -106,16 +104,18 @@ case_1766:
        jr   nz,l_1772
        inc  de                                    ; when is jr not taken?
 l_1772:
-       inc  de                                    ; then next entry gets us into the table at $1786
+       inc  de
+
        ld   a,(de)
-                                                  ; indexing into the jp table
-       ld   (pdb_demo_state_params),de
+       ld   (pdb_demo_state_params),de            ; += 1
+; A = (*pdb_demo_state_params >> 5) & 0x07;
        rlca
        rlca
        rlca
        and  #0x07
+; switch(...)
        ld   hl,#d_1786
-       rst  0x08                                  ; HL += 2A
+       rst  0x08                                  ; HL += 2A (pointer from index)
        ld   a,(hl)
        inc  hl
        ld   h,(hl)
@@ -133,9 +133,10 @@ d_1786:
 
 ; prior to bosses and reds appearing
 case_1794:
+; ds_9200_glbls[0x09] = *pdb_demo_state_params << 1 & 0x7E
        ld   a,(de)
        rlca
-       and  #0x7E
+       and  #0x7E                                 ; note, mask makes shift into <:0> through Cy irrelevant
        ld   (ds_9200_glbls + 0x09),a
        ret
 
@@ -160,7 +161,7 @@ case_17A8:                                        ; when?
        rst  0x30                                  ; string_out_pe
        ret
 
-; player ship appears in training mode
+; fighter has appeared in training mode
 case_17AE:
        inc  de
        ld   a,(de)
@@ -210,7 +211,8 @@ d_17C3_jptbl:
        .dw case_1940   ; 0x0D
        .dw case_17E1   ; 0x0E
 
-case_17E1:                                        ; demo or GALACTIC HERO screen
+; demo or GALACTIC HERO screen
+case_17E1:
 ; if ( game_timers[3] == 0 ) ...
        ld   a,(ds4_game_tmrs + 3)                 ; if 0, display hi-score tbl
        and  a
@@ -268,7 +270,7 @@ case_1840:
        ld   (ds_cpu0_task_actv + 0x02),a          ; 1 ... f_17B2
        jp   l_19A7_end_switch
 
-; one time init for demo (followinig training mode): just cleared the screen with "GAME OVER" shown
+; one time init for demo (following training mode): just cleared the screen with "GAME OVER" shown
 case_1852:
        xor  a
        ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 0
@@ -298,7 +300,7 @@ d_1887:
        .db 0x14,0xAA,0x20,0x82,0x06,0xA8,0x0E,0xA2,0x17,0x88,0x12,0xA2,0x14,0x18,0x88,0x1B
        .db 0x81,0x2A,0x5F,0x4C,0xC0
 
-; after _179C, before _2535, start of explosion of far-left boss in training mode
+; 0x05 training mode, last (far-left) boss shot first time start of explosion
 case_18AC:
        ld   a,(ds4_game_tmrs + 2)
        and  a
@@ -323,24 +325,25 @@ l_18C6:
        rst  0x30                                  ; string_out_pe ("NAMCO" - 6 tiles)
        ret
 
-; ship just appeared in training mode
+; 0x04 ship just appeared in training mode (state active until f_1700 disables itself)
 case_18D1:
        ld   a,(ds_cpu0_task_actv + 0x03)          ; if !0, return
        and  a
        jp   z,l_19A7_end_switch
        ret
 
-; one time init for 7 bugs in training mode
+; (0x03) one time init for 7 bugs in training mode
 case_18D9:
        ld   b,#7                                  ; 4 bosses + 3 moths
 l_18DB_while:
+; note: pointer to _attrmode_sptiles[n] is a function "parameter", but it is updated inside the function
        call c_sprite_tiles_displ
        djnz l_18DB_while
 
        xor  a
        ld   (ds_plyr_actv +_b_nships),a           ; 0
        ld   (ds_cpu0_task_actv + 0x05),a          ; 0 ... f_0857
-       call c_133A                                ; apparently erases some stuff from screen?
+       call c_133A                                ; show_ship
 
        ld   hl,#0xFF0D
        ld   (b_92C0 + 0x05),hl
@@ -377,15 +380,15 @@ d_1928:
        .db 0x08,0x1B,0x81,0x3D,0x81,0x0A,0x42,0x19,0x81,0x28,0x81,0x08
        .db 0x18,0x81,0x2E,0x81,0x03,0x1A,0x81,0x11,0x81,0x05,0x42,0xC0
 
-; used during "CREDIT 0"
+; init demo
 case_1940:
        call c_sctrl_playfld_clr
        call c_sctrl_sprite_ram_clr
        jr   l_19A7_end_switch
 
 case_1948:
-       ld   hl,#d_sptiles_displ_bugs
-       ld   (p_sptiles_displ),hl                  ; &sptiles_displ_bugs[0] ... parameter to c_128C
+       ld   hl,#d_attrmode_sptiles                ; setup index into sprite data table
+       ld   (p_attrmode_sptiles),hl               ; parameter to _sprite_tiles_displ
 
        xor  a
        ld   (ds_9200_glbls + 0x05),a              ; 0 ... demo_scrn_txt_indx
@@ -403,10 +406,11 @@ case_1948:
 ;;  2: X coordinate
 ;;  3: Y coordinate
 ;;
-d_sptiles_displ_bugs:
+d_attrmode_sptiles:
        .db 0x08,0x1B,0x44,0x3A  ; code $18 (bee)
        .db 0x0A,0x12,0x44,0x42  ; code $10 (moth)
        .db 0x0C,0x08,0x7C,0x50  ; code $08 (boss)
+;d_attrmode_sptiles_7 ; label not needed, residual value of the pointer is used
        .db 0x34,0x08,0x34,0x5C  ; code $08
        .db 0x30,0x08,0x64,0x5C  ; code $08
        .db 0x32,0x08,0x94,0x5C  ; code $08
@@ -415,14 +419,14 @@ d_sptiles_displ_bugs:
        .db 0x58,0x12,0xB4,0x64  ; code $10
        .db 0x52,0x12,0xD4,0x64  ; code $10
 
-case_1984:
+case_1984: ; 0x02
 ;  if ( game_tmrs[2] != 0 ) return
        ld   a,(ds4_game_tmrs + 2)
        and  a
        ret  nz
 
        ld   a,#2
-       ld   (ds4_game_tmrs + 2),a                 ; 2
+       ld   (ds4_game_tmrs + 2),a                 ; 2 (1 second)
 
        ld   a,(ds_9200_glbls + 0x05)              ; if 5 ... demo_scrn_txt_indx
        cp   #5
@@ -439,14 +443,15 @@ case_1984:
        cp   #3
        ret  c
 
-       call c_sprite_tiles_displ
+       call c_sprite_tiles_displ                  ; note: advances the pointer to _attrmode_sptiles_3[]
+
        ret
 
 l_19A7_end_switch:
 ; b_9200_glbls.demo_idx++;
        ld   hl,#ds_9200_glbls + 0x03
        inc  (hl)
-; if ( b_9200_glbls.demo_idx < 0x0F )  return
+; if ( b_9200_glbls.demo_idx != 0x0F )  return
        ld   a,(hl)
        cp   #0x0F
        ret  nz
@@ -1169,7 +1174,7 @@ d_1CFD:
 ;;   for c_1C8D
 ;;   ...boss takes a sortie with one or two wingmen (red-moth) attached.
 ;; IN:
-;;  ...
+;;  ...de,#b_92C0 + 0x0A + 3
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------

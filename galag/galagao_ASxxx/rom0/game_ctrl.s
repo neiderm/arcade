@@ -240,8 +240,8 @@ l_game_state_ready:
        ld   c,#1                                  ; C = string_out_pe_index
        rst  0x30                                  ; string_out_pe "PUSH START BUTTON"
 
-       ld   hl,#d_sptiles_displ_ships
-       ld   (p_sptiles_displ),hl                  ; &d_sptiles_displ_ships ... parameter to c_128C
+       ld   hl,#d_attrmode_sptiles_ships
+       ld   (p_attrmode_sptiles),hl             ; &_attrmode_sptiles[0] ... parameter to _sprite_tiles_displ()
 
 ; if ( 0xFF == mchn_cfg_bonus[0] ) goto l_While_Ready
        ld   a,(w_mchn_cfg_bonus + 0)
@@ -389,7 +389,7 @@ c_game_bonus_info_show_line:
 ;;  2: X coordinate
 ;;  3: Y coordinate
 ;;
-d_sptiles_displ_ships:
+d_attrmode_sptiles_ships:
        .db 0x00, 0x81, 0x19, 0x56
        .db 0x02, 0x81, 0x19, 0x62
        .db 0x04, 0x81, 0x19, 0x6E
@@ -1397,7 +1397,7 @@ l_0865:
        and  a
        jr   z,l_0888
 
-       ld   hl,#b_92C0 + 0x04                     ; memset( ..., 2, 3 )
+       ld   hl,#b_92C0 + 0x04                     ; memset( b_92C0_4, 2, 3 )
        ld   a,#2
        ld   b,#3
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
@@ -1776,10 +1776,6 @@ l_09FF_check_credits_used:
 ;   game_state = IN_GAME_MODE
        ld   a,#3
        ld   (b8_9201_game_state),a                ; 3 (IN_GAME)
-
-gak: ; HELP_ME_DEBUG
-;  ld hl, 0x92A0
-;  ld (hl), 0xF0
 
        ret
 ; }
