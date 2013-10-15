@@ -65,7 +65,7 @@ static uint8 sfr_6820; //galaga_interrupt_enable_1_w
 static uint8 two_plyr_game;
 static uint8 ds30_susp_plyr_obj_data[0x30]; // c_player_active_switch
 static uint8 credit_cnt;
-static const uint8 d_sptiles_displ_ships[];
+static const uint8 d_attrmode_sptiles_ships[];
 static const uint8 d_0495[];
 static const uint8 str_1UP[];
 static const uint8 str_2UP[];
@@ -280,22 +280,24 @@ int game_state_ready(void)
 
     if (0xFF != A) // ... else l_While_Ready
     {
+        // ld   (p_attrmode_sptiles),hl ... not necessary to keep persistent pointer for function paramter
+
         // E=bonus score digit, C=string_out_pe_index
-        c_game_bonus_info_show_line(A, 0x1B, d_sptiles_displ_ships + 0 * 4);
+        c_game_bonus_info_show_line(A, 0x1B, d_attrmode_sptiles_ships + 0 * 4);
 
         A = mchn_cfg.bonus[1];
         if (0xFF != A) // ... else l_While_Ready
         {
             A &= 0x7F;
 
-            c_game_bonus_info_show_line(A, 0x1C, d_sptiles_displ_ships + 1 * 4);
+            c_game_bonus_info_show_line(A, 0x1C, d_attrmode_sptiles_ships + 1 * 4);
             A = mchn_cfg.bonus[1];
 
             // if bit 7 is set, the third bonus award does not apply
             if (0 == (0x80 & A)) // goto l_While_Ready
             {
                 A &= 0x7F;
-                c_game_bonus_info_show_line(A, 0x1D, d_sptiles_displ_ships + 2 * 4);
+                c_game_bonus_info_show_line(A, 0x1D, d_attrmode_sptiles_ships + 2 * 4);
             }
         }
     }
@@ -418,7 +420,7 @@ static void c_game_bonus_info_show_line(uint8 E, uint8 C, uint8 const *pHL)
 ;;  2: X coordinate
 ;;  3: Y coordinate
  */
-static const uint8 d_sptiles_displ_ships[] =
+static const uint8 d_attrmode_sptiles_ships[] =
 {
     0x00, 0x81, 0x19, 0x56,
     0x02, 0x81, 0x19, 0x62,
@@ -1065,7 +1067,8 @@ void f_0828(void)
 /*=============================================================================
 ;; f_0857()
 ;;  Description:
-;;   the data tables below have do with sprite coordinates for demo or such
+;;    enable after just cleared the screen from training mode
+;;    see case 0x07: // l_17F5
 ;; IN:
 ;;  ...
 ;; OUT:

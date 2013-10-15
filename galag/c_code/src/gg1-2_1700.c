@@ -4,7 +4,6 @@
  **    ship movement, control inputs, flying bugs, flying bombs.
  **
  *******************************************************************************/
-
 /*
  ** header file includes
  */
@@ -22,11 +21,11 @@
 /*
  ** non-static external definitions this file or others
  */
-// this has to be somewhere, so why not here. However it is initialized in
-// gallag init, i.e. outside of the game code proper.
+// this has to be somewhere, so why not here but there are actually
+// more references to this in gg1-2.c than anywhere else
 t_mrw_sprite mrw_sprite;
-uint8 b_92A4_rockt_attribute[2];
 
+uint8 b_92A4_rockt_attribute[2]; // ref'd in gg1-5.c
 uint8 b_92C0_0[0x0A]; // idfk ...  (size <= 10)
 uint8 b_92C0_A[0x10]; // machine cfg params?
 
@@ -55,19 +54,9 @@ static void c_1F92(uint8);
 ;;  2: X coordinate
 ;;  3: Y coordinate
 ;; */
-//
-static uint8 idx_sptiles_demo_bugs; // use as index instead of pointer
 
-// 3 bugs for scoring info
-static const uint8 d_sptiles_score_bugs[] =
-{
-    0x08, 0x1B, 0x44, 0x3A,
-    0x0A, 0x12, 0x44, 0x42,
-    0x0C, 0x08, 0x7C, 0x50
-};
-
-// 7 bugs for demo
-static const uint8 d_sptiles_demo_bugs[] =
+// 7 sprites for small demo (6 diving and 1 stationary)
+static const uint8 d_attrmode_sptiles_7[] =
 {
     0x34, 0x08, 0x34, 0x5C,
     0x30, 0x08, 0x64, 0x5C,
@@ -77,6 +66,18 @@ static const uint8 d_sptiles_demo_bugs[] =
     0x58, 0x12, 0xB4, 0x64,
     0x52, 0x12, 0xD4, 0x64
 };
+
+// 3 stationary sprites
+static const uint8 d_attrmode_sptiles_3[] =
+{
+    0x08, 0x1B, 0x44, 0x3A, // yellow alien (50/100 points)
+    0x0A, 0x12, 0x44, 0x42, // red alien (80/160 points)
+    0x0C, 0x08, 0x7C, 0x50  // green boss
+};
+
+// provides a persistent index across calls into state-machine
+static uint8 idx_attrmode_sptiles_3;
+
 
 /*----------------------------------------------------------------------------*/
 static const uint8 d_1928_demo_state_params[] =
@@ -89,8 +90,10 @@ static const uint8 d_1928_demo_state_params[] =
 /*=============================================================================
 ;; f_1700()
 ;;  Description:
-;;   Ship-update in training/demo mode.
-;;   Called once-per-frame (not in ready or game mode).
+;;   Ship-update in training/demo mode, enabled in main (one time init) for
+;;   training mode (not called in ready or game mode).
+;;   This one is basically an extension of f_17B2:case 0x04 until disabled
+;;   below.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -98,7 +101,9 @@ static const uint8 d_1928_demo_state_params[] =
 ;;---------------------------------------------------------------------------*/
 void f_1700(void)
 {
-    uint8 A;
+    uint8 A, E;
+
+    // A not needed here, but it's easier to digest
     A = (*pdb_demo_state_params >> 5) & 0x07; // rlca * 3
 
     switch(A)
@@ -114,48 +119,62 @@ void f_1700(void)
         }
         // else ret  nz
 
-// jp   case_1766
-//        break;
+        // jp   case_1766
+        // (break)
 
     case 0x00: // 1766:
     case 0x01: // 1766:
     case 0x03: // 1766:
     {
-        if ( 0x80 == (0x0C & *pdb_demo_state_params))
+        if ( 0x80 == (0xC0 & *pdb_demo_state_params))
         {
-            pdb_demo_state_params += 1;
+            pdb_demo_state_params += 1; // inc  de
         }
-        pdb_demo_state_params += 1;
+        //l_1772:
+        pdb_demo_state_params += 1; // inc  de
 
-        switch((*pdb_demo_state_params >> 5) & 0x07)
+        // A not needed, but easier to chew that way
+        A = (*pdb_demo_state_params >> 5) & 0x07;
+
+        switch(A)
         {
         case 0:  // case_1794
         case 1:  // case_1794
-            // rlca
+            // rlca ... note, mask makes shift into <:0> through Cy irrelevant
             A = *pdb_demo_state_params << 1;
-            A |= (*pdb_demo_state_params >> 7) & 0x01;
             glbls9200.training_mode_flag_09 = A & 0x7E;
-            break;
+            break; // ret
+
+            // done!
+        case 6:  // case_179C
+            task_actv_tbl_0[0x03] = 0; // this task
+            break; // ret
 
         case 2:  // case_17A1
-            break;
+            // A not needed but help makes it obvious
+            A = *pdb_demo_state_params & 0x1F;
+            //l_17A4:
+            glbls9200.training_mode_flag_07 = A;
+            break; // ret
 
         case 3:  // case_17A8
+            // A not needed but help makes it easy to understand for nooobz
+            A = *pdb_demo_state_params & 0x1F;
+//       ld   c,a
+//       rst  0x30                                  ; string_out_pe
+            break; // ret
 
-            break;
-
+            // fighter has appeared in training mode
         case 4:  // case_17AE
         case 5:  // case_17AE
-            pdb_demo_state_params += 1;
-//jr   l_17A4
-//l_17A4:
-            glbls9200.training_mode_flag_07 = *pdb_demo_state_params;
-            return;
-            break;
+            // A not needed but help makes it obvious
+            A = *(pdb_demo_state_params + 1); //
 
-        case 6:  // case_179C
-            task_actv_tbl_0[0x03] = 0;
-            return;
+            //jr   l_17A4
+            //l_17A4:
+            glbls9200.training_mode_flag_07 = A;
+            break; // ret
+
         default:
             break;
         }
@@ -166,6 +185,31 @@ void f_1700(void)
         break;
 
     case 0x04: // 1734:
+        A = *pdb_demo_state_params;
+        E = plyr_state_actv.plyr_is_2ship; // setup E for c_1F92
+
+        if ( 0 == (A & 0x01)) // bit  0,a
+        {
+            A &= 0x0A;
+            //jr   l_1755
+        }
+        else // jr   nz,l_1741
+        {
+            uint8 L;
+            L = glbls9200.training_mode_flag_09;
+
+            A = 0x0A;
+            if (mrw_sprite.posn[SPR_IDX_SHIP].b0 != mrw_sprite.posn[L].b0) // sub  (hl)
+            {
+                A = 8;
+            }
+            else if (mrw_sprite.posn[SPR_IDX_SHIP].b0 > mrw_sprite.posn[L].b0)
+            {
+                A = 2;
+            }
+        }
+        // l_1755:
+        //c_1F92();
         break;
     default:
         break;
@@ -209,7 +253,7 @@ void f_17B2()
             if ((ds3_92A0_frame_cts[0] & 0x1F) != 0x1F) return;
             else
             {
-                task_actv_tbl_0[5] = 1; // enable f_0857
+                task_actv_tbl_0[0x05] = 1; // f_0857
                 j_string_out_pe(1, -1, 2); // string_out_pe ("GAME OVER")
             }
             break;
@@ -227,6 +271,7 @@ void f_17B2()
             // one time init for demo (followinig training mode): just cleared the screen with "GAME OVER" shown
             break;
 
+            // in demo, as the last boss shot second time
         case 0x05: // l_18AC
             if (0 != ds4_game_tmrs[2])
             {
@@ -251,13 +296,13 @@ void f_17B2()
 
             break;
 
+            // ship just appeared in training mode (state active until f_1700 disables itself)
         case 0x04: // l_18D1
         case 0x09: // l_18D1
         case 0x0B: // l_18D1
-            // ship just appeared in training mode
             if (0 != task_actv_tbl_0[0x03])
             {
-                return;
+                return; // get out, no update state-machine index
             }
             // jp   z,l_19A7_end_switch
             break;
@@ -267,7 +312,7 @@ void f_17B2()
             B = 0;
             while (B < 7)
             {
-                sprite_tiles_display(d_sptiles_demo_bugs + B * 4);
+                sprite_tiles_display(d_attrmode_sptiles_7 + B * 4);
                 B += 1;
             }
 
@@ -288,9 +333,9 @@ void f_17B2()
             glbls9200.flying_bug_attck_condtn = 0;
             plyr_state_actv.captur_boss_dive_flag = 1;
 
-            task_actv_tbl_0[0x10] = 1; //  f_1B65 ... Manage flying-bug-attack
-            task_actv_tbl_0[0x0B] = 1; //  f_1DB3 ... Checks enemy status at 9200
-            task_actv_tbl_0[0x03] = 1; //  f_1700 ... Ship-update in training/demo mode
+//            task_actv_tbl_0[0x10] = 1; //  f_1B65 ... manage flying-bug-attack
+            task_actv_tbl_0[0x0B] = 1; //  f_1DB3 ... checks enemy status at 9200
+            task_actv_tbl_0[0x03] = 1; //  f_1700 ... ship-update in training/demo mode
 
             //from DSWA "sound in attract mode"
             b_9AA0[0x17] = 1; // (_sfr_dsw4 >> 1) & 0x01;
@@ -306,13 +351,13 @@ void f_17B2()
             c_sctrl_sprite_ram_clr();
             break;
 
-        // init demo
+            // init demo
         case 0x01: // l_1948
-            idx_sptiles_demo_bugs = 0;
+            idx_attrmode_sptiles_3 = 0; // setup index into sprite data table
             b8_demo_scrn_txt_indx = 0;
             w_bug_flying_hit_cnt = 0;
             ds4_game_tmrs[2] = 2; // 1 second
-            break;
+            break; // jr   l_19A7_end_switch
 
         case 0x02: // l_1984
             if (0 == ds4_game_tmrs[2])
@@ -321,19 +366,18 @@ void f_17B2()
 
                 if (5 != b8_demo_scrn_txt_indx)
                 {
-                    b8_demo_scrn_txt_indx += 1;
+                    b8_demo_scrn_txt_indx += 1; // _glbls[0x05]
 
                     // "GALAGA", "--SCORE--", etc
                     j_string_out_pe(1, -1, b8_demo_scrn_txt_indx + 0x0D);
 
                     // checks for a sprite to display with the text
-                    if (b8_demo_scrn_txt_indx < 3)
+                    if (b8_demo_scrn_txt_indx >= 3)
                     {
-                        return; // ret  c
-                    }
-                    sprite_tiles_display(d_sptiles_score_bugs + 4 * idx_sptiles_demo_bugs);
-                    idx_sptiles_demo_bugs++;
+                        sprite_tiles_display(d_attrmode_sptiles_3 + 4 * idx_attrmode_sptiles_3);
 
+                        idx_attrmode_sptiles_3++; // advance pointer to _attrmode_sptiles_3[n]
+                    }
                     return;
                 } // jr   z,l_19A7_end_switch
             }
@@ -345,19 +389,20 @@ void f_17B2()
 
         default:
             break;
-        } // end switch
+        } // l_19A7_end_switch:
 
         glbls9200.demo_idx++;
-        if (glbls9200.demo_idx < 0x0F)
-            return;
-
-        glbls9200.demo_idx = 0;
+        if (glbls9200.demo_idx == 0x0F)
+        {
+            glbls9200.demo_idx = 0;
+        }
     } // if (ATTRACT_MODE
 
     return;
 }
 
 // pdb_demo_state_params
+// _1928 ...training mode
 const uint8 d_181F[] =
 {
     0x08,0x18,0x8A,0x08,0x88,0x06,0x81,0x28,0x81,0x05,0x54,0x1A,0x88,0x12,0x81,0x0F,

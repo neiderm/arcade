@@ -555,7 +555,7 @@ void sprite_tiles_display(uint8 const *p_sptiles_displ)
     // l_12A6:
     mrw_sprite.cclr[ L ].b1 = A;
 
-    b8800_obj_status[ L ].state = 1; // ACTIVE
+    b8800_obj_status[ L ].state = 1; // disposition = ACTIVE
 
     mrw_sprite.posn[ L ].b0 = p_sptiles_displ[2]; // posn.X
 
