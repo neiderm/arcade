@@ -34,6 +34,8 @@ uint8 b_92C0_A[0x10]; // machine cfg params?
  ** static external definitions in this file
  */
 // variables
+static const uint8 d_181F[];
+static const uint8 d_1887[];
 static uint8 d_1E64_bitmap_tables[];
 static uint8 ds10_9920[16];
 static uint8 b8_demo_scrn_txt_indx;
@@ -43,6 +45,7 @@ static uint8 ship_dX_flag;
 // function prototypes
 static void c_1E43(uint8, uint8, uint8);
 static void c_1F92(uint8);
+static void c_1F0F(void);
 
 
 /*============================================================================
@@ -86,6 +89,72 @@ static const uint8 d_1928_demo_state_params[] =
     0x18, 0x81, 0x2E, 0x81, 0x03, 0x1A, 0x81, 0x11, 0x81, 0x05, 0x42, 0xC0
 };
 
+/*=============================================================================
+;; case_1766()
+;;  Description:
+;;   Ship-update in training/demo mode
+;; IN:
+;;  ...
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+void case_1766(void)
+{
+    uint8 A;
+    if ( 0x80 == (0xC0 & *pdb_demo_state_params))
+    {
+        pdb_demo_state_params += 1; // inc  de
+    }
+    //l_1772:
+    pdb_demo_state_params += 1; // inc  de
+
+    // A not needed, but easier to chew that way
+    A = (*pdb_demo_state_params >> 5) & 0x07;
+
+// note: 1794, 17ae
+    switch(A)
+    {
+    case 0:  // case_1794
+    case 1:  // case_1794
+        // rlca ... note, mask makes shift into <:0> through Cy irrelevant
+        A = *pdb_demo_state_params << 1;
+        glbls9200.training_mode_flag_09 = A & 0x7E;
+        break; // ret
+
+        // done!
+    case 6:  // case_179C
+        task_actv_tbl_0[0x03] = 0; // this task
+        break; // ret
+
+    case 2:  // case_17A1
+        // A not needed but help makes it obvious
+        A = *pdb_demo_state_params & 0x1F;
+        //l_17A4:
+        glbls9200.training_mode_flag_07 = A;
+        break; // ret
+
+    case 3:  // case_17A8
+        // A not needed but help makes it easy to understand for nooobz
+        A = *pdb_demo_state_params & 0x1F;
+//       ld   c,a
+//       rst  0x30                                  ; string_out_pe
+        break; // ret
+
+        // fighter has appeared in training mode
+    case 4:  // case_17AE
+    case 5:  // case_17AE
+        // A not needed but help makes it obvious
+        A = *(pdb_demo_state_params + 1); //
+
+        //jr   l_17A4
+        //l_17A4:
+        glbls9200.training_mode_flag_07 = A;
+        break; // ret
+
+    default:
+        break;
+    }
+}
 
 /*=============================================================================
 ;; f_1700()
@@ -101,7 +170,7 @@ static const uint8 d_1928_demo_state_params[] =
 ;;---------------------------------------------------------------------------*/
 void f_1700(void)
 {
-    uint8 A, E;
+    uint8 A;
 
     // A not needed here, but it's easier to digest
     A = (*pdb_demo_state_params >> 5) & 0x07; // rlca * 3
@@ -119,65 +188,15 @@ void f_1700(void)
         }
         // else ret  nz
 
-        // jp   case_1766
-        // (break)
+        ; // jp   case_1766 .....
+        case_1766();
+        break;
 
     case 0x00: // 1766:
     case 0x01: // 1766:
     case 0x03: // 1766:
     {
-        if ( 0x80 == (0xC0 & *pdb_demo_state_params))
-        {
-            pdb_demo_state_params += 1; // inc  de
-        }
-        //l_1772:
-        pdb_demo_state_params += 1; // inc  de
-
-        // A not needed, but easier to chew that way
-        A = (*pdb_demo_state_params >> 5) & 0x07;
-
-        switch(A)
-        {
-        case 0:  // case_1794
-        case 1:  // case_1794
-            // rlca ... note, mask makes shift into <:0> through Cy irrelevant
-            A = *pdb_demo_state_params << 1;
-            glbls9200.training_mode_flag_09 = A & 0x7E;
-            break; // ret
-
-            // done!
-        case 6:  // case_179C
-            task_actv_tbl_0[0x03] = 0; // this task
-            break; // ret
-
-        case 2:  // case_17A1
-            // A not needed but help makes it obvious
-            A = *pdb_demo_state_params & 0x1F;
-            //l_17A4:
-            glbls9200.training_mode_flag_07 = A;
-            break; // ret
-
-        case 3:  // case_17A8
-            // A not needed but help makes it easy to understand for nooobz
-            A = *pdb_demo_state_params & 0x1F;
-//       ld   c,a
-//       rst  0x30                                  ; string_out_pe
-            break; // ret
-
-            // fighter has appeared in training mode
-        case 4:  // case_17AE
-        case 5:  // case_17AE
-            // A not needed but help makes it obvious
-            A = *(pdb_demo_state_params + 1); //
-
-            //jr   l_17A4
-            //l_17A4:
-            glbls9200.training_mode_flag_07 = A;
-            break; // ret
-
-        default:
-            break;
-        }
+        case_1766();
         break;
     }
 
@@ -185,9 +204,8 @@ void f_1700(void)
         break;
 
     case 0x04: // 1734:
+        // ld   e,(hl) ... double ship flag referenced directly in c_1F92
         A = *pdb_demo_state_params;
-        E = plyr_state_actv.plyr_is_2ship; // setup E for c_1F92
-
         if ( 0 == (A & 0x01)) // bit  0,a
         {
             A &= 0x0A;
@@ -199,18 +217,30 @@ void f_1700(void)
             L = glbls9200.training_mode_flag_09;
 
             A = 0x0A;
-            if (mrw_sprite.posn[SPR_IDX_SHIP].b0 != mrw_sprite.posn[L].b0) // sub  (hl)
+            if (mrw_sprite.posn[L].b0 != mrw_sprite.posn[SPR_IDX_SHIP].b0) // sub  (hl)
             {
                 A = 8;
-            }
-            else if (mrw_sprite.posn[SPR_IDX_SHIP].b0 > mrw_sprite.posn[L].b0)
-            {
-                A = 2;
+                if (mrw_sprite.posn[L].b0 <= mrw_sprite.posn[SPR_IDX_SHIP].b0)
+                {
+                    A = 2;
+                }
             }
         }
         // l_1755:
-        //c_1F92();
+        c_1F92(A);
+
+        // do nothing until frame count even multiple of 4
+        if (0 != (ds3_92A0_frame_cts[0] & 0x03))  return;
+
+        glbls9200.training_mode_flag_09 -= 1;
+
+        if (0 != glbls9200.training_mode_flag_09) return;
+
+        c_1F0F();
+        case_1766();
+
         break;
+
     default:
         break;
     }
@@ -260,6 +290,8 @@ void f_17B2()
 
         case 0x0A: // l_1808
             // boss with captured-ship has just rejoined fleet in demo
+            // call c_133A
+            pdb_demo_state_params = d_181F;
             break;
 
         case 0x0C: // l_1840
@@ -268,7 +300,8 @@ void f_17B2()
             break;
 
         case 0x08: // l_1852
-            // one time init for demo (followinig training mode): just cleared the screen with "GAME OVER" shown
+            // one time init for demo (following training mode): just cleared the screen with "GAME OVER" shown
+            pdb_demo_state_params = d_1887;
             break;
 
             // in demo, as the last boss shot second time
@@ -333,7 +366,7 @@ void f_17B2()
             glbls9200.flying_bug_attck_condtn = 0;
             plyr_state_actv.captur_boss_dive_flag = 1;
 
-//            task_actv_tbl_0[0x10] = 1; //  f_1B65 ... manage flying-bug-attack
+            task_actv_tbl_0[0x10] = 1; //  f_1B65 ... manage flying-bug-attack
             task_actv_tbl_0[0x0B] = 1; //  f_1DB3 ... checks enemy status at 9200
             task_actv_tbl_0[0x03] = 1; //  f_1700 ... ship-update in training/demo mode
 
@@ -403,10 +436,17 @@ void f_17B2()
 
 // pdb_demo_state_params
 // _1928 ...training mode
-const uint8 d_181F[] =
+static const uint8 d_181F[] =
 {
     0x08,0x18,0x8A,0x08,0x88,0x06,0x81,0x28,0x81,0x05,0x54,0x1A,0x88,0x12,0x81,0x0F,
     0xA2,0x16,0xAA,0x14,0x88,0x18,0x88,0x10,0x43,0x82,0x10,0x88,0x06,0xA2,0x20,0x56,0xC0
+};
+// _1887 ...demo-mode
+static const uint8 d_1887[] =
+{
+    0x02,0x8A,0x04,0x82,0x07,0xAA,0x28,0x88,0x10,0xAA,0x38,0x82,0x12,0xAA,0x20,0x88,
+    0x14,0xAA,0x20,0x82,0x06,0xA8,0x0E,0xA2,0x17,0x88,0x12,0xA2,0x14,0x18,0x88,0x1B,
+    0x81,0x2A,0x5F,0x4C,0xC0
 };
 
 /*=============================================================================
@@ -879,8 +919,6 @@ void f_1EA4(void)
 }
 
 
-void c_1F0F(void);
-
 /*=============================================================================
 ;; f_1F04()
 ;;  Description:
@@ -916,7 +954,7 @@ void f_1F04(void)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-void c_1F0F(void)
+static void c_1F0F(void)
 {
     uint8 *pushDE;
     uint8 A, B, C, E;
