@@ -34,8 +34,8 @@ uint8 b_92C0_A[0x10]; // machine cfg params?
  ** static external definitions in this file
  */
 // variables
-static const uint8 d_181F[];
-static const uint8 d_1887[];
+static const uint8 d_fghtrvctrs_demolvl_ac[];
+static const uint8 d_fghtrvctrs_demolvl_bc[];
 static uint8 d_1E64_bitmap_tables[];
 static uint8 ds10_9920[16];
 static uint8 b8_demo_scrn_txt_indx;
@@ -83,7 +83,22 @@ static uint8 idx_attrmode_sptiles_3;
 
 
 /*----------------------------------------------------------------------------*/
-static const uint8 d_1928_demo_state_params[] =
+
+// pdb_demo_state_params, fighter vectors demo level after boss capture
+static const uint8 d_fghtrvctrs_demolvl_ac[] = // d_181F:
+{
+    0x08,0x18,0x8A,0x08,0x88,0x06,0x81,0x28,0x81,0x05,0x54,0x1A,0x88,0x12,0x81,0x0F,
+    0xA2,0x16,0xAA,0x14,0x88,0x18,0x88,0x10,0x43,0x82,0x10,0x88,0x06,0xA2,0x20,0x56,0xC0
+};
+// pdb_demo_state_params, fighter vectors demo level before boss capture
+static const uint8 d_fghtrvctrs_demolvl_bc[] = // d_1887:
+{
+    0x02,0x8A,0x04,0x82,0x07,0xAA,0x28,0x88,0x10,0xAA,0x38,0x82,0x12,0xAA,0x20,0x88,
+    0x14,0xAA,0x20,0x82,0x06,0xA8,0x0E,0xA2,0x17,0x88,0x12,0xA2,0x14,0x18,0x88,0x1B,
+    0x81,0x2A,0x5F,0x4C,0xC0
+};
+// fighter vectors training level
+static const uint8 d_demo_fghtrvctrs_trnglvl[] = // d_1928:
 {
     0x08, 0x1B, 0x81, 0x3D, 0x81, 0x0A, 0x42, 0x19, 0x81, 0x28, 0x81, 0x08,
     0x18, 0x81, 0x2E, 0x81, 0x03, 0x1A, 0x81, 0x11, 0x81, 0x05, 0x42, 0xC0
@@ -103,7 +118,7 @@ void case_1766(void)
     uint8 A;
     if ( 0x80 == (0xC0 & *pdb_demo_state_params))
     {
-        pdb_demo_state_params += 1; // inc  de
+        pdb_demo_state_params += 1; // inc  de ... right-most boss+2wingmen dive
     }
     //l_1772:
     pdb_demo_state_params += 1; // inc  de
@@ -177,7 +192,7 @@ void f_1700(void)
 
     switch(A)
     {
-    case 0x02: // 171F:
+    case 0x02: // 171F: boss+wingmen nearly to fighter
         if ( 0 == (ds3_92A0_frame_cts[0] & 0x0F))
         {
             glbls9200.training_mode_flag_07 -= 1;
@@ -203,31 +218,33 @@ void f_1700(void)
     case 0x05: // 172D:
         break;
 
-    case 0x04: // 1734:
+    case 0x04: // 1734: while fighter moves right until boss + red pair dove nearly to bottom
         // ld   e,(hl) ... double ship flag referenced directly in c_1F92
         A = *pdb_demo_state_params;
         if ( 0 == (A & 0x01)) // bit  0,a
         {
-            A &= 0x0A;
+            // not till demo round
+            A &= 0x0A; // 0x08 | 0x02
             //jr   l_1755
         }
         else // jr   nz,l_1741
         {
+            // move fighter in direction of targeted alien?
             uint8 L;
             L = glbls9200.training_mode_flag_09;
 
-            A = 0x0A;
+            A = 0x0A; // 0x08 | 0x02
             if (mrw_sprite.posn[L].b0 != mrw_sprite.posn[SPR_IDX_SHIP].b0) // sub  (hl)
             {
-                A = 8;
+                A = 8; // R
                 if (mrw_sprite.posn[L].b0 <= mrw_sprite.posn[SPR_IDX_SHIP].b0)
                 {
-                    A = 2;
+                    A = 2; // L
                 }
             }
         }
         // l_1755:
-        c_1F92(A);
+        c_1F92(A); // input control bits
 
         // do nothing until frame count even multiple of 4
         if (0 != (ds3_92A0_frame_cts[0] & 0x03))  return;
@@ -290,8 +307,9 @@ void f_17B2()
 
         case 0x0A: // l_1808
             // boss with captured-ship has just rejoined fleet in demo
+            // load fighter vectors for demo level (after capture)
             // call c_133A
-            pdb_demo_state_params = d_181F;
+            pdb_demo_state_params = d_fghtrvctrs_demolvl_ac; // d_181F
             break;
 
         case 0x0C: // l_1840
@@ -300,8 +318,8 @@ void f_17B2()
             break;
 
         case 0x08: // l_1852
-            // one time init for demo (following training mode): just cleared the screen with "GAME OVER" shown
-            pdb_demo_state_params = d_1887;
+            // load fighter vectors for demo level (before capture)
+            pdb_demo_state_params = d_fghtrvctrs_demolvl_bc;
             break;
 
             // in demo, as the last boss shot second time
@@ -358,7 +376,7 @@ void f_17B2()
             b_92C0_0[0x01] = 0xFF; // idfk
             b_92C0_0[0x00] = 0x0D; // idfk
 
-            pdb_demo_state_params = d_1928_demo_state_params;
+            pdb_demo_state_params = d_demo_fghtrvctrs_trnglvl; // fighter vectors for training level
 
             memset(b_92C0_A, 0, 0x10);
 
@@ -433,21 +451,6 @@ void f_17B2()
 
     return;
 }
-
-// pdb_demo_state_params
-// _1928 ...training mode
-static const uint8 d_181F[] =
-{
-    0x08,0x18,0x8A,0x08,0x88,0x06,0x81,0x28,0x81,0x05,0x54,0x1A,0x88,0x12,0x81,0x0F,
-    0xA2,0x16,0xAA,0x14,0x88,0x18,0x88,0x10,0x43,0x82,0x10,0x88,0x06,0xA2,0x20,0x56,0xC0
-};
-// _1887 ...demo-mode
-static const uint8 d_1887[] =
-{
-    0x02,0x8A,0x04,0x82,0x07,0xAA,0x28,0x88,0x10,0xAA,0x38,0x82,0x12,0xAA,0x20,0x88,
-    0x14,0xAA,0x20,0x82,0x06,0xA8,0x0E,0xA2,0x17,0x88,0x12,0xA2,0x14,0x18,0x88,0x1B,
-    0x81,0x2A,0x5F,0x4C,0xC0
-};
 
 /*=============================================================================
 ;; f_19B2()
