@@ -116,7 +116,9 @@ static const uint8 d_demo_fghtrvctrs_trnglvl[] = // d_1928:
 void case_1766(void)
 {
     uint8 A;
-    if ( 0x80 == (0xC0 & *pdb_demo_state_params))
+
+    // 0x80 fires shot ... not sure why bit-6 not masked out
+    if (0x80 == (0xC0 & *pdb_demo_state_params))
     {
         pdb_demo_state_params += 1; // inc  de ... right-most boss+2wingmen dive
     }
@@ -131,9 +133,10 @@ void case_1766(void)
     {
     case 0:  // case_1794
     case 1:  // case_1794
-        // rlca ... note, mask makes shift into <:0> through Cy irrelevant
-        A = *pdb_demo_state_params << 1;
-        glbls9200.training_mode_flag_09 = A & 0x7E;
+        // load object/index of targeted alien
+        // rlca ... note, mask makes rlca into <:0> through Cy irrelevant
+        A = *pdb_demo_state_params << 1; // rlca
+        glbls9200.demo_idx_tgt_obj = A & 0x7E; // :0 and :7 not significant
         break; // ret
 
         // done!
@@ -145,10 +148,10 @@ void case_1766(void)
         // A not needed but help makes it obvious
         A = *pdb_demo_state_params & 0x1F;
         //l_17A4:
-        glbls9200.training_mode_flag_07 = A;
+        glbls9200.demo_timer = A;
         break; // ret
 
-    case 3:  // case_17A8
+    case 3:  // case_17A8 ... no idea when
         // A not needed but help makes it easy to understand for nooobz
         A = *pdb_demo_state_params & 0x1F;
 //       ld   c,a
@@ -159,11 +162,11 @@ void case_1766(void)
     case 4:  // case_17AE
     case 5:  // case_17AE
         // A not needed but help makes it obvious
-        A = *(pdb_demo_state_params + 1); //
+        A = *(pdb_demo_state_params + 1); // inc  de
 
         //jr   l_17A4
         //l_17A4:
-        glbls9200.training_mode_flag_07 = A;
+        glbls9200.demo_timer = A;
         break; // ret
 
     default:
@@ -195,8 +198,8 @@ void f_1700(void)
     case 0x02: // 171F: boss+wingmen nearly to fighter
         if ( 0 == (ds3_92A0_frame_cts[0] & 0x0F))
         {
-            glbls9200.training_mode_flag_07 -= 1;
-            if ( 0 != glbls9200.training_mode_flag_07)
+            glbls9200.demo_timer -= 1;
+            if ( 0 != glbls9200.demo_timer)
             {
                 return;
             }
@@ -231,7 +234,7 @@ void f_1700(void)
         {
             // move fighter in direction of targeted alien?
             uint8 L;
-            L = glbls9200.training_mode_flag_09;
+            L = glbls9200.demo_idx_tgt_obj; // object/index of targeted alien
 
             A = 0x0A; // 0x08 | 0x02
             if (mrw_sprite.posn[L].b0 != mrw_sprite.posn[SPR_IDX_SHIP].b0) // sub  (hl)
@@ -249,9 +252,9 @@ void f_1700(void)
         // do nothing until frame count even multiple of 4
         if (0 != (ds3_92A0_frame_cts[0] & 0x03))  return;
 
-        glbls9200.training_mode_flag_09 -= 1;
+        glbls9200.demo_timer -= 1; // dec  (hl)
 
-        if (0 != glbls9200.training_mode_flag_09) return;
+        if (0 != glbls9200.demo_timer) return;
 
         c_1F0F();
         case_1766();

@@ -36,8 +36,8 @@ typedef struct {
     uint8 game_state; //               01
     uint8 demo_idx; //                 03
     //uint8 b8_demo_scrn_txt_indx; //  05
-    uint8 training_mode_flag_07; //    07
-    uint8 training_mode_flag_09; //    09
+    uint8 demo_timer;            //    07
+    uint8 demo_idx_tgt_obj;      //    09
     uint8 flying_bug_attck_condtn; //  0B
     uint8 bug_nest_direction_lr; //    0F: 1:left, 0:right
     uint8 formatn_mv_signage; //       11: sign of formation pulse movement for snd mgr
