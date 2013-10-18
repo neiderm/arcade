@@ -33,6 +33,9 @@ struct str_pe_t
     const char *chars; // terminated string
 };
 
+// this string doesn't correspond to ASCII, the rest are embedded directly into
+// the struct definition
+static const char d_cstr_mfrnm[] = { 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x2F };// "NAMCO" (in styled font)
 
 static struct str_pe_t d_cstring_tbl[] = {
     // $00
@@ -138,7 +141,7 @@ static struct str_pe_t d_cstring_tbl[] = {
     {
         // $14
         _dea(30, 11), // 025E
-        0x04, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x2F // "NAMCO" (in styled font)
+        0x04, d_cstr_mfrnm // "NAMCO" (in styled font)
     },
     {
         // $15
