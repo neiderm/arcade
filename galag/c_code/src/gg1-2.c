@@ -116,7 +116,7 @@ static void j_108A(uint8 l, uint8 const *pde, uint8 a_wtf)
     reg16 tmpA;
     uint8 A = a_wtf;
     uint8 L = l;
-    uint8 B, IX;
+    uint8 B, IX, Cy;
 
     B = 0;
     while (B < 0x0C)
@@ -146,22 +146,23 @@ static void j_108A(uint8 l, uint8 const *pde, uint8 a_wtf)
     b8800_obj_status[L].state = 9; // disposition diving attack
     b8800_obj_status[L].obj_idx = IX;
 
-    tmpA.word = 0;
-    tmpA.pair.b1 = mrw_sprite.posn[L].b1; // sprite_y<8:1>
-    tmpA.word >>= 1;
-    tmpA.pair.b1 != mrw_sprite.ctrl[L].b1 << 7; // sY<8> ... non-zero on flipped screen
+    tmpA.word = mrw_sprite.posn[L].b1; // sprite_y<7:0>
+    tmpA.pair.b1 = mrw_sprite.ctrl[L].b1; // sprite_y<8>
+    Cy = tmpA.pair.b0 & 0x01; // sY<0> to Cy
+    tmpA.word >>= 1; // rrca, rr etc.
 
     if ( 0 == glbls9200.flip_screen) // jr   nz,l_10DC
     {
 //        tmpA.word = 160 - tmpA.word ;
-          tmpA.pair.b1 += (160/2); // add  a,#0x00A0/2
-          tmpA.pair.b1 =- tmpA.pair.b1; // neg
-          tmpA.pair.b0 ^= 0x80; // ccf
+          tmpA.pair.b0 += (160/2); // add  a,#0x00A0/2
+          tmpA.pair.b0 = -tmpA.pair.b0; // neg
+          Cy = ~Cy; // ccf
     }
 
     // l_10DC:
-    ds_bug_motion_que[IX].b01 = tmpA.pair.b1; // B
-    ds_bug_motion_que[IX].b00 = tmpA.pair.b0; // rra
+    // resacale sY<8:0> to fixed-point 9.7
+    ds_bug_motion_que[IX].b01 = tmpA.pair.b0; // B ... sY<8:1>
+    ds_bug_motion_que[IX].b00 = (Cy << 7) & 0x80 ; // sY<0> ... rra etc.
 
     A = mrw_sprite.posn[L].b0; // ld   a,c ... sprite_x
 
