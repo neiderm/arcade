@@ -281,11 +281,12 @@ l_10A0_got_one:
         ccf                                       ; sY<:0> = Cy ^ 1
 
 l_10DC:
-        ld   0x01(ix),b                           ; sY<8:1> (fixed point 9.7)
+; resacale sY<8:0> to fixed-point 9.7
+        ld   0x01(ix),b                           ; sY<8:1> ... fixed point 9.7
 ; sY<:0> from Cy into A<7> ... fixed point 9.7 (LSB)
         rra
         and  #0x80
-        ld   0x00(ix),a                           ; sY<0> in (ix)0x01<7>
+        ld   0x00(ix),a                           ; sY<0> ... fixed point 9.7
 
 ; x coordinates
         ld   a,c                                  ; sprite_x

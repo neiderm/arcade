@@ -346,7 +346,7 @@ ds3_9288_tmp_IO_data:
 ;;-----------------------------------------------------------------------------
 p_attrmode_sptiles:
          .ds     $$02       ; persistent pointer to static sprite tile data for demo (parameter to _sprite_tiles_displ)
-pdb_demo_state_params:
+pdb_demo_fghtrvctrs:
          .ds     $$02       ; f_1700, tracks state of demo mode by setting an offset to the data table
 ds2_stg_chllg_rnd_attrib:   ; attributes selected for hit all 8 bonus on challenge round convoy i.e. score, sprite tile
          .ds     $$01       ; hit-count, add to collsn_hit_mult[0x0F]

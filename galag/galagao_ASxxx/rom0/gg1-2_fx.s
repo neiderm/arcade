@@ -30,8 +30,8 @@
 ;;-----------------------------------------------------------------------------
 f_1700:
 ; labels for "case" blocks in _1713
-; switch( *pdb_demo_state_params >> 5) & 0x07 )
-       ld   de,(pdb_demo_state_params)            ; cases for switch
+; switch( *_demo_fghtrvctrs >> 5) & 0x07 )
+       ld   de,(pdb_demo_fghtrvctrs)              ; cases for switch
        ld   a,(de)
        rlca
        rlca
@@ -53,7 +53,8 @@ d_1713:
        .dw case_1734
        .dw case_172D
 
-case_171F:
+; boss+wingmen nearly to fighter
+case_171F:  ; 0x02
        ld   a,(ds3_92A0_frame_cts + 0)
        and  #0x0F
        ret  nz
@@ -63,12 +64,14 @@ case_171F:
        ret  nz
        jp   case_1766                             ; training mode, far-right boss exploding
 
-case_172D:
-       call c_1F0F                                ; appearance of first attack wave in GameOver Demo-Mode
-       ld   de,(pdb_demo_state_params)
+; appearance of first attack wave in GameOver Demo-Mode
+case_172D:  ; 0x05
+       call c_1F0F                                ; init sprite objects for rockets
+       ld   de,(pdb_demo_fghtrvctrs)              ; trampled DE so reload it
 
-case_1734:
-       ld   a,(de)                                ; initial appearance of ship in training-mode
+; drives the simulated inputs to the fighter in training mode
+case_1734:  ; 0x04
+       ld   a,(de)
        ld   hl,#ds_plyr_actv +_b_2ship
        ld   e,(hl)                                ; setup E for c_1F92
        bit  0,a
@@ -83,9 +86,9 @@ l_1741:
        sub  (hl)
        ld   a,#0x0A
        jr   z,l_1755
-       ld   a,#0x08
+       ld   a,#0x08                               ; right
        jr   c,l_1755
-       ld   a,#2                                  ; when is jr not taken?
+       ld   a,#2                                  ; left
 l_1755:
        call c_1F92
        ld   a,(ds3_92A0_frame_cts + 0)
@@ -94,21 +97,21 @@ l_1755:
        ld   hl,#ds_9200_glbls + 0x07              ; training mode, far-right boss exploding
        dec  (hl)
        ret  nz
-       call c_1F0F                                ; training mode, ship about to shoot?
+       call c_1F0F                                ; init sprite objects for rockets ...training mode, ship about to shoot?
 
-case_1766:
-       ld   de,(pdb_demo_state_params)
+case_1766:  ; 0x00, 0x01, 0x03
+       ld   de,(pdb_demo_fghtrvctrs)
        ld   a,(de)
-       and  #0xC0
+       and  #0xC0                                 ; 0x80 fires shot ... not sure why bit-6 not masked out
        cp   #0x80
        jr   nz,l_1772
-       inc  de                                    ; when is jr not taken?
+       inc  de                                    ; firing shot ... advance to next token
 l_1772:
        inc  de
 
        ld   a,(de)
-       ld   (pdb_demo_state_params),de            ; += 1
-; A = (*pdb_demo_state_params >> 5) & 0x07;
+       ld   (pdb_demo_fghtrvctrs),de              ; += 1
+; A = (*_demo_fghtrvctrs >> 5) & 0x07;
        rlca
        rlca
        rlca
@@ -120,7 +123,7 @@ l_1772:
        inc  hl
        ld   h,(hl)
        ld   l,a
-       jp   (hl)
+       jp   (hl)                                  ; 1784
 
 d_1786:
        .dw case_1794
@@ -133,28 +136,29 @@ d_1786:
 
 ; prior to bosses and reds appearing
 case_1794:
-; ds_9200_glbls[0x09] = *pdb_demo_state_params << 1 & 0x7E
+; ds_9200_glbls[0x09] = *_demo_fghtrvctrs << 1 & 0x7E
        ld   a,(de)
-       rlca
-       and  #0x7E                                 ; note, mask makes shift into <:0> through Cy irrelevant
-       ld   (ds_9200_glbls + 0x09),a
+       rlca                                       ; pack in sX:0
+       and  #0x7E                                 ; mask out Cy shifted from :7 into :0
+       ld   (ds_9200_glbls + 0x09),a              ; sX of attacking object
        ret
 
-; after shot-and-hit far-left boss in training mode
+; shot-and-hit far-left boss in training mode (second hit)
 case_179C:
        xor  a
        ld   (ds_cpu0_task_actv + 0x03),a          ; 0 ... f_1700
        ret
 
-; shoot-and-hit far-right and far-left boss in training mode
+; shoot-and-hit far-right or far-left boss (once) in training mode
 case_17A1:
        ld   a,(de)
        and  #0x1F
 l_17A4:
        ld   (ds_9200_glbls + 0x07),a
        ret
-;
-case_17A8:                                        ; when?
+
+; when?
+case_17A8:
        ld   a,(de)
        and  #0x1F
        ld   c,a
@@ -162,6 +166,7 @@ case_17A8:                                        ; when?
        ret
 
 ; fighter has appeared in training mode
+; prior to each fighter shot in training mode?
 case_17AE:
        inc  de
        ld   a,(de)
@@ -246,7 +251,7 @@ case_1808:
        call c_133A
 
        ld   hl,#d_181F
-       ld   (pdb_demo_state_params),hl            ; &d_181F[0]
+       ld   (pdb_demo_fghtrvctrs),hl              ; &d_181F[0]
 
        ld   a,#1
        ld   (ds_cpu0_task_actv + 0x03),a          ; 1  (f_1700 ... Ship-update in training/demo mode)
@@ -254,6 +259,7 @@ case_1808:
        ld   (ds_cpu1_task_actv + 0x05),a          ; 1  (cpu1:f_05EE ...Manage ship collision detection)
        jp   l_19A7_end_switch
 
+; demo fighter vectors demo level after capture
 d_181F:
        .db 0x08,0x18,0x8A,0x08,0x88,0x06,0x81,0x28,0x81,0x05,0x54,0x1A,0x88,0x12,0x81,0x0F
        .db 0xA2,0x16,0xAA,0x14,0x88,0x18,0x88,0x10,0x43,0x82,0x10,0x88,0x06,0xA2,0x20,0x56,0xC0
@@ -282,7 +288,7 @@ case_1852:
        ld   (ds_plyr_actv +_b_not_chllg_stg),a    ; 1  (0 if challenge stage...see c_new_stg_game_only)
 
        ld   hl,#d_1887
-       ld   (pdb_demo_state_params),hl            ; &d_1887[0]
+       ld   (pdb_demo_fghtrvctrs),hl              ; &d_1887[0]
        call c_01C5_new_stg_game_or_demo
        call c_133A                                ; apparently erases some stuff from screen?
        ld   a,#1
@@ -294,7 +300,7 @@ case_1852:
        ld   (ds_new_stage_parms + 0x05),a         ; 2
        jp   l_19A7_end_switch
 
-; offsets
+; demo fighter vectors demo level before capture
 d_1887:
        .db 0x02,0x8A,0x04,0x82,0x07,0xAA,0x28,0x88,0x10,0xAA,0x38,0x82,0x12,0xAA,0x20,0x88
        .db 0x14,0xAA,0x20,0x82,0x06,0xA8,0x0E,0xA2,0x17,0x88,0x12,0xA2,0x14,0x18,0x88,0x1B
@@ -352,7 +358,7 @@ l_18DB_while:
        ld   (b_92C0 + 0x00),hl
 
        ld   hl,#d_1928
-       ld   (pdb_demo_state_params),hl            ; &d_1928[0]
+       ld   (pdb_demo_fghtrvctrs),hl              ; &d_1928[0]
 
 ; memset($92ca,$00,$10)
        xor  a
@@ -376,6 +382,7 @@ l_18DB_while:
        call c_game_or_demo_init
        jp   l_19A7_end_switch
 
+; demo fighter vectors training level
 d_1928:
        .db 0x08,0x1B,0x81,0x3D,0x81,0x0A,0x42,0x19,0x81,0x28,0x81,0x08
        .db 0x18,0x81,0x2E,0x81,0x03,0x1A,0x81,0x11,0x81,0x05,0x42,0xC0
@@ -865,7 +872,7 @@ l_1B8B:
        dec  a                                     ; undo increment of b_92C0_A[L]
        ld   d,#>b_8800
        ld   e,a                                   ; e.g. E=$30 (boss)   8834 (boss already has a captured ship)
-       res  7,e
+       res  7,e                                   ; why?
        ex   af,af'                                ; stash A
 ; if  1 != obj_status[E].b0 then return ... resting/inactive
        ld   a,(de)
@@ -933,7 +940,7 @@ d_1BD1:
 case_1BD7:
        ld   b,#20                                 ; number of yellow aliens
        ld   hl,#b_8800 + 0x08                     ; $08-$2E
-       ld   de,#dbx034F
+       ld   de,#db_flv_atk_yllw
 
 ; this section common to both bee and moth launcher, check for next one, skip if already active
 l_1BDF:
@@ -964,7 +971,7 @@ l_1BF0_found_one:
 case_1BF7:
        ld   b,#16                                 ; number of red aliens
        ld   hl,#b_8800 + 0x40                     ; red moths $40-$5E
-       ld   de,#dbx03A9
+       ld   de,#db_flv_atk_red
        jr   l_1BDF
 
 ; boss launcher... we only enable capture-mode for every other one ( %2 )
@@ -1216,7 +1223,7 @@ l_1D16:
 ;; Movement of captured rogue ship... out of section at l_1C83
 ;;-----------------------------------------------------------------------------
 l_1D25:
-       ld   de,#dbx0444
+       ld   de,#db_fltv_rogefgter
        call c_1083
        ret
 
@@ -1547,7 +1554,7 @@ l_1E39:
 ;;   dimension is incremented at this update.
 ;; IN:
 ;;    HL == saved pointer into working copy of selected bitmap table ($10 bytes)
-;;    DE == saved pointer into ds_home_posn_loc
+;;    DE == saved pointer into home_posn_loc[]
 ;;        ... object positioning (even: relative offsets .... odd: defaults/origin)
 ;;    B == +/- 1 increment.
 ;;    IXL == $05  (repeat count for 5 leftmost columns)
