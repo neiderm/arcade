@@ -1914,12 +1914,12 @@ l_2A29_attack_waves_complete:
 ; bits 0:12  - pointer to data tables for flying pattern control.
 ; bits 13:15 - selection index into lut 2A6C.
 db_2A3C:
-  .dw db_flv_001D + 0x0000, db_flv_0067 + 0x2000, db_flv_009F + 0x4000, db_flv_00D4 + 0x2000
-  .dw db_flv_017B + 0x0000, db_flv_01B0 + 0x6000, db_flv_01E8 + 0x0000, db_flv_01F5 + 0x2000
-  .dw db_flv_020B + 0x0000, db_flv_021B + 0x2000, db_flv_022B + 0x8000, db_flv_0241 + 0x2000
-  .dw db_flv_025D + 0x8000, db_flv_0279 + 0x2000, db_flv_029E + 0x0000, db_flv_02BA + 0x2000
-  .dw db_flv_02D9 + 0x0000, db_flv_02FB + 0x2000, db_flv_031D + 0x0000, db_flv_0333 + 0x2000
-  .dw db_flv_0FDA + 0x0000, db_flv_0FF0 + 0x2000, db_flv_022B + 0xA000, db_flv_025D + 0xA000
+  .dw db_flv_001d + 0x0000, db_flv_0067 + 0x2000, db_flv_009f + 0x4000, db_flv_00d4 + 0x2000
+  .dw db_flv_017b + 0x0000, db_flv_01b0 + 0x6000, db_flv_01e8 + 0x0000, db_flv_01f5 + 0x2000
+  .dw db_flv_020b + 0x0000, db_flv_021b + 0x2000, db_flv_022b + 0x8000, db_flv_0241 + 0x2000
+  .dw db_flv_025d + 0x8000, db_flv_0279 + 0x2000, db_flv_029e + 0x0000, db_flv_02ba + 0x2000
+  .dw db_flv_02d9 + 0x0000, db_flv_02fb + 0x2000, db_flv_031d + 0x0000, db_flv_0333 + 0x2000
+  .dw db_flv_0fda + 0x0000, db_flv_0ff0 + 0x2000, db_flv_022b + 0xA000, db_flv_025d + 0xA000
 
 ; bits 13:15 from above provide bits<1:3> of the index
 ; bit-6 of _stg_dat provide bits<1> of the index (second set of 3-bytes in each pair)
@@ -2039,11 +2039,8 @@ l_2AE9_done:
 ;;
 ;; Place 2C00 in its own segment so the pad is not needed.
 ;;
-l_2AED:
-
+;l_2AED:
 ;       .ds 0x0113                                 ; pad
 
 ;;=============================================================================
-
-;;
 
