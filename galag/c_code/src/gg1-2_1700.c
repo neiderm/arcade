@@ -144,7 +144,7 @@ void case_1766(void)
         task_actv_tbl_0[0x03] = 0; // this task
         break; // ret
 
-    case 2:  // case_17A1
+    case 2:  // case_17A1 ... runs timer and doesn't come back for a while
         // A not needed but help makes it obvious
         A = *pdb_demo_state_params & 0x1F;
         //l_17A4:
@@ -158,7 +158,7 @@ void case_1766(void)
 //       rst  0x30                                  ; string_out_pe
         break; // ret
 
-        // fighter has appeared in training mode
+        // runs timer and doesn't come back for a while
     case 4:  // case_17AE
     case 5:  // case_17AE
         // A not needed but help makes it obvious
@@ -177,7 +177,7 @@ void case_1766(void)
 /*=============================================================================
 ;; f_1700()
 ;;  Description:
-;;   Ship-update in training/demo mode, enabled in main (one time init) for
+;;   Ship-runner in training/demo mode, enabled in main (one time init) for
 ;;   training mode (not called in ready or game mode).
 ;;   This one is basically an extension of f_17B2:case 0x04 until disabled
 ;;   below.
@@ -206,9 +206,7 @@ void f_1700(void)
         }
         // else ret  nz
 
-        ; // jp   case_1766 .....
-        case_1766();
-        break;
+        // jp   case_1766 .....
 
     case 0x00: // 1766:
     case 0x01: // 1766:
@@ -218,12 +216,17 @@ void f_1700(void)
         break;
     }
 
+    // appearance of first attack wave in GameOver Demo-Mode
     case 0x05: // 172D:
-        break;
+        c_1F0F(); //  init sprite objects for rockets
+        // ld   de,(pdb_demo_fghtrvctrs) ... don't need it
 
-    case 0x04: // 1734: while fighter moves right until boss + red pair dove nearly to bottom
+    // 1734: drives the simulated inputs to the fighter in training mode
+    case 0x04:
         // ld   e,(hl) ... double ship flag referenced directly in c_1F92
-        A = *pdb_demo_state_params;
+
+        A = *pdb_demo_state_params; // ld   a,(de)
+
         if ( 0 == (A & 0x01)) // bit  0,a
         {
             // not till demo round
@@ -250,13 +253,14 @@ void f_1700(void)
         c_1F92(A); // input control bits
 
         // do nothing until frame count even multiple of 4
-        if (0 != (ds3_92A0_frame_cts[0] & 0x03))  return;
+        if (0 != (ds3_92A0_frame_cts[0] & 0x03))  return; // ret  nz
 
         glbls9200.demo_timer -= 1; // dec  (hl)
 
-        if (0 != glbls9200.demo_timer) return;
+        if (0 != glbls9200.demo_timer) return; // ret  nz
 
-        c_1F0F();
+        c_1F0F(); //  init sprite objects for rockets ...training mode, ship about to shoot?
+
         case_1766();
 
         break;
@@ -362,7 +366,7 @@ void f_17B2()
             break;
 
         case 0x03: // l_18D9
-            // one time init for 7 bugs in training mode
+            // main (one time init) for training mode ... 7 bugs etc.
             B = 0;
             while (B < 7)
             {
@@ -510,7 +514,7 @@ void f_1A80(void)
 ;;---------------------------------------------------------------------------*/
 void f_1B65(void)
 {
-    uint8 const* pDE;
+    reg16 pDE;
     uint8 A, B, L;
 
     if ( 0 != glbls9200.flying_bug_attck_condtn
@@ -522,7 +526,7 @@ void f_1B65(void)
         return;
     }
 
-    // l_1B75: check 4 bytes in groups of 3
+    // l_1B75: check 4 groups of 3 bytes
     B = 0; // ld   b,#4
     L = 0; // ld   hl,#b_92C0 + 0x0A
     // l_1B7A:
@@ -531,29 +535,37 @@ void f_1B65(void)
         A = b_92C0_A[L];
         if (0xFF == A) // jr   nz,l_1B8B
         {
-            L += 3;
+            L += 3; // index to _92C0_A
             B += 1;
         }
         else
         {
-            // for both moth and bee, a sortie is ended when returned to base-position, or destroyed
+            // moth or bee sortie is ended upon return to base-position, or when destroyed
             // l_1B8B:
             b_92C0_A[L] = 0xFF;
             b8800_obj_status[A].state &= ~0x80; // res  7,e
-            if ( 1 != b8800_obj_status[A].state)
+
+            if ( 1 != b8800_obj_status[A].state) // disposition resting/inactivez
             {
                 return; // ret  nz
             }
-            L += 1;
 
+            //inc  l
             //ld   e,(hl)
             //inc  l
             //ld   d,(hl)                                ; e.g. DE==0411
+            L += 1;
+            pDE.pair.b0 = b_92C0_A[L];
+            L += 1;
+            pDE.pair.b1 = b_92C0_A[L];
+
             //ex   af,af'                                ; restore A (byte-0 of b_92C0_A[L + n*3] )
             //ld   l,a
             //ld   h,#>b_8800                            ; e.g. b_8800[$30]
-            c_1079(L, pDE); // L object index/offset, pDE is pointer to data
+            c_1079(A, pDE.word); // L object index/offset, pDE is pointer to data
+
             b_9AA0[0x13] = 1; //  sound-fx count/enable registers, bug dive attack sound
+
             return;
         }
     } // end while
@@ -562,31 +574,31 @@ void f_1B65(void)
     {
         return;
     }
-
+    // else ... jr   z,l_1BA8
 
     // l_1BA8:
-    B = 3; // ld   hl,#b_92C0 + 0x00
+    L = 0; // ld   hl,#b_92C0 + 0x00
+    B = 3;
     while ( B > 0)
     {
-        L = 3 - B;
-        b_92C0_0[L] -= 1;
+        b_92C0_0[L] -= 1; // dec  (hl)
         if (0 == b_92C0_0[L])
             break; // jr   z,l_1BB4
+        L += 1; // inc  l
         B -= 1; // djnz l_1BAD
     }
     if (0 == B)
         return;
 
     // l_1BB4:
-if ( b_bugs_flying_nbr > 0 ) // tmp: only 1 alien (red) because the yellow one goes in the weeds
-//    if ( b_bugs_flying_nbr > ds_new_stage_parms[4] ) // max_flying_bugs_this_rnd
+    if ( b_bugs_flying_nbr > ds_new_stage_parms[4] ) // max_flying_bugs_this_rnd
     {
         // maximum nbr of bugs already flying
         b_92C0_0[L] += 1; // inc  (hl)
         return;
     }
 
-    // launch another flying bug
+    // l_1BC0: launch another flying bug
     b_92C0_0[L] =  b_92C0_0[L + 4]; // set  2,l etc.
 
     A = B - 1; // dec  a
@@ -595,20 +607,20 @@ if ( b_bugs_flying_nbr > 0 ) // tmp: only 1 alien (red) because the yellow one g
     {
     case 0:
     case 1:
-        if (A == 0)
+        if (A == 0) // _1BD7
         {
             // set bee launch params
             //l_1BD7:
             B = 20; // number of yellow aliens
             L = 0x08; // first object offset
-            pDE = dbx034F;
+            pDE.word = _flv_d_atk_yllw;
         }
-        else // if (A = 1)
+        else // if (A = 1) ... _1BF7
         {
             // set red moth launch params
-            B = 0x10; // number of red aliens
+            B = 16; // number of red aliens
             L = 0x40; // first object offset
-            pDE = dbx03A9;
+            pDE.word = _flv_d_atk_red;
             // jr   l_1BDF
         }
 
@@ -618,21 +630,22 @@ if ( b_bugs_flying_nbr > 0 ) // tmp: only 1 alien (red) because the yellow one g
         {
             // load bonus-bee parameter
 
-            // test bonus-bee parameter && object_status
+            // test clone-attack parameter && object_status
             //jr   nz,l_1BEB_next
-            if ( 1 == b8800_obj_status[L].state /* && L != bonus_bee_index */ ) // // 1 == resting
+            if ( 1 == b8800_obj_status[L].state /* && L != bonus_bee_index */ ) // disposition == resting
             {
-                // ld   a,c ... C==offset_to_bonus_bee
+                // ld   a,c ; unstash A ... offset_to_bonus_bee
                 // l_1BF0_found_one:
                 b_9AA0[0x13] = 1; // A (from C) !0 ... sound-fx count/enable registers, bug dive attack sound
-                c_1083(L, pDE); // offset, data ptr
+                c_1083(L, pDE.word); // offset, data ptr
                 return;
             }
             // l_1BEB_next:
             L += 2;
             B -= 1; // djnz l_1BE3
         };
-        // djnz l_1BE3
+
+       return; // pretty sure there's no other way out
         break;
 
         // boss launcher... we only enable capture-mode for every other one ( %2 )

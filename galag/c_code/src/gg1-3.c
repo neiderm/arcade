@@ -14,6 +14,13 @@
  ** defines and typedefs
  */
 
+// data type for _2A3C ... pointer to flight pattern tables in bug flying queue
+typedef struct struct_flite_ptn_cfg
+{
+    uint16 p_tbl; // pointer to data tables for flying pattern control.
+    uint8 idx; // bits 13:15 - selection index into lut 2A6C.
+} t_flite_ptn_cfg;
+
 /*
  ** extern declarations of variables defined in other files
  */
@@ -55,6 +62,7 @@ static const uint8 db_2A6C[];
 // function prototypes
 static void c_23E0(uint8);
 static void c_28E9(uint8 *, uint8 *, uint8, uint8);
+
 
 /*=============================================================================
 ;; f_2000()
@@ -488,7 +496,7 @@ void c_23E0(uint8 frame_ct)
 /*=============================================================================
 ;; c_25A2()
 ;;  Description:
-;;   Setup the mob to do its evil work. Builds up 5 configuration tables at
+;;   Setup the mob to do its evil work. Builds up 5 tables at
 ;;   b_8920 which organizes the mob objects into the flying waves.
 ;;   These are formed into the attack wave queue structures by f_2916().
 ;;   The format is oriented toward having two flights of 4 creatures in each
@@ -697,19 +705,15 @@ static const uint8 db_challg_stg_data_idx[] =
   byte 0:
     c_25A2, controls loading of transients into attack wave table
   byte 1 & 2
-    bit 7     byte-2 only ... if clear, 2nd bug of pair is delayed for trailing formation
-    bit 6     if set selects second set of 3-bytes in db_2A6C[]
-    bits 0:5  index of word in LUT at db_2A3C ( 0x18 entries)
-    bit 0     also, if set, ix($0E) = 0x44 ... bomb delay set-count (finalize_object)
+    bit  7    byte-2 only ... if clear, 2nd bug of pair is delayed for trailing formation
+    bit  6    if set selects second set of 3-bytes in db_2A6C[]
+    bits 5:0  index of word in LUT at db_2A3C ( $18 entries)
+    bit  0    also, if set, ix($0E) = $44 ... bomb delay set-count (finalize_object)
  */
 
 // combat stage data
 static const uint8 db_combat_stg_dat[] =
 {
-#if 0 // #ifdef HELP_ME_DEBUG
-    //    0x14, 0x00, 0x00, 0x01, 0x01, 0xFF // 2nd wave
-    0x14, 0x00, 0x00, 0x00, 0xC0, 0xFF // 1st wave
-#else
     0x14, 0x00, 0x00, 0x00, 0xC0, 0x00, 0x01, 0x01, 0x00, 0x41, 0x41, 0x00, 0x40, 0x40, 0x00, 0x00, 0x00, 0xFF,
     0x14, 0x01, 0x00, 0x42, 0x82, 0x00, 0x03, 0x85, 0x00, 0x43, 0xC5, 0x00, 0x42, 0xC4, 0x00, 0x02, 0x84, 0xFF,
     0x14, 0x01, 0x82, 0x00, 0xC0, 0x00, 0x01, 0x01, 0x00, 0x41, 0x41, 0x02, 0x40, 0x40, 0x02, 0x00, 0x00, 0xFF,
@@ -723,7 +727,6 @@ static const uint8 db_combat_stg_dat[] =
     0x14, 0x03, 0xA4, 0x00, 0xC0, 0x54, 0x01, 0xC1, 0xF4, 0x41, 0x81, 0x04, 0x40, 0x80, 0x04, 0x40, 0x80, 0xFF,
     0x14, 0x03, 0xA4, 0x00, 0xC0, 0x54, 0x01, 0x01, 0xF4, 0x41, 0x41, 0x04, 0x40, 0x40, 0x04, 0x00, 0x00, 0xFF,
     0x14, 0x03, 0xA4, 0x02, 0xC2, 0x54, 0x03, 0x85, 0xF4, 0x43, 0xC5, 0x04, 0x42, 0xC4, 0x04, 0x02, 0x84, 0xFF
-#endif // HELP_
 };
 
 // challenge stage data
@@ -1056,9 +1059,9 @@ void f_2916(void)
         ds_bug_motion_que[IX].b0E = B;
 
         // have to re-adjust C since the lut is implemented as a table of structs, not bytes.
-        ds_bug_motion_que[IX].p08 = db_2A3C[ C / 2 ].p_tbl;
+        ds_bug_motion_que[IX].p08.word = db_2A3C[ C / 2 ].p_tbl;
 
-        // bits 5:7 of db_2A3C[].b1
+        // In z80, these bits were in <7:5> of db_2A3C[].b1, but here they are already shifted into <2:0>
         A = db_2A3C[ C / 2 ].idx; // have to re-adjust C to use as an index into table of structs.
 
         // use byte offset as index into the lut
@@ -1097,34 +1100,32 @@ void f_2916(void)
  * I have reformatted to an array of structs with separate elements for the
  * pointer and lut index.
  *===========================================================================*/
-
 static const t_flite_ptn_cfg db_2A3C[] =
 {
-
-    {dbx001D, 0x00},
-    {dbx0067, 0x02},
-    {dbx009F, 0x04},
-    {dbx00D4, 0x02},
-    {dbx017B, 0x00},
-    {dbx01B0, 0x06},
-    {dbx01E8, 0x00},
-    {dbx01F5, 0x02},
-    {dbx020B, 0x00},
-    {dbx021B, 0x02},
-    {dbx022B, 0x08},
-    {dbx0241, 0x02},
-    {dbx025D, 0x08},
-    {dbx0279, 0x02},
-    {dbx029E, 0x00},
-    {dbx02BA, 0x02},
-    {dbx02D9, 0x00},
-    {dbx02FB, 0x02},
-    {dbx031D, 0x00},
-    {dbx0333, 0x02},
-    {dbx0FDA, 0x00},
-    {dbx0FF0, 0x02},
-    {dbx022B, 0x0A},
-    {dbx025D, 0x0A},
+    {_flv_d_001d, 0x00},          // 0: stage 0 convoy
+    {_flv_d_0067, 0x02},          // 1: stage 0 convoy
+    {0, 0x04},//     {_flv_i_009F, 0x04},
+    {0, 0x02},//     {_flv_i_00D4, 0x02},
+    {0, 0x00},//     {_flv_i_017B, 0x00},
+    {0, 0x06},//     {_flv_i_01B0, 0x06},
+    {_flv_d_01e8, 0x00},          // 6: challenge stage convoy
+    {_flv_d_01f5, 0x02},          // 7: challenge stage convoy
+    {0, 0x00},//     {_flv_i_020B, 0x00},
+    {0, 0x02},//     {_flv_i_021B, 0x02},
+    {0, 0x08},//     {_flv_i_022B, 0x08},
+    {0, 0x02},//     {_flv_i_0241, 0x02},
+    {0, 0x08},//     {_flv_i_025D, 0x08},
+    {0, 0x02},//     {_flv_i_0279, 0x02},
+    {0, 0x00},//     {_flv_i_029E, 0x00},
+    {0, 0x02},//     {_flv_i_02BA, 0x02},
+    {0, 0x00},//     {_flv_i_02D9, 0x00},
+    {0, 0x02},//     {_flv_i_02FB, 0x02},
+    {0, 0x00},//     {_flv_i_031D, 0x00},
+    {0, 0x02},//     {_flv_i_0333, 0x02},
+    {0, 0x00},//     {_flv_i_0FDA, 0x00},
+    {0, 0x02},//     {_flv_i_0FF0, 0x02},
+    {0, 0x0A},//     {_flv_i_022B, 0x0A},
+    {0, 0x0A},//     {_flv_i_025D, 0x0A},
 };
 
 /*

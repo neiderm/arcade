@@ -47,7 +47,7 @@ static void c_build_token_1(uint8 *, uint16 *, uint8);
 static void c_build_token_2(uint8 *, uint16 *);
 static void draw_resv_ships(void);
 static void draw_resv_ship_tile(uint16 *, uint8 *, uint8);
-static void j_108A(uint8, uint8 const *, uint8);
+static void j_108A(uint8, uint16, uint8);
 
 
 /*=============================================================================
@@ -61,7 +61,7 @@ static void j_108A(uint8, uint8 const *, uint8);
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-void c_1079(uint8 l, uint8 const *de)
+void c_1079(uint8 l, uint16 de)
 {
     uint8 A, L;
     A = l & 0x80;
@@ -85,7 +85,7 @@ void c_1079(uint8 l, uint8 const *de)
 ;;  ...
 
 ;;---------------------------------------------------------------------------*/
-void c_1083(uint8 L, uint8 const *pDE)
+void c_1083(uint8 L, uint16 pDE)
 {
     reg16 rA;
     uint8 A;
@@ -111,7 +111,7 @@ void c_1083(uint8 L, uint8 const *pDE)
 ;; OUT:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void j_108A(uint8 l, uint8 const *pde, uint8 a_wtf)
+static void j_108A(uint8 l, uint16 pde, uint8 a_wtf)
 {
     reg16 tmpA;
     uint8 A = a_wtf;
@@ -133,7 +133,7 @@ static void j_108A(uint8 l, uint8 const *pde, uint8 a_wtf)
 
     // l_10A0_got_one:
 
-    ds_bug_motion_que[IX].p08 = pde;
+    ds_bug_motion_que[IX].p08.word = pde;
     ds_bug_motion_que[IX].b0D = 1;
     ds_bug_motion_que[IX].b04 = (0x0100 & 0x0F); // 0x0100<7:0>
     ds_bug_motion_que[IX].b05 = 0x0100 >> 8;     // 0x0100<15:8>

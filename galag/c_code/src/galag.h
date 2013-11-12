@@ -178,8 +178,8 @@ typedef struct struct_bug_flying_status {
     uint8 b05;
     uint8 b06;
     uint8 b07;
-    uint8 const *p08; // flight pattern data table pointer
-    uint8 b09; // unused
+    reg16 p08; // flight pattern data table pointer ... treat as uint16
+    //uint8 b09
     uint8 b0A;
     uint8 b0B;
     uint8 b0C;
@@ -192,13 +192,75 @@ typedef struct struct_bug_flying_status {
     uint8 b13;
 } t_bug_flying_status;
 
-
-// lut for setting pointer to flight pattern tables in bug flying queue
-
-typedef struct struct_flite_ptn_cfg {
-    uint8 const *p_tbl;
-    uint8 idx;
-} t_flite_ptn_cfg;
+/*
+ * 16-bit offsets for flite vector data, used for _flite_ptn_cfg:p_tble
+ * don't exceed 2^16 entries in this table ;)
+ */
+typedef enum
+{
+    _flv_d_001d     = 0x001D,
+    _flv_i_004b      = 0x004B,
+    _flv_i_005e      = 0x005E,
+    _flv_d_0067     = 0x0067,
+    _flv_i_0084      = 0x0084,
+    _flv_i_0097      = 0x0097,
+//    _flv_d_0097     = 0x0097,
+//    _flv_d_009f     = 0x009F,
+//  _flv_i_00b6      = 0x00B6,
+//  _flv_i_00cc      = 0x00CC,
+//    _flv_d_00d4     = 0x00D4,
+//  _flv_i_0160      = 0x0160,
+//  _flv_i_0173      = 0x0173,
+//    _flv_d_017b     = 0x017B,
+//  _flv_i_0192      = 0x0192,
+//  _flv_i_01a8      = 0x01A8,
+//    _flv_d_01b0     = 0x01B0,
+//  _flv_i_01ca      = 0x01CA,
+//  _flv_i_01e0      = 0x01E0,
+    _flv_d_01e8     = 0x01E8,
+    _flv_d_01f5     = 0x01F5,
+//    _flv_d_020b     = 0x020B,
+//    _flv_d_021b     = 0x021B,
+//    _flv_d_022b     = 0x022B,
+//    _flv_d_0241     = 0x0241,
+//    _flv_d_025d     = 0x025D,
+//    _flv_d_0279     = 0x0279,
+//    _flv_d_029e     = 0x029E,
+//    _flv_d_02ba     = 0x02BA,
+//    _flv_d_02d9     = 0x02D9,
+//    _flv_d_02fb     = 0x02FB,
+//    _flv_d_031d     = 0x031D,
+//    _flv_d_0333     = 0x0333,
+    _flv_d_atk_yllw = 0x034F,
+    _flv_i_0352      = 0x0352,
+//  _flv_i_0358      = 0x0358,
+//  _flv_i_0363      = 0x0363,
+    _flv_i_036c      = 0x036C,
+    _flv_i_037c      = 0x037C,
+    _flv_i_039e      = 0x039E,
+    _flv_d_atk_red  = 0x03A9,
+    _flv_i_03ac      = 0x03AC,
+    _flv_i_03cc      = 0x03CC,
+    _flv_i_03d7      = 0x03D7,
+    _flv_i_040c      = 0x040C,
+    _flv_i_0414      = 0x0414,
+    _flv_i_0420      = 0x0420,
+//  _flv_i_0425      = 0x0425,
+    _flv_i_0430      = 0x0430,
+//    _flv_d_cboss    = 0x046B,
+//  _flv_i_0499      = 0x0499,
+//    _flv_d_04c6     = 0x04C6,
+//  _flv_i_04c6      = 0x04C6,
+//  _flv_i_04cf      = 0x04CF,
+//    _flv_d_04cf     = 0x04CF,
+//    _flv_d_04d8     = 0x04D8,
+//  _flv_i_04d8      = 0x04D8,
+//    _flv_d_0502     = 0x0502,
+//  _flv_i_0502      = 0x0502,
+//    _flv_d_0fda     = 0x0FDA,
+//    _flv_d_0ff0     = 0x0FF0,
+//
+} t_flv_offs;
 
 
 
@@ -248,33 +310,6 @@ extern uint16 w_bug_flying_hit_cnt;
 extern struct_mchn_cfg mchn_cfg;
 
 /* gg1-5.c */
-// most or all of these data tables need to be referenced by code in cpu0
-extern const uint8 dbx001D[];
-extern const uint8 dbx0067[];
-extern const uint8 dbx009F[];
-extern const uint8 dbx00D4[];
-extern const uint8 dbx017B[];
-extern const uint8 dbx01B0[];
-extern const uint8 dbx01E8[];
-extern const uint8 dbx01F5[];
-extern const uint8 dbx020B[];
-extern const uint8 dbx021B[];
-extern const uint8 dbx022B[];
-extern const uint8 dbx0241[];
-extern const uint8 dbx025D[];
-extern const uint8 dbx0279[];
-extern const uint8 dbx029E[];
-extern const uint8 dbx02BA[];
-extern const uint8 dbx02D9[];
-extern const uint8 dbx02FB[];
-extern const uint8 dbx031D[];
-extern const uint8 dbx0333[];
-extern const uint8 dbx034F[];
-extern const uint8 dbx03A9[];
-extern const uint8 dbx0FDA[];
-extern const uint8 dbx0FF0[];
-extern const uint8 dbx022B[];
-extern const uint8 dbx025D[];
 extern uint8 ds3_92A0_frame_cts[3];
 extern uint8 cpu1_task_en[8];
 extern uint8 b_bugs_flying_nbr;
@@ -363,8 +398,8 @@ void c_player_respawn(void);
 void c_12C3(uint8);
 void c_game_or_demo_init(void);
 void c_tdelay_3(void);
-void c_1079(uint8, uint8 const *);
-void c_1083(uint8, uint8 const *);
+void c_1079(uint8, uint16);
+void c_1083(uint8, uint16);
 
 /* gg1-5.c */
 void cpu1_init(void);
