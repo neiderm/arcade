@@ -1314,11 +1314,55 @@ void f_08D3(void)
                             break;
 
                         case 0x0C: // _0A01: diving elements have left formation (set bomb target?)
+                        {
+                            reg16 tmpA;
 
+                            A = mrw_sprite.posn[SPR_IDX_SHIP].b0;
+                            if ( A <= 0x1E )
+                            {
+                                A = 0x1E;
+                            }
+                            if ( A >= 0xD1 )
+                            {
+                                A = 0xD1;
+                            }
+                            // l_0A16:
+                            tmpA.word = A;
+                            if ( 0 != glbls9200.flip_screen ) // bit  0,c
+                            {
+                                tmpA.word += 0x0E;
+                                tmpA.word = -A; // neg
+                            }
+                            // l_0A1E:
 
+                            tmpA.word >>= 1; // srl  a
+                            A = ds_bug_motion_que[b_bug_que_idx].b03;
+                            tmpA.word -= A;
+                            tmpA.word >>= 1; // rra  a ... Cy into <7>
+                            tmpA.pair.b1 = 0; // clear3 it so the overflow condition can be tested
+
+                            if ( 0 != (ds_bug_motion_que[b_bug_que_idx].b13 & 0x80)) // bit  7,0x13(ix)
+                            {
+                                tmpA.word = -tmpA.word; // neg
+                            }
+
+                            // l_0A2C_:
+                            tmpA.word += 0x18;
+                            A = tmpA.pair.b0;
+                            if (0 != tmpA.pair.b1)  A = 0; // overflow ... xor  a
+                            //l_0A32:
+                            if ( tmpA.word >= 0x30) tmpA.word = 0x2F;
+
+                            //l_0A38:
+                            A = c_0EAA(6, A); // HL = HL / A
+                            A += 1;
+                            A = flv_get_data(pHLdata + A);
+                            ds_bug_motion_que[b_bug_que_idx].b0D = A;
+                            pHLdata += 9;
                             // jp   l_0BFF
                             goto l_0BFF; // gotta get out somehow
-                            break;
+                        }
+                        break;
 
                         case 0x0D: // _097B: bonus bee
                             break;

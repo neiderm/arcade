@@ -123,19 +123,20 @@ static void j_108A(uint8 l, uint16 pde, uint8 a_wtf)
     {
         IX = B;
         if (0 == (ds_bug_motion_que[IX].b13 & 0x01)) // check for activated state
+        {
             break; // jr   z,l_10A0_got_one
+        }
         B += 1;
     } // djnz l_1094
 
     // check for quit condition
-    if (0x0C == B)
-        return;
+    if (0x0C == B) return;
 
     // l_10A0_got_one:
 
     ds_bug_motion_que[IX].p08.word = pde;
     ds_bug_motion_que[IX].b0D = 1;
-    ds_bug_motion_que[IX].b04 = (0x0100 & 0x0F); // 0x0100<7:0>
+    ds_bug_motion_que[IX].b04 = (0x0100 & 0xFF); // 0x0100<7:0>
     ds_bug_motion_que[IX].b05 = 0x0100 >> 8;     // 0x0100<15:8>
 
     ds_bug_motion_que[IX].b10 = L; // index of object, sprite etc.
@@ -170,20 +171,20 @@ static void j_108A(uint8 l, uint16 pde, uint8 a_wtf)
     {
         A = ~(A + 0x0D); // add ... cpl
     }
-    ds_bug_motion_que[IX].b03 = (A >> 1);
-    ds_bug_motion_que[IX].b02 = ((A & 0x80) << 7); // sprite_x<:0> ... now scaled fixed point 9.7
+    tmpA.pair.b1 = A;
+    tmpA.word >>= 1; // srl  a
+    ds_bug_motion_que[IX].b03 = tmpA.pair.b1; // sX<8:1>
+    ds_bug_motion_que[IX].b02 = tmpA.pair.b0 & 0x80; // sX<:0> ... now scaled fixed point 9.7
 
     ds_bug_motion_que[IX].b13 = a_wtf; // d
     ds_bug_motion_que[IX].b0E = 0x1E; // bomb drop counter
 
+    A = 0;
     if (0 != glbls9200.flying_bug_attck_condtn)
     {
-        A = 0; // b_92C0[0x08]; // bomb_drop_enbl_flags
+        A = b_92C0_0[0x08]; // bomb_drop_enbl_flags
     }
-    else
-    {
-        ds_bug_motion_que[IX].b0F = 0;
-    }
+    ds_bug_motion_que[IX].b0F = A;
 }
 
 
