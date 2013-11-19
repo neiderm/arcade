@@ -221,7 +221,6 @@ uint8 flv_get_data(uint16 phl)
 
 uint8 flv_get_data_uber(uint16 phl)
 {
-    uint8 a;
     return  flv_get_data(phl);
 }
 
@@ -1241,10 +1240,12 @@ void f_08D3(void)
                             }
                             break;
 
-                        case 0x06: // _0B5F: bee has flown under bottom of screen and now turns for home
+                        // red alien flew through bottom of screen to top, heading for home
+                        // yellow alien flew under bottom of screen and now turns for home
+                        case 0x06: // _0B5F:
                             E = ds_bug_motion_que[b_bug_que_idx].b10;
                             E = db_obj_home_posn_RC[ E + 1 ]; // column index
-                            A = ds_home_posn_org[ E ].pair.b1; // x offset
+                            A = ds_home_posn_org[ E ].pair.b0; // even-bytes: relative offset from absolute coordinate
 
                             if (0 != glbls9200.flip_screen)
                             {
@@ -1270,6 +1271,8 @@ void f_08D3(void)
                             goto l_0DFB_next_superloop;
                             break;
 
+                        // red alien flew through bottom of screen to top, heading for home
+                        // yellow alien flew under bottom of screen and now turns for home
                         case 0x07: // _0B87: tractor beam reaches ship
                             ds_bug_motion_que[b_bug_que_idx].b01 = 0x9C; // ld   0x01(ix),#$9C
 
@@ -1313,6 +1316,7 @@ void f_08D3(void)
                         case 0x0B: // _0A53: capture boss diving
                             break;
 
+                        // red guy stuck in a circle if this doesn't work he can't get home
                         case 0x0C: // _0A01: diving elements have left formation (set bomb target?)
                         {
                             reg16 tmpA;
@@ -1349,7 +1353,7 @@ void f_08D3(void)
                             // l_0A2C_:
                             tmpA.word += 0x18;
                             A = tmpA.pair.b0;
-                            if (0 != tmpA.pair.b1)  A = 0; // overflow ... xor  a
+                            if (0 == tmpA.pair.b1)  A = 0; // overflow ... xor  a
                             //l_0A32:
                             if ( tmpA.word >= 0x30) tmpA.word = 0x2F;
 
