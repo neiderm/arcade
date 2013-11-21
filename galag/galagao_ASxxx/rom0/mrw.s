@@ -381,15 +381,18 @@ ds3_92A0_frame_cts:
 ; b16_92A4
          .ds     $$02       ; each byte tracks a shot from the ship
 
+; this group all related to tracking number of attackers during a stage
 b_bugs_actv_cnt:
          .ds     $$01       ; counts number of active bugs at each frame update (c_23E0)
 b_bugs_actv_nbr:
          .ds     $$01       ; total number of active bugs (global)
 w_bug_flying_hit_cnt:
-         .ds     $$02       ; count down each flying bug hit (only relevant on challenge stg)
-                            ; only the lsb is used.
+         .ds     $$02       ; count down each flying bug hit (only relevant on challenge stg) only the lsb is used.
 ; b16_92AA
-         .ds     $$02       ; unknown
+         .ds     $$01       ; flag determines continuous bombing
+
+         .ds     $$01       ; unnused
+
 
 ; global game timer array
 ds4_game_tmrs:
@@ -413,21 +416,17 @@ b_92C0:
 
 ;_b_92CB
 ;_b_92CD
-         .ds     $$09
-         .ds     $$07       ; unused
+         .ds     $$0C
+         .ds     $$04       ; unused
 
 ;b_92D0:
-         .ds     $$01       ; unused
-;b_92D1
-         .ds     $$01       ; unknown
-;b_92D2
-         .ds     $$01       ; unknown
-         .ds     $$03       ; unused
+         .ds     $$06       ; unused
 
 b_CPU1_in_progress:
          .ds     $$01
 b_CPU2_in_progress:
          .ds     $$01
+
          .ds     $$08       ; unused
 
 pb_attk_wav_IDs:

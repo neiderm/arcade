@@ -12,7 +12,7 @@
 .area ROM (ABS,OVR,BANK=cpu_sub)
 
 
-.org 0x0000
+;.org 0x0000
 
 ;;=============================================================================
 ;; RST_00()
@@ -114,7 +114,7 @@ c_0034:
        jp   jp_0513_rst38
 
 
-.org 0x003B
+;.org 0x003b
 
 ;;=============================================================================
 ; Function pointers for periodic tasks on this CPU (ds_cpu1_task_actvbl)
@@ -132,49 +132,48 @@ d_003B_task_table:
 
 
 ;;=============================================================================
-;   2-byte entries, second-byte is an offset into table at $9900 (home_posn_loc?)
  p_flv_004b:
-       .db 0x23,0xF0,0x26,0x23,0x14,0x13,0xFE
-       .db 0x0D,0x0B,0x0A,0x08,0x06,0x04,0x03,0x01,0x23,0xFF
-       .db 0xFF,0xFF
-p_flv_005e:
-       .db 0x44,0xE4,0x18,0xFB,0x44,0x00,0xFF,0xFF
-       .db 0xC9 ; junk ?
+       .db 0x23,0xf0,0x26,0x23,0x14,0x13,0xfe
+       .db 0x0d,0x0b,0x0a,0x08,0x06,0x04,0x03,0x01,0x23,0xff
+       .db 0xff,0xff
+ p_flv_005e:
+       .db 0x44,0xe4,0x18,0xfb,0x44,0x00,0xff,0xff
+       .db 0xc9 ; junk ?
 db_flv_0067:
-       .db 0x23,0x08,0x08,0x23,0x03,0x1B,0x23,0x08,0x0F,0x23,0x16,0x15,0xF7
+       .db 0x23,0x08,0x08,0x23,0x03,0x1b,0x23,0x08,0x0f,0x23,0x16,0x15,0xf7
        .dw p_flv_0084
-       .db 0x23,0x16,0x03,0xF0
+       .db 0x23,0x16,0x03,0xf0
        .dw p_flv_0097
-       .db 0x23,0x16,0x19,0xFB,0x23,0x00,0xFF,0xFF
-p_flv_0084:
-       .db 0x23,0x16,0x01,0xFE
-       .db 0x0D,0x0C,0x0A,0x08,0x06,0x04,0x03,0x01,0x23,0xFC
-       .db 0x30,0x23,0x00,0xFF
-       .db 0xFF
+       .db 0x23,0x16,0x19,0xfb,0x23,0x00,0xff,0xff
+ p_flv_0084:
+       .db 0x23,0x16,0x01,0xfe
+       .db 0x0d,0x0c,0x0a,0x08,0x06,0x04,0x03,0x01,0x23,0xfc
+       .db 0x30,0x23,0x00,0xff
+       .db 0xff
 db_flv_0097:
  p_flv_0097:
-       .db 0x44,0x27,0x0E,0xFB,0x44,0x00,0xFF,0xFF
+       .db 0x44,0x27,0x0e,0xfb,0x44,0x00,0xff,0xff
 db_flv_009f:
-       .db 0x33,0x06,0x18,0x23,0x00,0x18,0xF7
+       .db 0x33,0x06,0x18,0x23,0x00,0x18,0xf7
        .dw p_flv_00b6
-       .db 0x23,0xF0,0x08,0xF0
+       .db 0x23,0xf0,0x08,0xf0
        .dw p_flv_00cc
-       .db 0x23,0xF0,0x20,0xFB,0x23,0x00,0xFF,0xFF
+       .db 0x23,0xf0,0x20,0xfb,0x23,0x00,0xff,0xff
  p_flv_00b6:
-       .db 0x23,0xF0,0x20,0x23,0x10,0x0D,0xFE
-       .db 0x1A,0x18,0x15,0x10,0x0C,0x08,0x05,0x03,0x23,0xFE
-       .db 0x30,0x23,0x00,0xFF
-       .db 0xFF
+       .db 0x23,0xf0,0x20,0x23,0x10,0x0d,0xfe
+       .db 0x1a,0x18,0x15,0x10,0x0c,0x08,0x05,0x03,0x23,0xfe
+       .db 0x30,0x23,0x00,0xff
+       .db 0xff
  p_flv_00cc:
-       .db 0x33,0xE0,0x10,0xFB,0x44,0x00,0xFF,0xFF
+       .db 0x33,0xe0,0x10,0xfb,0x44,0x00,0xff,0xff
 db_flv_00d4:
-       .db 0x23,0x03,0x18,0x33,0x04,0x10,0x23,0x08,0x0A,0x44,0x16,0x12,0xF7
+       .db 0x23,0x03,0x18,0x33,0x04,0x10,0x23,0x08,0x0a,0x44,0x16,0x12,0xf7
        .dw p_flv_0160
-       .db 0x44,0x16,0x03,0xF0
+       .db 0x44,0x16,0x03,0xf0
        .dw p_flv_0173 ; stg 13
-       .db 0x44,0x16,0x1D,0xFB,0x23,0x00,0xFF,0xFF
-       .db 0x12,0x18,0x17,0x12,0x00,0x80,0xFF
-       .db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF
+       .db 0x44,0x16,0x1d,0xfb,0x23,0x00,0xff,0xff
+       .db 0x12,0x18,0x17,0x12,0x00,0x80,0xff
+       .db 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff
 
 ; Copy of home position LUT from task_man.
 db_obj_home_posn_RC:
@@ -185,12 +184,12 @@ db_obj_home_posn_RC:
   .db 0x18,0x02,0x18,0x10,0x1a,0x02,0x1a,0x10,0x18,0x04,0x18,0x0e,0x1a,0x04,0x1a,0x0e
   .db 0x18,0x06,0x18,0x0c,0x1a,0x06,0x1a,0x0c,0x18,0x08,0x18,0x0a,0x1a,0x08,0x1a,0x0a
 
-p_flv_0160:
+ p_flv_0160:
   .db 0x44,0x16,0x06,0xfe
   .db 0x0c,0x0b,0x0a,0x08,0x06,0x04,0x02,0x01,0x23,0xfe
   .db 0x30,0x23,0x00,0xff
   .db 0xff
-p_flv_0173:
+ p_flv_0173:
   .db 0x66,0x20,0x14,0xfb,0x44,0x00,0xff,0xff
 db_flv_017b:
   .db 0x23,0x06,0x18,0x23,0x00,0x18,0xf7
@@ -198,12 +197,12 @@ db_flv_017b:
   .db 0x44,0xf0,0x08,0xf0
   .dw p_flv_01a8
   .db 0x44,0xf0,0x20,0xfb,0x23,0x00,0xff,0xff
-p_flv_0192:
+ p_flv_0192:
   .db 0x44,0xf0,0x26,0x23,0x10,0x0b,0xfe
   .db 0x22,0x20,0x1e,0x1b,0x18,0x15,0x12,0x10,0x23,0xfe
   .db 0x30,0x23,0x00,0xff
   .db 0xff
-p_flv_01a8:
+ p_flv_01a8:
   .db 0x66,0xe0,0x10,0xfb,0x44,0x00,0xff,0xff
 db_flv_01b0:
   .db 0x23,0x03,0x20,0x23,0x08,0x0f,0x23,0x16,0x12,0xf7
@@ -211,12 +210,12 @@ db_flv_01b0:
   .db 0x23,0x16,0x03,0xf0
   .dw p_flv_01e0
   .db 0x23,0x16,0x1d,0xfb,0x23,0x00,0xff,0xff
-p_flv_01ca:
+ p_flv_01ca:
   .db 0x23,0x16,0x01,0xfe
   .db 0x0d,0x0c,0x0b,0x09,0x07,0x05,0x03,0x02,0x23,0x02,0x20,0x23,0xfc
   .db 0x12,0x23,0x00,0xff
   .db 0xff
-p_flv_01e0:
+ p_flv_01e0:
   .db 0x44,0x20,0x14,0xfb,0x44,0x00,0xff,0xff
 db_flv_01e8:
   .db 0x23,0x00,0x10,0x23,0x01,0x40,0x22,0x0c,0x37,0x23,0x00,0xff,0xff
@@ -272,8 +271,11 @@ p_flv_0363:
   .db 0x12,0xf8,0x10,0x12,0xfa,0x5c,0x12,0x00,0x23
 p_flv_036c:
   .db 0xf8,0xf9,0xef
-  .db 0x7c,0x03,0xf6,0xab,0x12,0x01,0x28,0x12,0x0a,0x18,0xfd
+  .dw p_flv_037c
+  .db 0xf6,0xab
+  .db 0x12,0x01,0x28,0x12,0x0a,0x18,0xfd
   .dw p_flv_0352
+p_flv_037c:
   .db 0xf6,0xb0
   .db 0x23,0x08,0x1e,0x23,0x00,0x19,0x23,0xf8,0x16,0x23,0x00,0x02,0xfc
   .db 0x30,0x23,0xf7,0x26,0xfa
@@ -307,7 +309,9 @@ p_flv_03d7:
 p_flv_040c:
   .db 0xfb
   .db 0x12,0x00,0xff,0xff
-  .db 0x12,0x18,0x14,0x12,0x03,0x2a,0x12,0x10,0x40,0x12,0x01,0x20,0x12,0xfe,0x71
+  .db 0x12,0x18,0x14
+p_flv_0414:
+  .db 0x12,0x03,0x2a,0x12,0x10,0x40,0x12,0x01,0x20,0x12,0xfe,0x71
 p_flv_0420:
   .db 0xf9,0xf1,0xfa
   .dw p_flv_040c
@@ -316,8 +320,7 @@ p_flv_0425:
   .dw p_flv_0430
   .db 0xf6,0xab
   .db 0x12,0x02,0x20,0xfd
-  .db 0x14
-  .db 0x04
+.dw p_flv_0414
 p_flv_0430:
   .db 0xf6,0xb0
   .db 0x23,0x04,0x1a,0x23,0x03,0x1d,0x23,0x1a,0x25,0x23,0x03,0x10,0x23,0xfd,0x48,0xfd
@@ -353,8 +356,7 @@ p_flv_0499:
   .dw p_flv_04c6
   .db 0x00,0x00,0x08,0xf2
   .dw p_flv_04cf
-  .db 0x00,0x00,0x08,0x12,0x18,0x0b
-  .db 0x12,0x00,0x34,0x12,0xfb,0x26,0xfd
+  .db 0x00,0x00,0x08,0x12,0x18,0x0b,0x12,0x00,0x34,0x12,0xfb,0x26,0xfd
   .dw p_flv_0358
 db_flv_04c6:
  p_flv_04c6:
@@ -378,7 +380,7 @@ db_flv_0502:
  p_flv_0502:
   .db 0x12,0xe2,0x01,0xf3
   .db 0x08,0x07,0x06,0x05,0x04,0x03,0x02,0x01,0xf5
-  .db 0x23,0x00,0x48,0xFF
+  .db 0x23,0x00,0x48,0xff
 
 ;;=============================================================================
 ;; jp_0513_rst38()
@@ -439,7 +441,7 @@ l_0537:
                                                   ; [2]: 16-frame ... ~4Hz timer
 
 ; flag = ( num_bugs < param07 ) & ds_cpu0_task_actv[0x15]
-       ld   a,(ds_new_stage_parms + 0x07)         ; 2C30
+       ld   a,(ds_new_stage_parms + 0x07)         ; number of aliens left when continous bombing can start
        ld   e,a
        ld   a,(b_bugs_actv_nbr)
        cp   e
@@ -447,8 +449,7 @@ l_0537:
        ld   a,(ds_cpu0_task_actv + 0x15)          ; cpu0:f_1F04 (reads fire button input)
        and  b
        and  #0x01                                 ; mask off bit-0
-; then ...
-       ld   (b_92A0 + 0x0A),a
+       ld   (b_92A0 + 0x0A),a                     ; continuous bombing flag
 
 ; find the first ready task.. may run more than one.
        ld   c,#0
@@ -1361,7 +1362,7 @@ f_08D3:
        ld   ix,#ds_bug_motion_que
 
        ld   a,#0x0C
-       ld   (b_bug_que_idx),a                     ; $0C ... nbr of iterations to run per frame (nbr of object structures)
+       ld   (b_bug_que_idx),a                     ; $0C ... nbr of queue structures
 
        ld   hl,#b_bugs_flying_cnt                 ; =0
        ld   a,(hl)
@@ -1445,7 +1446,7 @@ d_0920_jp_tbl:
       .dw case_094E   ; one red moth left in "free flight mode"
 
 ; when ... no idea
-case_0942:
+case_0942:  ; $0A
        ld   e,0x10(ix)                            ; offset of object ...8800[E]
        ld   d,#>b_8800
        ld   a,#0x03                               ; set to state 3
@@ -1454,17 +1455,19 @@ case_0942:
        jp   j_090E_flite_path_init
 
 ; one red moth left in "free flight mode"
-case_094E:
-       ld   a,(ds_new_stage_parms + 0x09)
+case_094E:  ; $10
+       ld   a,(ds_new_stage_parms + 0x09)         ; jumps the pointer on/after stage 8
        and  a
        jp   l_0959
 
 ; attack wave
-case_0955:
-       ld   a,(ds_new_stage_parms + 0x08)
+case_0955:  ; $0F
+       ld   a,(ds_new_stage_parms + 0x08)         ; jumps the pointer on/after stage 8
        and  a
+
 l_0959:
        jr   z,l_0963
+
 ; not until stage 8 ... load a pointer from data tbl into .p08 (09)
        inc  hl                                    ; ptr to data table
        ld   a,(hl)
@@ -1480,7 +1483,7 @@ l_0963:
        jp   l_0B8B                                ; inc hl and finalize
 
 ; diving attacks stop and bugs go home
-case_0968:
+case_0968:  ; $0E
        ld   e,0x10(ix)                            ; home_posn_rc[ obj_id ]
        ld   d,#>db_obj_home_posn_RC               ; home_posn_rc[ ix($10) ]
        ld   a,(de)                                ; row position index
@@ -1555,6 +1558,7 @@ l_09AE_doit:
        ld   a,0x13(ix)                            ; 0x13(iy)
        ld   0x13(iy),a
 
+; load new data pointer from data and store in flite q object
        pop  hl                                    ; special attack, pushes hl right away
        inc  hl
        ld   a,(hl)
@@ -1562,6 +1566,7 @@ l_09AE_doit:
        inc  hl
        ld   a,(hl)
        ld   0x09(iy),a
+
        ld   0x0A(iy),#0x01
        ld   0x0B(iy),#0x02
        ld   0x0D(iy),#0x01
@@ -1574,31 +1579,37 @@ l_09AE_doit:
        inc  e
        ld   a,iyl
        ld   (de),a
-       inc  hl
+       inc  hl                                    ; new ptr loaded to b08/b09, but HL is advanced, still in same data series
        jp   j_090E_flite_path_init
 
 l_09FA_bonusbee_creat_fail:
-; skip two bytes of 16-bit address and inc hl to next data ptr
+; skip two bytes of 16-bit address and inc hl to next data
        pop  hl                                    ; ptr to data table
        inc  hl
        inc  hl
        inc  hl
        jp   j_090E_flite_path_init
 
-; diving elements have left formation and fired
-case_0A01:
+; diving elements have left formation (set bomb target?)
+; red guy stuck in a circle if this doesn't work he can't get home
+case_0A01:  ; $0C
+; stash 2 copies of hl
        push hl                                    ; ptr to data table
        ex   de,hl
+
        ld   a,(b_9215_flip_screen)
        ld   c,a
+
+; setup horizontal limits for targetting
        ld   a,(ds_sprite_posn + 0x62)             ; ship_1_position
        cp   #0x1E
        jr   nc,l_0A10
-       ld   a,#0x1E                               ; when?
+       ld   a,#0x1E
 l_0A10:
        cp   #0xD1
        jr   c,l_0A16
-       ld   a,#0xD1                               ; when?
+       ld   a,#0xD1
+
 l_0A16:
        bit  0,c
        jr   z,l_0A1E
@@ -1613,23 +1624,25 @@ l_0A1E:
        neg
 l_0A2C_:
        add  a,#0x18
-       jp   p,l_0A32
-       xor  a                                     ; when?
+       jp   p,l_0A32                              ; !p on overflow
+       xor  a                                     ; !overflow
 l_0A32:
        cp   #0x30
        jr   c,l_0A38
        ld   a,#0x2F                               ; when?
 l_0A38:
        ld   h,a
+
        ld   a,#6
        call c_0EAA                                ; HL = HL / A
        ld   a,h
        inc  a
-       ex   de,hl
+       ex   de,hl                                 ; restore hl
        rst  0x10                                  ; HL += A
        ld   a,(hl)
        ld   0x0D(ix),a
-       pop  hl
+
+       pop  hl                                    ; restore hl again
        ld   a,#9
        rst  0x10                                  ; HL += A
 ; don't actually need to load from l and h here ;)
@@ -1638,7 +1651,7 @@ l_0A38:
        jp   l_0BFF                                ; save pointer and goto _flite_pth_cont
 
 ; capturing boss starts dive
-case_0A53:
+case_0A53:  ; $0B
        push hl
        ld   a,(b_9215_flip_screen)
        ld   c,a
@@ -1682,7 +1695,7 @@ l_0A73:
        jp   j_090E_flite_path_init
 
 ; attack wave element hits turning point and heads to home
-case_0AA0:
+case_0AA0:  ; $04
        push hl                                    ; ptr to data table
 
        ld   l,0x10(ix)                            ; update object disposition ... i.e. 8800[L]
@@ -1763,7 +1776,7 @@ l_0ACD:
        jp   j_090E_flite_path_init
 
 ; attack elements that break formation to attack ship (level 3+)
-case_0B16:
+case_0B16:  ; $01
        push hl                                    ; ptr to data table
        ex   de,hl
        ld   a,(b_9215_flip_screen)
@@ -1783,6 +1796,7 @@ l_0B2A:
 l_0B30:
        add  a,#0x0E
        ld   h,a
+
        ld   a,#0x1E
        call c_0EAA                                ; HL = HL / A
        ld   a,h
@@ -1790,6 +1804,7 @@ l_0B30:
        rst  0x10                                  ; HL += A
        ld   a,(hl)
        ld   0x0D(ix),a
+
        pop  hl
        ld   a,#9
        rst  0x10                                  ; HL += A
@@ -1797,8 +1812,9 @@ l_0B30:
 
 ; creatures that are returning to base: moths or bosses from top of screen,
 ; bees from bottom of loop-around, and "transients"
-case_0B46:
+case_0B46: ; $02
 l_0B46:
+; ld new data ptr into de and ex into hl ... resultant de not used
        inc  hl                                    ; ptr to data table
        ld   e,(hl)
        inc  hl
@@ -1807,7 +1823,7 @@ l_0B46:
        jp   j_090E_flite_path_init
 
 ; bee dive and starting loopback, or boss left position and starting dive down
-case_0B4E:
+case_0B4E:  ; $03
        inc  hl                                    ; ptr to data table
        ld   e,(hl)
        inc  hl
@@ -1819,7 +1835,7 @@ case_0B4E:
 ; bee has flown under bottom of screen and now turns for home
 ; hmm.... well no, this is working on moth $40 that is nested. The bee is at the bottom though.
 ; or maybe a boss
-case_0B5F:
+case_0B5F:  ; $06
        ld   a,(b_9215_flip_screen)
        ld   c,a
        ld   e,0x10(ix)                            ; home_posn_rc[ obj_id + 1 ]
@@ -1836,7 +1852,7 @@ case_0B5F:
 l_0B76:
        srl  a
        ld   0x03(ix),a
-       ld   a,(b_92A0 + 0x0A)                     ; if flag is set, then b_9AA0[0x13] = 1
+       ld   a,(b_92A0 + 0x0A)                     ; if continuous bombing flag is set, trigger dive attack sound b_9AA0[0x13]
        and  a
        jp   z,l_0B8B                              ; inc hl and finalize
 
@@ -1844,7 +1860,7 @@ l_0B76:
        jr   l_0B8B                                ; inc hl and finalize
 
 ; tractor beam reaches ship
-case_0B87:
+case_0B87:  ; $07
        ld   0x01(ix),#0x9C
 l_0B8B:
        inc  hl                                    ; data pointer
@@ -1855,8 +1871,8 @@ l_0B8C:
 
        jp   l_0DFB_next_superloop
 
-; change direction of attack wave bug
-case_0B98:
+; in an attack convoy ... changing direction
+case_0B98:  ; $08
 ; if (0x38 != (0x38 & ds_bug_motion_que[b_bug_que_idx].b10))  hl += 3 ...
        ld   a,0x10(ix)                            ; offset of object ...8800[L]
        and  #0x38
@@ -1870,7 +1886,7 @@ l_0B9F:
        jp   j_090E_flite_path_init
 
 ; one red moth left in "free flight mode"
-case_0BA8:
+case_0BA8:  ; $09
        inc  hl                                    ; ptr to data table
        ld   a,(hl)
        bit  7,0x13(ix)
@@ -1886,13 +1902,13 @@ l_0BB4:
        ld   0x04(ix),a
        ld   0x05(ix),c
        ld   0x0E(ix),#0x1E                        ; bomb drop counter
-       ld   a,(b_92C0 + 0x08)
+       ld   a,(b_92C0 + 0x08)                     ; bomb drop enable flags
        ld   0x0F(ix),a                            ; b_92C0[$08] ... bomb drop enable flags
        jp   l_0B8B                                ; inc hl and finalize
 
 ; bee has flown under bottom of screen and now turns for home
-case_0BD1:
-       ld   a,(b_92A0 + 0x0A)                     ; unknown flag
+case_0BD1:  ; $05
+       ld   a,(b_92A0 + 0x0A)                     ; if flag is set, then skip reload data pointer
        ld   c,a
        ld   a,(ds_cpu0_task_actv + 0x1D)          ; f_2000 (destroyed boss that captured ship)
        dec  a
@@ -1916,23 +1932,18 @@ l_0BDC_flite_pth_load:
        rlca
        rlca
        and  #0x0F
-
        inc  hl
        ld   0x0B(ix),a                            ; hi-nibble (right shifted into bits<0:3>
        ld   a,(hl)                                ; data[ n + 1 ] ... to (ix)0x0C
-
        inc  hl
        bit  7,0x13(ix)                            ; if set then negate data to (ix)0x0C
        jr   z,l_0BF7
        neg
 l_0BF7:
        ld   0x0C(ix),a
-
        ld   a,(hl)                                ; data[ n + 2 ] ... to (ix)0x0D
-
        inc  hl
        ld   0x0D(ix),a                            ; expiration counter from data[ n + 2 ]
-
 l_0BFF:
        ld   0x08(ix),l                            ; pointer.b0
        ld   0x09(ix),h                            ; pointer.b1
@@ -2404,7 +2415,7 @@ l_0E3A:
 
 ; a bonus bee (e.g. 883A) flying off screen. Sprite-Code 5B (scorpion), color 05, object status==9
 ; also, if status==4 (capturing boss shot while in home-position, freeing a rogue ship)
-case_0E49_make_object_inactive:
+case_0E49_make_object_inactive: ; 0x0
        ld   h,#>b_8800
        ld   l,0x10(ix)                            ; object offset ...8800[L]
        ld   (hl),#0x80                            ; make inactive

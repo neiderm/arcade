@@ -296,7 +296,7 @@ case_1852:
        ld   (ds_plyr_actv +_b_atk_wv_enbl),a      ; 1 ... 0 when respawning player ship
        ld   (ds_plyr_actv +_b_cboss_enbl),a       ; 1 ... for demo, force the first diving boss boss into capture mode
        inc  a
-       ld   (ds_new_stage_parms + 0x04),a         ; 2
+       ld   (ds_new_stage_parms + 0x04),a         ; 2 ... max_flying_bugs_this_round
        ld   (ds_new_stage_parms + 0x05),a         ; 2
        jp   l_19A7_end_switch
 
@@ -649,7 +649,7 @@ l_1A6A_ship_in_position:
 ;;=============================================================================
 ;; f_1A80()
 ;;  Description:
-;;   "Bonus-bee" manager.
+;;   "clone-attack" manager.
 ;;   Not active until stage-4 or higher because the parameter is 0.
 ;; IN:
 ;;  ...
@@ -850,10 +850,10 @@ f_1B65:
 
 l_1B75:
        ld   b,#4
-       ld   hl,#b_92C0 + 0x0A                     ; check 3 groups of 4 bytes
+       ld   hl,#b_92C0 + 0x0A                     ; check 4 groups of 3 bytes
 l_1B7A:
        ld   a,(hl)                                ; byte 0/4 is object index/offset
-       inc  a                                     ; 0 when b_92C0_0A[n*4].b0 is $ff
+       inc  a                                     ; 0 if b_92C0_0A[n*4].b0 == $ff
        jr   nz,l_1B8B
        inc  l
        inc  l
@@ -873,9 +873,11 @@ l_1B8B:
        ld   d,#>b_8800
        ld   e,a                                   ; e.g. E=$30 (boss)   8834 (boss already has a captured ship)
        res  7,e                                   ; why?
+
        ex   af,af'                                ; stash A
-; if  1 != obj_status[E].b0 then return ... resting/inactive
-       ld   a,(de)
+
+; if  (1 != obj_status[E].state) return ... disposition resting/inactivez
+       ld   a,(de)                                ; .b0
        dec  a
        ret  nz                                    ; exit if not available (demo)
 
@@ -883,10 +885,13 @@ l_1B8B:
        ld   e,(hl)                                ; e.g. 92CA[].b1, lsb of pointer to data
        inc  l
        ld   d,(hl)                                ; e.g. 92CA[].b1, msb of pointer to data
+
        ex   af,af'                                ; restore A (byte-0 of b_92C0_A[L + n*3] ) ...
+
        ld   l,a                                   ; ... object index/offset
        ld   h,#>b_8800                            ; e.g. b_8800[$30]
        call c_1079
+
        ld   a,#1
        ld   (b_9AA0 + 0x13),a                     ; 1 ... sound-fx count/enable registers, bug dive attack sound
        ret
@@ -906,6 +911,7 @@ l_1BB4:
 ; if (bugs_flying_nbr > max_flying_bugs_this_rnd) then b_92C0[L] && ret
        ld   a,(ds_new_stage_parms + 0x04)         ; max_flying_bugs_this_round
        ld   c,a
+
        ld   a,(b_bugs_flying_nbr)
        cp   c
        jr   c,l_1BC0
@@ -945,14 +951,14 @@ case_1BD7:
 ; this section common to both bee and moth launcher, check for next one, skip if already active
 l_1BDF:
        ld   a,(ds_plyr_actv +_b_bbee_obj)         ; load bonus-bee parameter
-       ld   c,a
+       ld   c,a                                   ; stash A
 l_1BE3:
-; if ( 1 == bug_state ) && ... 1 == resting
+; if ( disposition == resting ) && ...
        ld   a,(hl)                                ; obj_status[L].state
        dec  a
        jr   nz,l_1BEB_next
 ; ... ( L != bonus_bee_index ) then l_1BF0_found_one
-       ld   a,c                                   ; C==offset_to_bonus_bee
+       ld   a,c                                   ; unstash A ... offset_to_bonus_bee
        cp   l
        jr   nz,l_1BF0_found_one
 l_1BEB_next:
@@ -1119,7 +1125,7 @@ j_1CAE:
        rrca
        ld   (b_92C0 + 0x0A),a                     ; boss diving
        ex   af,af'
-       ld   (b_92C0 + 0x0A + 1),iy
+       ld   (b_92C0 + 0x0A + 1),iy                ; boss diving
        inc  b
        ld   a,e
        and  #0x07
@@ -1138,7 +1144,7 @@ j_1CAE:
        ld   a,ixl
        cp   #2
        jr   z,l_1CE3
-       ld   de,#b_92C0 + 0x0A + 3                 ; 3 groups of 4 bytes
+       ld   de,#b_92C0 + 0x0A + 3                 ; 4 groups of 3 bytes
        dec  a
        jr   z,l_1CE0
        call c_1D03                                ; boss dives with wingman

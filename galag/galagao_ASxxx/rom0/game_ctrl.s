@@ -1372,7 +1372,7 @@ l_0850:
 ;;=============================================================================
 ;; f_0857()
 ;;  Description:
-;;    sprite coordinates for demo
+;;    triggers various inputs to gameplay based on parameters
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -1380,46 +1380,51 @@ l_0850:
 ;;-----------------------------------------------------------------------------
 f_0857:
        ld   a,(ds4_game_tmrs + 2)
-       ld   b,a                                   ; why ld b?
+       ld   b,a                                   ; parameter to c_08AD
        cp   #0x3C
        jr   nc,l_0865
+; increases allowable max_flying_bugs_this_round after a time
        ld   a,(ds_new_stage_parms + 0x05)
        ld   (ds_new_stage_parms + 0x04),a         ; new_stage_parms[4] = new_stage_parms[5]
+
+; set bomb drop enable flags
 l_0865:
        ld   a,(b_bugs_actv_nbr)
        ld   c,a                                   ; parameter to c_08BE
        ld   a,(ds_new_stage_parms + 0x00)
        ld   hl,#d_0909
-       call c_08BE                                ; A == *(new_stage_parms[0]), HL==d_0909, C==*(num_bugs_on_scrn)
-       ld   (b_92C0 + 0x08),a                     ; = c_08BE()
+       call c_08BE                                ; A==new_stage_parms[0], HL==d_0909, C==num_bugs_on_scrn
+       ld   (b_92C0 + 0x08),a                     ; = c_08BE() ... bomb drop enable flags
 
-       ld   a,(b_92A0 + 0x0A)
+; if flag is set, then continuous bombing
+       ld   a,(b_92A0 + 0x0A)                     ; if flag is set, then continuous bombing
        and  a
        jr   z,l_0888
 
+; flag set (number of flying aliens less than new_stage_parm[7])
        ld   hl,#b_92C0 + 0x04                     ; memset( b_92C0_4, 2, 3 )
        ld   a,#2
        ld   b,#3
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
 
        xor  a
-       ld   (b_9AA0 + 0x00),a                     ; 0 ... sound-fx count/enable registers, pulsing formation sound effect
+       ld   (b_9AA0 + 0x00),a                     ; 0 ... sound-fx count/enable registers, kill pulsing sound effect (free-fly)
        ret
 
 l_0888:
        ld   a,(ds_new_stage_parms + 0x01)
        ld   hl,#d_0929
-       call c_08BE                                ; A==new_stage_parms[1], HL==d_0929, C==*(num_bugs_on_scrn)
+       call c_08BE                                ; A==new_stage_parms[1], HL==d_0929, C==num_bugs_on_scrn
        ld   (b_92C0 + 0x04),a                     ; =c_08BE()
 
        ld   a,(ds_new_stage_parms + 0x02)
        ld   hl,#d_08CD
-       call c_08AD                                ; A == (new_stage_parms[2]), HL==d_08CD
+       call c_08AD                                ; A==new_stage_parms[2], HL==d_08CD
        ld   (b_92C0 + 0x05),a                     ; =c_08AD()
 
        ld   a,(ds_new_stage_parms + 0x03)
        ld   hl,#d_08EB
-       call c_08AD                                ; A == (new_stage_parms[3]), HL==d_08EB
+       call c_08AD                                ; A==new_stage_parms[3], HL==d_08EB
        ld   (b_92C0 + 0x06),a                     ; =c_08AD()
 
        ret
@@ -1439,7 +1444,7 @@ c_08AD:
        sla  a
        add  a,e
        rst  0x10                                  ; HL += A
-       ld   a,b
+       ld   a,b                                   ; ds4_game_tmrs[2] from f_0857
        cp   #0x28
        jr   nc,l_08B8
        inc  hl
@@ -1470,11 +1475,11 @@ c_08BE:
        ld   h,c
        ld   a,#0x0A
        call c_divmod                              ; HL=HL/10
-       ex   de,hl
-       ld   a,d
+       ex   de,hl                                 ; 8-bit quotient into d ...
+       ld   a,d                                   ; ... quotient into a
        rst  0x10                                  ; HL += A
        ld   a,(hl)
-       ret                                        ; end 'call _08BE'
+       ret
 
 ;;=============================================================================
 d_08CD:
