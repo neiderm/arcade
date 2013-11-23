@@ -404,23 +404,16 @@ b_92B0:
 
 b_92C0:
          ; related to stage configuration parms?            2C46
-;b8_92C0:
-                            ; $03 bytes
-;_b_92C1
-;_b_92C4
-;_b_92C5
-;_b_92C6
-;_b_92C8
+         .ds     $$03
+         .ds     $$01  ; unused (force even alignment of following member)
+         .ds     $$03
+         .ds     $$01  ; unused
+         .ds     $$01
+         .ds     $$01  ; ?
 
-;_b_92CA                    ; $0C bytes in 4 groups of 3 (l_1B75) ... machine cfg params?
-
-;_b_92CB
-;_b_92CD
+;_b_92CA
+; $0C bytes in 4 groups of 3 (l_1B75) ... slots for boss+wing missions
          .ds     $$0C
-         .ds     $$04       ; unused
-
-;b_92D0:
-         .ds     $$06       ; unused
 
 b_CPU1_in_progress:
          .ds     $$01
@@ -552,8 +545,7 @@ b8_ship_collsn_detectd_status:
 
 ds_new_stage_parms:
          .ds     $$0A       ; each byte stores 1 nibble of bytes $0 thru $A of table dw_2C65[] (new stage)
-;b8_99CA_new_stage_cfg:
-         .ds     $$01       ; bonus-bee when bug count reaches this  ($0A for challenge stage?)
+         .ds     $$01       ; bonus-bee when bug count reaches $0A (0 for challenge stage)
          .ds     $$15       ; unused
 
 ds20_99E0:

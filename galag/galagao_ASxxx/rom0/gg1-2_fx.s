@@ -848,14 +848,15 @@ f_1B65:
        and  c
        ret  z
 
+; check the queue for boss+wing mission ... parameters are queue'd by case boss launcher
 l_1B75:
        ld   b,#4
        ld   hl,#b_92C0 + 0x0A                     ; check 4 groups of 3 bytes
 l_1B7A:
-       ld   a,(hl)                                ; byte 0/4 is object index/offset
-       inc  a                                     ; 0 if b_92C0_0A[n*4].b0 == $ff
-       jr   nz,l_1B8B
-       inc  l
+       ld   a,(hl)                                ; byte 0 is object index/offset
+       inc  a                                     ; 0 if boss_wing_slots[n*4].b0 == $ff
+       jr   nz,l_1B8B                             ; if already active one then move on
+       inc  l                                     ; else advance pointer to next set and keep checking ...
        inc  l
        inc  l
        djnz l_1B7A
@@ -866,10 +867,11 @@ l_1B7A:
        ret
 
 ; moth or bee sortie is ended upon return to base-position, or when destroyed
+; launching element of boss+wing mission
 ; A == *HL + 1
 l_1B8B:
-       ld   (hl),#0xFF                            ; 92CA[ n + 0* 4 ] = $ff
-       dec  a                                     ; undo increment of b_92C0_A[L]
+       ld   (hl),#0xFF                            ; 92CA[ n * 3 + 0 ] = $ff
+       dec  a                                     ; undo increment of boss_wing_slots[n]
        ld   d,#>b_8800
        ld   e,a                                   ; e.g. E=$30 (boss)   8834 (boss already has a captured ship)
        res  7,e                                   ; why?
@@ -886,7 +888,7 @@ l_1B8B:
        inc  l
        ld   d,(hl)                                ; e.g. 92CA[].b1, msb of pointer to data
 
-       ex   af,af'                                ; restore A (byte-0 of b_92C0_A[L + n*3] ) ...
+       ex   af,af'                                ; restore A (byte-0 of boss_wing_slots[n*3] ) ...
 
        ld   l,a                                   ; ... object index/offset
        ld   h,#>b_8800                            ; e.g. b_8800[$30]
@@ -897,18 +899,18 @@ l_1B8B:
        ret
 
 l_1BA8:
-       ld   hl,#b_92C0 + 0x00                     ; 3 bytes
+       ld   hl,#b_92C0 + 0x00                     ; 3 bytes, 1 byte for each slot, enumerates selection of red, yellow, or boss
        ld   b,#3
 l_1BAD:
-       dec  (hl)
-       jr   z,l_1BB4
+       dec  (hl)                                  ; test if disposition = 1: home
+       jr   z,l_1BB4                              ; b used below argument to "switch" to select type of alien launched?
        inc  l
        djnz l_1BAD
 
        ret
 
 l_1BB4:
-; if (bugs_flying_nbr > max_flying_bugs_this_rnd) then b_92C0[L] && ret
+; if (bugs_flying_nbr > max_flying_bugs_this_rnd) then slot[L]++ && ret
        ld   a,(ds_new_stage_parms + 0x04)         ; max_flying_bugs_this_round
        ld   c,a
 
@@ -926,7 +928,7 @@ l_1BC0:
        res  2,l
        ld   (hl),a
 
-       ld   a,b
+       ld   a,b                                   ; ... b from loop l_1bad above decremented from 3
        dec  a
 
 ; switch(A)
@@ -1011,7 +1013,7 @@ l_1C24_boss_capture_enable:
        ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 1 ... capturing boss activated
        ld   a,e
        ld   (ds_plyr_actv +_b_cboss_obj),a
-       jp   j_1CAE
+       jp   j_1CAE                                ; parameters for boss+wing mission are setup
 
 ; boss is diving/capturing ... look for a wingman.
 ; Get a moth index from d_1D2C, check if already flagged by plyr_state[0x0D].
@@ -1106,11 +1108,11 @@ l_1C94:
 
        pop  hl
 l_1CA0:
-       ld   iy,#0x0411
-       ld   a,(ds_9200_glbls + 0x0B)              ; if (0), iy=$00F1, else iy=$0411
+       ld   iy,#db_flv_0411
+       ld   a,(ds_9200_glbls + 0x0B)              ; data ptr boss launch: if (0), iy=$00F1, else iy=$0411
        and  a
        jr   nz,j_1CAE
-       ld   iy,#0x00F1
+       ld   iy,#db_flv_00f1                       ; don't know when this one selected
 
 ;;=============================================================================
 ;; from f_1B65 (l_1C24)... boss diving.
@@ -1147,17 +1149,19 @@ j_1CAE:
        ld   de,#b_92C0 + 0x0A + 3                 ; 4 groups of 3 bytes
        dec  a
        jr   z,l_1CE0
-       call c_1D03                                ; boss dives with wingman
+       call c_1D03                                ; DE==&b_92CA_boss_wing_slots[3] ... boss dives with wingman
 l_1CE0:
-       call c_1D03
+       call c_1D03                                ; DE==&b_92CA_boss_wing_slots[6] ... boss dives with wingman
 l_1CE3:
        ld   a,(b_92C0 + 0x0A)                     ; boss diving
        and  #0x07
        ld   l,a
+; check for 0
        ld   h,#>b_8800
        ld   a,(hl)
        dec  a
        ret  nz
+
        ld   c,l                                   ; 1CEE  destroyed moth "wingman" of flying boss...
        ld   hl,#b_92C0 + 0x0A                     ; boss diving
 l_1CF2:
@@ -1187,7 +1191,7 @@ d_1CFD:
 ;;   for c_1C8D
 ;;   ...boss takes a sortie with one or two wingmen (red-moth) attached.
 ;; IN:
-;;  ...de,#b_92C0 + 0x0A + 3
+;;  DE: #b_92CA_boss_wing_slots + 3
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
@@ -1213,7 +1217,7 @@ l_1D0D:
 l_1D16:
        rla                                        ; from _1CFB
        rrca
-       ld   (hl),a
+       ld   (hl),a                                ; e.g. HL==&92CA[n]
        ex   af,af'
        inc  l
        ld   a,iyl
