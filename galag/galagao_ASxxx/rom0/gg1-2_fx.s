@@ -296,8 +296,8 @@ case_1852:
        ld   (ds_plyr_actv +_b_atk_wv_enbl),a      ; 1 ... 0 when respawning player ship
        ld   (ds_plyr_actv +_b_cboss_enbl),a       ; 1 ... for demo, force the first diving boss boss into capture mode
        inc  a
-       ld   (ds_new_stage_parms + 0x04),a         ; 2 ... max_flying_bugs_this_round
-       ld   (ds_new_stage_parms + 0x05),a         ; 2
+       ld   (ds_new_stage_parms + 0x04),a         ; 2 ... max_bombers (demo)
+       ld   (ds_new_stage_parms + 0x05),a         ; 2 ... increases max bombers in certain conditions (demo)
        jp   l_19A7_end_switch
 
 ; demo fighter vectors demo level before capture
@@ -352,10 +352,10 @@ l_18DB_while:
        call c_133A                                ; show_ship
 
        ld   hl,#0xFF0D
-       ld   (b_92C0 + 0x05),hl
-       ld   (b_92C0 + 0x04),hl
-       ld   (b_92C0 + 0x01),hl
-       ld   (b_92C0 + 0x00),hl
+       ld   (b_92C0 + 0x05),hl                    ; demo
+       ld   (b_92C0 + 0x04),hl                    ; demo
+       ld   (b_92C0 + 0x01),hl                    ; demo
+       ld   (b_92C0 + 0x00),hl                    ; demo
 
        ld   hl,#d_1928
        ld   (pdb_demo_fghtrvctrs),hl              ; &d_1928[0]
@@ -367,7 +367,7 @@ l_18DB_while:
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
 
        ld   (ds_plyr_actv +_b_2ship),a            ; 0: not 2 ship
-       ld   (ds_9200_glbls + 0x0B),a              ; 0: flying_bug_attck_condtn
+       ld   (ds_9200_glbls + 0x0B),a              ; 0: flying_bug_attck_condtn (demo)
        inc  a
        ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 1 ...force this for training mode
        ld   (ds_cpu0_task_actv + 0x10),a          ; 1: f_1B65 ... Manage flying-bug-attack
@@ -823,7 +823,7 @@ d_1B5F:
 ;;=============================================================================
 ;; f_1B65()
 ;;  Description:
-;;   Manage flying-bug-attack
+;;   Manage bomber attacks
 ;;   In the demo, the task is first enabled as the 7 goblins appear in the
 ;;   training mode screen. At that time, the 920B flag is 0.
 ;;   The task starts again for diving attacks in the demo, the flag is then 1.
@@ -899,10 +899,11 @@ l_1B8B:
        ret
 
 l_1BA8:
+; check each bomber type for ready status i.e. yellow, red, boss
        ld   hl,#b_92C0 + 0x00                     ; 3 bytes, 1 byte for each slot, enumerates selection of red, yellow, or boss
        ld   b,#3
 l_1BAD:
-       dec  (hl)                                  ; test if disposition = 1: home
+       dec  (hl)                                  ; check if this one timed out
        jr   z,l_1BB4                              ; b used below argument to "switch" to select type of alien launched?
        inc  l
        djnz l_1BAD
@@ -910,26 +911,27 @@ l_1BAD:
        ret
 
 l_1BB4:
-; if (bugs_flying_nbr > max_flying_bugs_this_rnd) then slot[L]++ && ret
-       ld   a,(ds_new_stage_parms + 0x04)         ; max_flying_bugs_this_round
+; if (bugs_flying_nbr > max_flying_bugs_this_rnd) then bomber_rdy_tmr[n]++ && ret
+       ld   a,(ds_new_stage_parms + 0x04)         ; max_bombers
        ld   c,a
 
        ld   a,(b_bugs_flying_nbr)
        cp   c
        jr   c,l_1BC0
 ; maximum nbr of bugs already flying
-       inc  (hl)
+       inc  (hl)                                  ; slot counter
        ret
 
-; launch another flying bug
+; launch another bombing excursion
 l_1BC0:
-       set  2,l                                   ; HL == $92C1 etc.
-       ld   a,(hl)                                ; HL == $92C5 etc.
+; b_92C0_0[n] =  b_92C0_0[n + 4] ... set next timeout for this bomber type?
+       set  2,l                                   ; offset += 4
+       ld   a,(hl)                                ; $92C0[n+4]
        res  2,l
        ld   (hl),a
 
        ld   a,b                                   ; ... b from loop l_1bad above decremented from 3
-       dec  a
+       dec  a                                     ; offset for 0 based indexing of "switch"
 
 ; switch(A)
        ld   hl,#d_1BD1
@@ -995,7 +997,7 @@ case_1C01:
        jr   nz,l_1C30
 
        ld   ixl,2
-       ld   iy,#0x0454
+       ld   iy,#db_0454
        ld   de,#b_8800 + 0x30                     ; bosses start at $30
        ld   b,#0x04                               ; there are 4 of these evil creatures
 ; for each boss, find first one that status==resting ... he beomes capture-boss
@@ -1106,7 +1108,7 @@ l_1C94:
        cp   #0x01                                 ; check for ready/available status
        ret  nz
 
-       pop  hl
+       pop  hl                                    ; returns to task manager
 l_1CA0:
        ld   iy,#db_flv_0411
        ld   a,(ds_9200_glbls + 0x0B)              ; data ptr boss launch: if (0), iy=$00F1, else iy=$0411
@@ -1117,6 +1119,11 @@ l_1CA0:
 ;;=============================================================================
 ;; from f_1B65 (l_1C24)... boss diving.
 ;; setup bonus scoring for this one
+;; IN:
+;;    e   - object/index of bomber
+;;    ixl -
+;;    iy  - pointer to flight vector data
+
 ;;-----------------------------------------------------------------------------
 j_1CAE:
        ld   a,e
@@ -1160,9 +1167,10 @@ l_1CE3:
        ld   h,#>b_8800
        ld   a,(hl)
        dec  a
-       ret  nz
+       ret  nz                                    ; return to task manager
 
-       ld   c,l                                   ; 1CEE  destroyed moth "wingman" of flying boss...
+       ld   c,l                                   ; object/index of captured ship e.g. $00, $02, $04, $06
+
        ld   hl,#b_92C0 + 0x0A                     ; boss diving
 l_1CF2:
        inc  l
@@ -1171,6 +1179,7 @@ l_1CF2:
        ld   a,(hl)
        inc  a
        jr   nz,l_1CF2
+
        ex   af,af'
        ld   a,c
        jr   l_1D16
@@ -1213,6 +1222,8 @@ l_1D0D:
 
 ;;=============================================================================
 ;; out of section at l_1CF2
+;; IN:
+;;  A - object/index of diver/bomber e.g. red bomber wingman, captured ship etc.
 ;;-----------------------------------------------------------------------------
 l_1D16:
        rla                                        ; from _1CFB

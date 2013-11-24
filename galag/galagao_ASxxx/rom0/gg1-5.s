@@ -329,6 +329,7 @@ p_flv_0430:
   .dw p_flv_0420
 db_fltv_rogefgter:
   .db 0x12,0x18,0x14,0x12,0x03,0x2a,0x12,0x10,0x40,0x12,0x01,0x20,0x12,0xfe,0x78,0xff
+db_0454:
   .db 0x12,0x18,0x14,0xf4
   .db 0x12,0x00,0x04,0xfc
   .db 0x48,0x00,0xfc,0xff
@@ -451,7 +452,7 @@ l_0537:
        ld   a,(ds_cpu0_task_actv + 0x15)          ; cpu0:f_1F04 (reads fire button input)
        and  b
        and  #0x01                                 ; mask off bit-0
-       ld   (b_92A0 + 0x0A),a                     ; continuous bombing flag
+       ld   (b_92A0 + 0x0A),a                     ; continuous bombing flag (set here by tasking kernel)
 
 ; find the first ready task.. may run more than one.
        ld   c,#0
@@ -1910,7 +1911,7 @@ l_0BB4:
 
 ; bee has flown under bottom of screen and now turns for home
 case_0BD1:  ; $05
-       ld   a,(b_92A0 + 0x0A)                     ; if flag is set, then skip reload data pointer
+       ld   a,(b_92A0 + 0x0A)                     ; if continuous bombing flag is set, then skip reload data pointer
        ld   c,a
        ld   a,(ds_cpu0_task_actv + 0x1D)          ; f_2000 (destroyed boss that captured ship)
        dec  a
