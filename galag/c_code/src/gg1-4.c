@@ -67,6 +67,11 @@ void svc_test_mgr(void)
     // wait 8 frame counts
 
 
+    // jp   nc,j_Test_menu_proc
+
+    // dips would be read here
+    mchn_cfg.rank = 3; // default to 3->easy
+
     HL = 0;
 
     // drawing the cross hatch pattern - tile ram layout is pretty clumsy!
