@@ -13,7 +13,7 @@
  **  jp_045E_While_Game_Running:
  **      Continous loop once the game is started, until gameover.
  **
- **  The possible modes of operation are (from the Bally Manual):
+ **  The possible modes of operation are:
  **    ATTRACT, READY-TO-PLAY, PLAY, HIGH SCORE INITIAL, and SELF-TEST."
  **
  *******************************************************************************/
@@ -65,12 +65,15 @@ static uint8 sfr_6820; //galaga_interrupt_enable_1_w
 static uint8 two_plyr_game;
 static uint8 ds30_susp_plyr_obj_data[0x30]; // c_player_active_switch
 static uint8 credit_cnt;
+
+// forward declarations
 static const uint8 d_attrmode_sptiles_ships[];
 static const uint8 d_0495[];
 static const uint8 str_1UP[];
 static const uint8 str_2UP[];
 static const uint8 str_0974[];
 static const uint8 d_07FB[];
+static const uint8 d_0909[];
 
 // function prototypes
 static void c_game_init(void);
@@ -86,6 +89,7 @@ static void c_0728_score_and_bonus_mgr(void);
 static void c_07D8(uint16, uint8);
 static void c_080B_monitor_stage_start_or_restart_conditions();
 static void j_0650_handle_end_challeng_stg(void);
+static uint8 c_08BE(uint8, uint8, uint8 const *);
 
 
 /*=============================================================================
@@ -133,7 +137,9 @@ void j_Game_init(void)
 
     ds_99B9_star_ctrl[0] = 0; // 1 when ship on screen
 
-    memset(b_92C0_A, 0xff, 0x10); // machine cfg params?
+    // queue for boss+wing mission is only $0C bytes, so this initialization
+    // would include b_CPU1_in_progress + b_CPU2_in_progress + 2 unused bytes
+    memset(b_92C0_A, 0xff, 0x10);
 
     // galaga_interrupt_enable_1_w  seems to already be set, but we make sure anyway.
     sfr_6820 = 1; // (enable IRQ1)
@@ -842,7 +848,7 @@ static void c_0728_score_and_bonus_mgr(void)
         B -= 1; // djnz l_0739_while_B
     }
 
-    // not exactly what happens after this 
+    // not sure what happens after this
 
     // l_078E:
     E = IXL + 4;
@@ -1076,8 +1082,70 @@ void f_0828(void)
 ;;---------------------------------------------------------------------------*/
 void f_0857(void)
 {
+    uint8 A;
+    // increases allowable max_flying_bugs_this_round after a time
+    if ( ds4_game_tmrs[2] < 0x3C )
+    {
+        ds_new_stage_parms[4] = ds_new_stage_parms[5];
+    }
 
+    // l_0865: bomb drop enable flags
+    // A==new_stage_parms[0], HL==d_0909, C==num_bugs_on_scrn
+    A = c_08BE(ds_new_stage_parms[0], b_bugs_actv_nbr, d_0909);
+    b_92C0_0[0x08] = A;
+
+    if (1) //  if (0 != b_92AA_cont_bombing_flag)
+    {
+        // default inits for bomber activation timers
+        b_92C0_0[0x04] = 2;
+        b_92C0_0[0x05] = 2;
+        b_92C0_0[0x06] = 2;
+
+        // sound-fx count/enable registers, kill pulsing sound effect
+        b_9AA0[0x00] = 0;
+        return;
+    }
+
+//l_0888:
+A = ds_new_stage_parms[0x01];
 }
+
+/*=============================================================================
+;; c_08BE()
+;;  Description:
+;;   for f_0857
+;; IN:
+;;  A == new_stage_parms[0]
+;;  C == num_bugs_on_scrn
+;;  HL == data pointer
+;; OUT:
+;;  A==(hl)
+;;---------------------------------------------------------------------------*/
+static uint8 c_08BE(uint8 A, uint8 C, uint8 const *pHL)
+{
+    uint16 HL = 0;
+    reg16 rHL;
+    A <<= 1; // sla  a
+    rHL.word = HL + 2 * A; // rst  0x08 .. HL += 2A
+    //ex   de,hl
+    rHL.pair.b1 = C; //ld   h,c
+    //ld   a,#0x0A
+    rHL.word = rHL.word / 10; // call c_divmod ... HL=HL/10
+    //ex   de,hl ... 8-bit quotient into d
+    //ld   a,d
+    //rst  0x10 ... HL += A
+    //ld   a,(hl)
+
+    return (pHL[rHL.pair.b0]);
+}
+
+/*---------------------------------------------------------------------------*/
+static const uint8 d_0909[] =
+{
+    0x03,0x03,0x01,0x01,0x03,0x03,0x03,0x01,0x07,0x03,0x03,0x01,0x07,0x03,0x03,0x03,
+    0x07,0x07,0x03,0x03,0x0F,0x07,0x03,0x03,0x0F,0x07,0x07,0x03,0x0F,0x07,0x07,0x07
+};
+
 
 /*=============================================================================
 ;; f_0935()
@@ -1365,7 +1433,8 @@ uint16 c_text_out_i_to_d(uint16 HL, uint16 DE)
 
         tmpstr[B] = A;
         B++;
-    } while (HL > 0);
+    }
+    while (HL > 0);
 
     // Convert next digit to the "left" (next higher power of 10).
     while (B-- > 0)

@@ -221,7 +221,7 @@ void f_1700(void)
         c_1F0F(); //  init sprite objects for rockets
         // ld   de,(pdb_demo_fghtrvctrs) ... don't need it
 
-    // 1734: drives the simulated inputs to the fighter in training mode
+        // 1734: drives the simulated inputs to the fighter in training mode
     case 0x04:
         // ld   e,(hl) ... double ship flag referenced directly in c_1F92
 
@@ -526,26 +526,30 @@ void f_1B65(void)
         return;
     }
 
-    // l_1B75: check 4 groups of 3 bytes
+    // l_1B75: check the queue for boss+wing mission ... parameters are queue'd
+    // by 'case boss launcher' (4 groups of 3 bytes)
     B = 0; // ld   b,#4
     L = 0; // ld   hl,#b_92C0 + 0x0A
     // l_1B7A:
     while ( B < 4 )
     {
-        A = b_92C0_A[L];
+        A = b_92C0_A[L]; // valid object index if slot active, otherwise $FF
+#ifdef HELP_ME_DEBUG
+if (1) // boss launcher not implemented yet
+#else
         if (0xFF == A) // jr   nz,l_1B8B
+#endif
         {
             L += 3; // index to _92C0_A
             B += 1;
         }
         else
         {
-            // moth or bee sortie is ended upon return to base-position, or when destroyed
-            // l_1B8B:
-            b_92C0_A[L] = 0xFF;
+            // l_1B8B: launching element of boss+wing mission
+            b_92C0_A[L] = 0xFF; // $FF disables the slot
             b8800_obj_status[A].state &= ~0x80; // res  7,e
 
-            if ( 1 != b8800_obj_status[A].state) // disposition resting/inactivez
+            if (1 != b8800_obj_status[A].state) // disposition resting/inactivez
             {
                 return; // ret  nz
             }
@@ -570,37 +574,41 @@ void f_1B65(void)
         }
     } // end while
 
+    // insert a small delay
     if (0 != (ds3_92A0_frame_cts[0] & 0x0F))
     {
         return;
     }
     // else ... jr   z,l_1BA8
 
-    // l_1BA8:
-    L = 0; // ld   hl,#b_92C0 + 0x00
-    B = 3;
+    // l_1BA8: check each bomber type for ready status i.e. boss, red, yellow, red
+    L = 0; // ld   hl,#b_92C0 + 0x00 ... boss is slot 0
+    B = 3; // ld   b,#3 ... boss is case 3-1=2
     while ( B > 0)
     {
         b_92C0_0[L] -= 1; // dec  (hl)
-        if (0 == b_92C0_0[L])
-            break; // jr   z,l_1BB4
+
+        if (0 == b_92C0_0[L])  break; // jr   z,l_1BB4
+
         L += 1; // inc  l
-        B -= 1; // djnz l_1BAD
+        B -= 1; // djnz l_1BAD ... argument to "switch" to select type of alien launched?
     }
     if (0 == B)
         return;
 
     // l_1BB4:
-    if ( b_bugs_flying_nbr > ds_new_stage_parms[4] ) // max_flying_bugs_this_rnd
+    if ( b_bugs_flying_nbr >= ds_new_stage_parms[4] ) // max_flying_bugs_this_rnd
     {
         // maximum nbr of bugs already flying
+        // set slot counter back to 1 since it can't be processed right now
         b_92C0_0[L] += 1; // inc  (hl)
         return;
     }
 
-    // l_1BC0: launch another flying bug
+    // l_1BC0: launch another bombing excursion
     b_92C0_0[L] =  b_92C0_0[L + 4]; // set  2,l etc.
 
+    // B from loop l_1bad above decremented from 3
     A = B - 1; // dec  a
 
     switch(A)
@@ -609,15 +617,15 @@ void f_1B65(void)
     case 1:
         if (A == 0) // _1BD7
         {
-            // set bee launch params
+            // set yellow launch params
             //l_1BD7:
             B = 20; // number of yellow aliens
             L = 0x08; // first object offset
             pDE.word = _flv_d_atk_yllw;
         }
-        else // if (A = 1) ... _1BF7
+        else // if (A == 1) ... _1BF7
         {
-            // set red moth launch params
+            // set red launch params
             B = 16; // number of red aliens
             L = 0x40; // first object offset
             pDE.word = _flv_d_atk_red;
@@ -644,8 +652,6 @@ void f_1B65(void)
             L += 2;
             B -= 1; // djnz l_1BE3
         };
-
-       return; // pretty sure there's no other way out
         break;
 
         // boss launcher... we only enable capture-mode for every other one ( %2 )
@@ -653,7 +659,7 @@ void f_1B65(void)
     default:
         break;
     }
-
+    return;
 }
 
 /*=============================================================================
