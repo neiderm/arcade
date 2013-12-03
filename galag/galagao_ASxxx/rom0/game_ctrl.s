@@ -58,7 +58,7 @@ j_Game_init:
        ld   (b_9215_flip_screen),a                ; 0 (not_flipped)
        ld   (ds_99B9_star_ctrl + 0),a             ; 0 ...1 when ship on screen
 
-;  memset($92ca,$ff,$10) ... machine cfg params?
+;  memset($92ca,$ff,$10)
        dec  a                                     ; = $FF
        ld   hl,#b_92C0 + 0x0A                     ; memset( ... , $FF, $10 )
        ld   b,#0x10
@@ -306,7 +306,7 @@ l_While_Ready:
        ld   (ds_cpu0_task_resrv + 0x12),a         ; 1 ... f_1D76, star ctrl
 
 ; do one-time inits
-       call c_game_init                           ; setup number of lives and scores
+       call c_game_init                           ; setup number of lives and show player score(s) '00'
        call c_game_or_demo_init
 
        ld   c,#4                                  ; C=string_out_pe_index
@@ -1372,7 +1372,7 @@ l_0850:
 ;;=============================================================================
 ;; f_0857()
 ;;  Description:
-;;    triggers various inputs to gameplay based on parameters
+;;    triggers various parts of gameplay based on parameters
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -1383,9 +1383,9 @@ f_0857:
        ld   b,a                                   ; parameter to c_08AD
        cp   #0x3C
        jr   nc,l_0865
-; increases allowable max_flying_bugs_this_round after a time
+; increases allowable max_bombers after a time
        ld   a,(ds_new_stage_parms + 0x05)
-       ld   (ds_new_stage_parms + 0x04),a         ; new_stage_parms[4] = new_stage_parms[5]
+       ld   (ds_new_stage_parms + 0x04),a         ; new_stage_parms[4] = new_stage_parms[5] ... max bombers
 
 ; set bomb drop enable flags
 l_0865:
@@ -1396,12 +1396,14 @@ l_0865:
        call c_08BE                                ; A==new_stage_parms[0], HL==d_0909, C==num_bugs_on_scrn
        ld   (b_92C0 + 0x08),a                     ; = c_08BE() ... bomb drop enable flags
 
-; if flag is set, then continuous bombing
-       ld   a,(b_92A0 + 0x0A)                     ; if flag is set, then continuous bombing
+; flag indicates condition when number of flying aliens less than new_stage_parm[7]
+; if flag is set by sub-CPU tasking kernel ...
+       ld   a,(b_92A0 + 0x0A)                     ; continuous bombing when flag set
        and  a
        jr   z,l_0888
 
-; flag set (number of flying aliens less than new_stage_parm[7])
+; then ... set default start values for bomber launch timers in for continuous bombing state
+; this will also happen momentarily at start of round until bugs_actv_nbr exceeds ds_new_stage_parms[0x07]
        ld   hl,#b_92C0 + 0x04                     ; memset( b_92C0_4, 2, 3 )
        ld   a,#2
        ld   b,#3
@@ -1412,8 +1414,9 @@ l_0865:
        ret
 
 l_0888:
+; ... else after bugs_actv_nbr exceeds parameter_7 until continous bombing begins
        ld   a,(ds_new_stage_parms + 0x01)
-       ld   hl,#d_0929
+       ld   hl,#d_0909 + 4 * 8                    ; offset the data pointer
        call c_08BE                                ; A==new_stage_parms[1], HL==d_0929, C==num_bugs_on_scrn
        ld   (b_92C0 + 0x04),a                     ; =c_08BE()
 
@@ -1434,16 +1437,19 @@ l_0888:
 ;;  Description:
 ;;  for f_0857
 ;; IN:
-;;  A==
-;;  HL==
+;;  A == ds_new_stage_parms[2] or [3]
+;;  B == ds4_game_tmrs[2]
+;;  HL == d_08CD or d_08EB
 ;; OUT:
-;;  A==(hl)
+;;  A == (hl)
 ;;-----------------------------------------------------------------------------
 c_08AD:
+; HL += 3 * A ... index into groups of 3 bytes
        ld   e,a
        sla  a
        add  a,e
        rst  0x10                                  ; HL += A
+
        ld   a,b                                   ; ds4_game_tmrs[2] from f_0857
        cp   #0x28
        jr   nc,l_08B8
@@ -1451,7 +1457,7 @@ c_08AD:
 l_08B8:
        and  a
        jr   nz,l_08BC
-       inc  hl                                    ; went through demo and showing Galactic heroes.
+       inc  hl
 l_08BC:
        ld   a,(hl)
        ret
@@ -1462,13 +1468,19 @@ l_08BC:
 ;;  Description:
 ;;   for f_0857
 ;; IN:
-;;  A==
-;;  C==
-;;  HL==
+;;  A==ds_new_stage_parms + 0x00 or ds_new_stage_parms + 0x01
+;;  C==bugs_actv_nbr
+;;  HL== pointer _0909, _0929
 ;; OUT:
 ;;  A==(hl)
 ;;-----------------------------------------------------------------------------
 c_08BE:
+; A used as index into sets of 4
+; 16-bit division not needed here, but slightly more efficient to load the
+; dividend into upper byte of HL and take quotient from H
+; the quotient is ranged 0-4, so in the case the A max out at 7 and number
+; of creatures is 40, the selected byte would be at $0929, so d_0909 and
+; d_0929 should be one contiguous table.
        sla  a
        rst  0x08                                  ; HL += 2A
        ex   de,hl
@@ -1482,17 +1494,20 @@ c_08BE:
        ret
 
 ;;=============================================================================
+; sets of 3 bytes indexed by stage parameters 2 and 3 (max value 9)
 d_08CD:
-       .db 0x09,0x07,0x05,0x08,0x06,0x04,0x07,0x05,0x04,0x06,0x04,0x03,0x05,0x03
-       .db 0x03,0x04,0x03,0x03,0x04,0x02,0x02,0x03,0x03,0x02,0x03,0x02,0x02,0x02,0x02,0x02
+       .db 0x09,0x07,0x05, 0x08,0x06,0x04, 0x07,0x05,0x04, 0x06,0x04,0x03, 0x05,0x03,0x03
+       .db 0x04,0x03,0x03, 0x04,0x02,0x02, 0x03,0x03,0x02, 0x03,0x02,0x02, 0x02,0x02,0x02
 d_08EB:
-       .db 0x06,0x05,0x04,0x05,0x04,0x03,0x05,0x03,0x03,0x04,0x03,0x02,0x04,0x02,0x02,0x03
-       .db 0x03,0x02,0x03,0x02,0x01,0x02,0x02,0x01,0x02,0x01,0x01,0x01,0x01,0x01
+       .db 0x06,0x05,0x04, 0x05,0x04,0x03, 0x05,0x03,0x03, 0x04,0x03,0x02, 0x04,0x02,0x02
+       .db 0x03,0x03,0x02, 0x03,0x02,0x01, 0x02,0x02,0x01, 0x02,0x01,0x01, 0x01,0x01,0x01
+
+; sets of 4 bytes indexed by stage parameters 0 and 1 (max value 7)
 d_0909:
-       .db 0x03,0x03,0x01,0x01,0x03,0x03,0x03,0x01,0x07,0x03,0x03,0x01,0x07,0x03,0x03,0x03
-       .db 0x07,0x07,0x03,0x03,0x0F,0x07,0x03,0x03,0x0F,0x07,0x07,0x03,0x0F,0x07,0x07,0x07
-d_0929:
-       .db 0x06,0x0A,0x0F,0x0F,0x04,0x08,0x0D,0x0D,0x04,0x06,0x0A,0x0A
+       .db 0x03,0x03,0x01,0x01, 0x03,0x03,0x03,0x01, 0x07,0x03,0x03,0x01, 0x07,0x03,0x03,0x03
+       .db 0x07,0x07,0x03,0x03, 0x0F,0x07,0x03,0x03, 0x0F,0x07,0x07,0x03, 0x0F,0x07,0x07,0x07
+;d_0929:
+       .db 0x06,0x0A,0x0F,0x0F, 0x04,0x08,0x0D,0x0D, 0x04,0x06,0x0A,0x0A
 
 ;;=============================================================================
 ;; f_0935()
