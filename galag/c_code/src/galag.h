@@ -398,8 +398,8 @@ void c_player_respawn(void);
 void c_12C3(uint8);
 void c_game_or_demo_init(void);
 void c_tdelay_3(void);
-void c_1079(uint8, uint16);
-void c_1083(uint8, uint16);
+void bmbr_setup_fltq_boss(uint8, uint16);
+void bmbr_setup_fltq_drone(uint8, uint16);
 
 /* gg1-5.c */
 void cpu1_init(void);

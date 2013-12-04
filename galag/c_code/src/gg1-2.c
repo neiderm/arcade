@@ -47,77 +47,69 @@ static void c_build_token_1(uint8 *, uint16 *, uint8);
 static void c_build_token_2(uint8 *, uint16 *);
 static void draw_resv_ships(void);
 static void draw_resv_ship_tile(uint16 *, uint8 *, uint8);
-static void j_108A(uint8, uint16, uint8);
+static void bmbr_setup_fltq(uint8, uint16, uint8);
 
 
 /*=============================================================================
-;; c_1079()
+;; bmbr_setup_fltq_boss()
 ;;  Description:
-;;   wrapper for j_108A (used by f_1B65)
-;;   Called once for each of boss + 1 or 2 wingmen.
+;;   setup bombing attackers in flite control queue, boss + 1 or 2 wingmen.
+;; IN:
+;;   HL == &b_8800[n] ... bits 0:6
+;;         bit-7 if set then negate rotation angle to (ix)0x0C
+;;         (creature originating on right side)
+;;   DE == pointer to object data (in cpu-sub1 code space)
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+void bmbr_setup_fltq_boss(uint8 L, uint16 pDE)
+{
+    uint8 rotn_flag, obj_idx;
+    rotn_flag = L & 0x80;
+    obj_idx &= 0x7F; // res  7,l
+    bmbr_setup_fltq(obj_idx, pDE, rotn_flag);
+}
+
+
+/*=============================================================================
+;; bmbr_setup_fltq_drone()
+;;  Description:
+;;   setup bombing attackers in flite control queue - drones (red alien,
+;;   yellow alien, clone-attacker) and also rogue fighter.
 ;; IN:
 ;;   HL == &b_8800[n]
 ;;   DE == pointer to object data (in cpu-sub1 code space)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-void c_1079(uint8 l, uint16 de)
+void bmbr_setup_fltq_drone(uint8 obj_idx, uint16 pDE)
 {
-    uint8 A, L;
-    A = l & 0x80;
-    A += 1; // inc  a
-    // ex   af,af' ?
-    L = l & ~0x7F; // res  7,l
-    j_108A(L, de, A);
+    uint8 rotn_flag;
+    // rotation-flag determined by presence of bit-1, passed in obj_idx bit-7
+    rotn_flag = (obj_idx & 0x02) ? 0x80 : 0x00;
+    bmbr_setup_fltq(obj_idx, pDE, rotn_flag);
 }
 
 
 /*=============================================================================
-;; c_1083()
+;; bmbr_setup_fltq()
 ;;  Description:
-;;   wrapper for j_108A
-;;   peeling off and diving movement of various galags, special attack
-;;   squadrons, renegade fighter, etc.
+;;   setup bombing attackers in flite control queue, common to boss, drone
 ;; IN:
-;;   HL == &b_8800[n]
-;;   DE == pointer to object data (in cpu-sub1 code space)
-;; OUT:
-;;  ...
-
-;;---------------------------------------------------------------------------*/
-void c_1083(uint8 L, uint16 pDE)
-{
-    reg16 rA;
-    uint8 A;
-    rA.pair.b1 = L; // assign to b1 for rrca
-    rA.word >>= 2; // rrca * 2 ...
-    // carefully combine 2 bits right shifted through Cy with remaining 6 bits
-    // in .b1
-    rA.pair.b1 = (rA.pair.b1 & 0x3F) | (rA.pair.b0 & 0xC0);
-    A = (rA.pair.b1 & 0x80) + 1;
-    // ex   af,af' ?
-    j_108A(L, pDE, A);
-}
-
-
-/*=============================================================================
-;; j_108A()
-;;  Description:
-;;   Setup motion for diving attackers.
-;; IN:
-;;   HL == &b_8800[n]
-;;   DE == pointer to object data (in cpu-sub1 code space)
-;;   A` ==
+;;   obj_idx  == &b_8800[n]
+;;   p_dat    == pointer to table in cpu-sub1 code space
+;;   rot_flag ==
+;;        bit-0: fltq[0x13]<0> activates the q-element, but will be set below
+;;        bit-7: fltq[0x13]<7> sets negative rotation angle
 ;; OUT:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void j_108A(uint8 l, uint16 pde, uint8 a_wtf)
+static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
 {
     reg16 tmpA;
-    uint8 A = a_wtf;
-    uint8 L = l;
-    uint8 B, IX, Cy;
+    uint8 A, B, IX, Cy;
 
+    // find an available data structure or quit
     B = 0;
     while (B < 0x0C)
     {
@@ -134,30 +126,29 @@ static void j_108A(uint8 l, uint16 pde, uint8 a_wtf)
 
     // l_10A0_got_one:
 
-    ds_bug_motion_que[IX].p08.word = pde;
+    ds_bug_motion_que[IX].p08.word = p_dat;
     ds_bug_motion_que[IX].b0D = 1;
     ds_bug_motion_que[IX].b04 = (0x0100 & 0xFF); // 0x0100<7:0>
     ds_bug_motion_que[IX].b05 = 0x0100 >> 8;     // 0x0100<15:8>
 
-    ds_bug_motion_que[IX].b10 = L; // index of object, sprite etc.
+    ds_bug_motion_que[IX].b10 = obj_idx; // index of object, sprite etc.
 
     //  ex   af,af'     function parameter from A'
     //  ld   d,a        to 0x13(ix)
 
-    b8800_obj_status[L].state = 9; // disposition diving attack
-    b8800_obj_status[L].obj_idx = IX;
+    b8800_obj_status[obj_idx].state = 9; // disposition diving attack
+    b8800_obj_status[obj_idx].obj_idx = IX;
 
-    tmpA.word = mrw_sprite.posn[L].b1; // sprite_y<7:0>
-    tmpA.pair.b1 = mrw_sprite.ctrl[L].b1; // sprite_y<8>
+    tmpA.word = mrw_sprite.posn[obj_idx].b1; // sprite_y<7:0>
+    tmpA.pair.b1 = mrw_sprite.ctrl[obj_idx].b1; // sprite_y<8>
     Cy = tmpA.pair.b0 & 0x01; // sY<0> to Cy
     tmpA.word >>= 1; // rrca, rr etc.
 
     if ( 0 == glbls9200.flip_screen) // jr   nz,l_10DC
     {
-//        tmpA.word = 160 - tmpA.word ;
-          tmpA.pair.b0 += (160/2); // add  a,#0x00A0/2
-          tmpA.pair.b0 = -tmpA.pair.b0; // neg
-          Cy = ~Cy; // ccf
+        tmpA.pair.b0 += (160/2); // add  a,#0x00A0/2
+        tmpA.pair.b0 = -tmpA.pair.b0; // neg
+        Cy = ~Cy; // ccf
     }
 
     // l_10DC:
@@ -165,7 +156,7 @@ static void j_108A(uint8 l, uint16 pde, uint8 a_wtf)
     ds_bug_motion_que[IX].b01 = tmpA.pair.b0; // B ... sY<8:1>
     ds_bug_motion_que[IX].b00 = (Cy << 7) & 0x80 ; // sY<0> ... rra etc.
 
-    A = mrw_sprite.posn[L].b0; // ld   a,c ... sprite_x
+    A = mrw_sprite.posn[obj_idx].b0; // ld   a,c ... sprite_x
 
     if ( 0 != glbls9200.flip_screen)
     {
@@ -176,7 +167,7 @@ static void j_108A(uint8 l, uint16 pde, uint8 a_wtf)
     ds_bug_motion_que[IX].b03 = tmpA.pair.b1; // sX<8:1>
     ds_bug_motion_que[IX].b02 = tmpA.pair.b0 & 0x80; // sX<:0> ... now scaled fixed point 9.7
 
-    ds_bug_motion_que[IX].b13 = a_wtf; // d
+    ds_bug_motion_que[IX].b13 = rotn_flag | 0x01; // d
     ds_bug_motion_que[IX].b0E = 0x1E; // bomb drop counter
 
     A = 0;
@@ -324,7 +315,7 @@ void c_new_level_tokens(uint8 sound_disable_flag)
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------*/
-void c_build_token_1(uint8 *pD, uint16 *pHL, uint8 sound_disable_flag)
+static void c_build_token_1(uint8 *pD, uint16 *pHL, uint8 sound_disable_flag)
 {
     int usres;
     uint8 A;
@@ -361,7 +352,7 @@ void c_build_token_1(uint8 *pD, uint16 *pHL, uint8 sound_disable_flag)
 ;; OUT:
 ;;   HL -= 1
 ;;-----------------------------------------------------------------------------*/
-void c_build_token_2(uint8 *D, uint16 *HL)
+static void c_build_token_2(uint8 *D, uint16 *HL)
 {
     uint8 A;
     /*
@@ -420,7 +411,6 @@ void c_build_token_2(uint8 *D, uint16 *HL)
 ;; OUT:
 ;;  ...
 -----------------------------------------------------------------------------*/
-
 void c_1230_init_taskman_structs(void)
 {
     uint8 bc;
@@ -443,7 +433,6 @@ void c_1230_init_taskman_structs(void)
 
 
 /*=============================================================================*/
-
 // sizeof must == SZ_TASK_TBL
 static const uint8 task_enable_tbl_def[32] =
 {
@@ -770,7 +759,7 @@ void c_133A_show_ship(void)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-void draw_resv_ships(void)
+static void draw_resv_ships(void)
 {
     uint16 HL;
     uint8 A, E, D;

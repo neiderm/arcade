@@ -526,8 +526,8 @@ void f_1B65(void)
         return;
     }
 
-    // l_1B75: check the queue for boss+wing mission ... parameters are queue'd
-    // by 'case boss launcher' (4 groups of 3 bytes)
+    // l_1B75: check the queue for boss+wing mission (4 groups of 3 bytes) ...
+    // parameters are queue'd by 'case boss launcher'
     B = 0; // ld   b,#4
     L = 0; // ld   hl,#b_92C0 + 0x0A
     // l_1B7A:
@@ -549,7 +549,7 @@ if (1) // boss launcher not implemented yet
             b_92C0_A[L] = 0xFF; // $FF disables the slot
             b8800_obj_status[A].state &= ~0x80; // res  7,e
 
-            if (1 != b8800_obj_status[A].state) // disposition resting/inactivez
+            if (1 != b8800_obj_status[A].state) // disposition resting/inactive
             {
                 return; // ret  nz
             }
@@ -566,7 +566,7 @@ if (1) // boss launcher not implemented yet
             //ex   af,af'                                ; restore A (byte-0 of b_92C0_A[L + n*3] )
             //ld   l,a
             //ld   h,#>b_8800                            ; e.g. b_8800[$30]
-            c_1079(A, pDE.word); // L object index/offset, pDE is pointer to data
+            bmbr_setup_fltq_boss(A, pDE.word); // L object index/offset, pDE is pointer to data
 
             b_9AA0[0x13] = 1; //  sound-fx count/enable registers, bug dive attack sound
 
@@ -645,7 +645,7 @@ if (1) // boss launcher not implemented yet
                 // ld   a,c ; unstash A ... offset_to_bonus_bee
                 // l_1BF0_found_one:
                 b_9AA0[0x13] = 1; // A (from C) !0 ... sound-fx count/enable registers, bug dive attack sound
-                c_1083(L, pDE.word); // offset, data ptr
+                bmbr_setup_fltq_drone(L, pDE.word); // offset, data ptr
                 return;
             }
             // l_1BEB_next:
@@ -654,7 +654,7 @@ if (1) // boss launcher not implemented yet
         };
         break;
 
-        // boss launcher... we only enable capture-mode for every other one ( %2 )
+        // boss launcher ... only enable capture-mode for every other one ( %2 )
     case 2:
     default:
         break;
