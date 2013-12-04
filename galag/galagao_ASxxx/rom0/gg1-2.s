@@ -175,10 +175,11 @@ l_1074:                                           ; handle overflow out of A
 ;;=============================================================================
 ;; c_1079()
 ;;  Description:
-;;   wrapper for j_108A (used by f_1B65)
 ;;   Called once for each of boss + 1 or 2 wingmen.
 ;; IN:
-;;   HL == &b_8800[n]
+;;   HL == &b_8800[n] ... bits 0:6 ... loaded at l_1B8B from boss_wing_slots[n + 0]
+;;         bit-7 if set then negate rotation angle to (ix)0x0C
+;;         (creature originating on right side)
 ;;   DE == pointer to object data (in cpu-sub1 code space)
 ;; OUT:
 ;;  ...
@@ -186,30 +187,32 @@ l_1074:                                           ; handle overflow out of A
 c_1079:
         ld   a,l
 
-        and  #0x80   ; wtf?
-        inc  a
+        and  #0x80                                ; if set then negate rotation angle to (ix)0x0C
+        inc  a                                    ; set bit-0, .b13<0> makes object slot active
         ex   af,af'
+
         res  7,l
         jp   j_108A
 
 ;;=============================================================================
 ;; c_1083()
 ;;  Description:
-;;   wrapper for j_108A
-;;   Diving movement of redmoth, bee, bonus-bee, and rogue ship.
+;;   Diving movement of red alien, yellow alien, clone-attacker, and rogue fighter.
 ;; IN:
 ;;   HL == &b_8800[n]
 ;;   DE == pointer to object data (in cpu-sub1 code space)
 ;; OUT:
 ;;  ...
-
 ;;-----------------------------------------------------------------------------
 c_1083:
+; set A:bit-7 if L:bit-1 != 0 ... creature originating on right side
         ld   a,l
+
         rrca
         rrca
-        and  #0x80
-        inc  a
+
+        and  #0x80                                ; if set then negate rotation angle to (ix)0x0C
+        inc  a                                    ; set bit-0, .b13<0> makes object slot active
         ex   af,af'
 
 ;;=============================================================================
@@ -220,6 +223,8 @@ c_1083:
 ;;   HL == &b_8800[n]
 ;;   DE == pointer to table in cpu-sub1 code space
 ;;   A` ==
+;;        bit-0: set by c_1083 and c_1079
+;;        bit-7: flag set for negative rotation angle
 ;; OUT:
 ;;
 ;;-----------------------------------------------------------------------------
@@ -249,8 +254,9 @@ l_10A0_got_one:
         ld   0x05(ix),#>0x0100                    ; lsb
         ld   c,l                                  ; stash index to obj_status[], sprite etc.
         ld   0x10(ix),c                           ; index of object, sprite etc.
-        ex   af,af'                               ; function parameter from A'
-        ld   d,a                                  ; to 0x13(ix)
+
+        ex   af,af'
+        ld   d,a                                  ; function parameter from A' to 0x13(ix)
 
         ld   (hl),#9                              ; obj_status[l].state ... disposition = diving attack
         ld   a,ixl
@@ -259,6 +265,7 @@ l_10A0_got_one:
 
         ld   a,(b_9215_flip_screen)
         ld   e,a
+
         ld   l,c                                  ; restore index to obj_status[], sprite etc. (dec l just as good, no?)
         ld   h,#>ds_sprite_posn
         ld   c,(hl)                               ; sprite_x
@@ -268,6 +275,7 @@ l_10A0_got_one:
         ld   a,(hl)                               ; sprite_y<8>
         rrca                                      ; sY<8> into Cy
         rr   b                                    ; sY<8> from Cy to b<7> and sY<0> to Cy
+
         bit  0,e                                  ; test flipped screen
         jr   nz,l_10DC
 ; not flipped screen
@@ -298,21 +306,21 @@ l_10DC:
 
 l_10ED:
         srl  a
-        ld   0x03(ix),a                           ; sprite_x<8:1>
+        ld   0x03(ix),a                           ; sX<8:1>
         rra                                       ; Cy into A<8:>
         and  #0x80
-        ld   0x02(ix),a                           ; sprite_x<:0> ... now scaled fixed point 9.7
-        ld   0x13(ix),d                           ; function argument a'
+        ld   0x02(ix),a                           ; sX<:0> ... now scaled fixed point 9.7
+        ld   0x13(ix),d                           ; function argument (A') sets bit-0 and bit-7
         ld   0x0E(ix),#0x1E                       ; bomb drop counter
 
 ; if (flying_bug_attck_condtn)  bug_motion_que[n].b0F = bomb_drop_enbl_flags
-        ld   a,(ds_9200_glbls + 0x0B)             ; if ( !0 ), load  *(b_92C0 + 0x08) ... bomb drop enable flags
+        ld   a,(ds_9200_glbls + 0x0B)             ; if ( !0 ), load  b_92C0[0x08] ... bomb drop enable flags
         and  a
         jr   z,l_1108
-        ld   a,(b_92C0 + 0x08)                    ; ... bomb drop enable flags
+        ld   a,(b_92C0 + 0x08)                    ; bomb drop enable flags
 ; else bug_motion_que[n].b0F = 0
 l_1108:
-        ld   0x0F(ix),a                           ; b_9200[$0B] or b_92C0[$08] ... bomb drop enable flags
+        ld   0x0F(ix),a                           ; 0 or b_92C0[$08] ... bomb drop enable flags
 
         ret
 
@@ -920,7 +928,7 @@ l_12FD:
        ret
 
 ;;=============================================================================
-;; Initial pixel coordinates of cylon attackers are copied to odd-offsets of ds_home_posn_loc.
+;; Initial pixel coordinates of cylon attackers are copied to odd-offsets of home_posn_loc[].
 ;;
 ;; |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
 ;;

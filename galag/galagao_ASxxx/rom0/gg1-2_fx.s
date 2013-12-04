@@ -853,7 +853,7 @@ l_1B75:
        ld   b,#4
        ld   hl,#b_92C0 + 0x0A                     ; check 4 groups of 3 bytes
 l_1B7A:
-       ld   a,(hl)                                ; byte 0 is object index/offset
+       ld   a,(hl)                                ; .b0: valid object index if slot active, otherwise $FF
        inc  a                                     ; 0 if boss_wing_slots[n*4].b0 == $ff
        jr   nz,l_1B8B                             ; if already active one then move on
        inc  l                                     ; else advance pointer to next set and keep checking ...
@@ -861,12 +861,12 @@ l_1B7A:
        inc  l
        djnz l_1B7A
 
+       ; insert a small delay
        ld   a,(ds3_92A0_frame_cts + 0)
        and  #0x0F
        jr   z,l_1BA8
        ret
 
-; moth or bee sortie is ended upon return to base-position, or when destroyed
 ; launching element of boss+wing mission
 ; A == *HL + 1
 l_1B8B:
@@ -874,9 +874,10 @@ l_1B8B:
        dec  a                                     ; undo increment of boss_wing_slots[n]
        ld   d,#>b_8800
        ld   e,a                                   ; e.g. E=$30 (boss)   8834 (boss already has a captured ship)
-       res  7,e                                   ; why?
+       res  7,e                                   ; if set then negate rotation angle to (ix)0x0C
 
-       ex   af,af'                                ; stash A
+; stash A ... object/index from boss_wing_slots[n] (with bit-7 possibly set for negating rotation angle)
+       ex   af,af'
 
 ; if  (1 != obj_status[E].state) return ... disposition resting/inactivez
        ld   a,(de)                                ; .b0
@@ -888,11 +889,11 @@ l_1B8B:
        inc  l
        ld   d,(hl)                                ; e.g. 92CA[].b1, msb of pointer to data
 
-       ex   af,af'                                ; restore A (byte-0 of boss_wing_slots[n*3] ) ...
-
-       ld   l,a                                   ; ... object index/offset
+; reload A
+       ex   af,af'
+       ld   l,a                                   ; byte-0 of boss_wing_slots[n*3] ... object index/offset
        ld   h,#>b_8800                            ; e.g. b_8800[$30]
-       call c_1079
+       call c_1079                                ; DE, HL, and bit-7 of HL for negation of rotation angle if set
 
        ld   a,#1
        ld   (b_9AA0 + 0x13),a                     ; 1 ... sound-fx count/enable registers, bug dive attack sound
@@ -911,20 +912,20 @@ l_1BAD:
        ret
 
 l_1BB4:
-; if (bugs_flying_nbr > max_flying_bugs_this_rnd) then bomber_rdy_tmr[n]++ && ret
+; if (bugs_flying_nbr >= max_flying_bugs_this_rnd) then ...
        ld   a,(ds_new_stage_parms + 0x04)         ; max_bombers
        ld   c,a
 
        ld   a,(b_bugs_flying_nbr)
        cp   c
        jr   c,l_1BC0
-; maximum nbr of bugs already flying
-       inc  (hl)                                  ; slot counter
+; bomber_rdy_tmr[n]++ && ret ... maximum nbr of bugs already flying
+       inc  (hl)                                  ; set slot counter back to 1 since it can't be processed right now
        ret
 
-; launch another bombing excursion
+; else ... launch another bombing excursion
 l_1BC0:
-; b_92C0_0[n] =  b_92C0_0[n + 4] ... set next timeout for this bomber type?
+; b_92C0_0[n] =  b_92C0_0[n + 4] ... set next timeout for this bomber type
        set  2,l                                   ; offset += 4
        ld   a,(hl)                                ; $92C0[n+4]
        res  2,l
@@ -942,9 +943,10 @@ l_1BC0:
        ld   l,a
        jp   (hl)
 d_1BD1:
-       .dw case_1BD7
-       .dw case_1BF7
-       .dw case_1C01
+; jp table in order of bomber launch timers
+       .dw case_1BD7      ; yellow
+       .dw case_1BF7      ; red
+       .dw case_1C01      ; boss
 
 ; set bee launch params
 case_1BD7:
@@ -984,7 +986,7 @@ case_1BF7:
        ld   de,#db_flv_atk_red
        jr   l_1BDF
 
-; boss launcher... we only enable capture-mode for every other one ( %2 )
+; boss launcher... only enable capture-mode for every other one ( %2 )
 case_1C01:
 ; if (boss is diving/capturing ) then goto 1C30
        ld   a,(ds_plyr_actv +_b_cboss_dive_start) ; 1 if capture-mode is active
@@ -998,9 +1000,9 @@ case_1C01:
 
        ld   ixl,2
        ld   iy,#db_0454
-       ld   de,#b_8800 + 0x30                     ; bosses start at $30
+       ld   de,#b_8800 + 0x30                     ; bosses start at $30 ... object/index of bomber to _1CAE
        ld   b,#0x04                               ; there are 4 of these evil creatures
-; for each boss, find first one that status==resting ... he beomes capture-boss
+; for each boss, first one that status==resting beomes capture-boss
 l_1C1B:
        ld   a,(de)
        dec  a                                     ; if resting ... status == 1
@@ -1039,6 +1041,7 @@ l_1C44:
        ld   ixl,#0
        ld   b,#4
        ld   ixh,c
+
 l_1C4F:
        ld   a,c
        and  #0x07
@@ -1051,8 +1054,9 @@ l_1C5B:
        djnz l_1C4F
 
        inc  ixl
-       ld   c,ixh
+       ld   c,ixh                                 ; restore previous C
        ld   b,#4
+
 l_1C65:
        ld   a,c
        and  #0x07
@@ -1090,11 +1094,16 @@ l_1C83:
 ;;  Description:
 ;;   for f_1B65
 ;; IN:
-;;  ...
+;;  B: 4,3,2,1 to select object/index of bomber
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 c_1C8D:
+; convert ordinal in B (i.e. 4,3,2,1) to object/index ... it's not intuitive:
+;  4 -> 4 -> 0 -> 0
+;  3 -> 2 -> 2 -> 4
+;  2 -> 3 -> 3 -> 6
+;  1 -> 1 -> 1 -> 2
        ld   a,b
        bit  1,a
        jr   z,l_1C94
@@ -1103,7 +1112,7 @@ l_1C94:
        and  #0x03
        sla  a
        add  a,#0x30                               ; boss objects are 30 34 36 32
-       ld   e,a
+       ld   e,a                                   ; object/index of bomber to _1CAE
        ld   a,(de)
        cp   #0x01                                 ; check for ready/available status
        ret  nz
@@ -1126,12 +1135,13 @@ l_1CA0:
 
 ;;-----------------------------------------------------------------------------
 j_1CAE:
+; objects 32 & 36 are on right side (bit-1 set): set flag in bit-7 to indicate negative rotation
+       ld   a,e                                   ; object/index of bomber
+       rrca
+       rrca                                       ; bit-1 in Cy
        ld   a,e
-       rrca
-       rrca
-       ld   a,e
-       rla
-       rrca
+       rla                                        ; Cy into bit-0
+       rrca                                       ; rotate bit-0 into bit-7
        ld   (b_92C0 + 0x0A),a                     ; boss diving
        ex   af,af'
        ld   (b_92C0 + 0x0A + 1),iy                ; boss diving
@@ -1156,12 +1166,12 @@ j_1CAE:
        ld   de,#b_92C0 + 0x0A + 3                 ; 4 groups of 3 bytes
        dec  a
        jr   z,l_1CE0
-       call c_1D03                                ; DE==&b_92CA_boss_wing_slots[3] ... boss dives with wingman
+       call c_1D03                                ; DE==&boss_wing_slots[3] ... boss dives with wingman
 l_1CE0:
-       call c_1D03                                ; DE==&b_92CA_boss_wing_slots[6] ... boss dives with wingman
+       call c_1D03                                ; DE==&boss_wing_slots[6] ... boss dives with wingman
 l_1CE3:
        ld   a,(b_92C0 + 0x0A)                     ; boss diving
-       and  #0x07
+       and  #0x07                                 ; mask off object/index of captured ships i.e. 00 04 06 02
        ld   l,a
 ; check for 0
        ld   h,#>b_8800
@@ -1180,8 +1190,9 @@ l_1CF2:
        inc  a
        jr   nz,l_1CF2
 
+; stash A (object/index of capture-boss), reload object/index of captured ship into A
        ex   af,af'
-       ld   a,c
+       ld   a,c                                   ; object/index of captured ship
        jr   l_1D16
 
 ;;=============================================================================
@@ -1198,11 +1209,11 @@ d_1CFD:
 ;; c_1D03()
 ;;  Description:
 ;;   for c_1C8D
-;;   ...boss takes a sortie with one or two wingmen (red-moth) attached.
+;;   ...boss takes a sortie with one or two wingmen attached.
 ;; IN:
-;;  DE: #b_92CA_boss_wing_slots + 3
+;;  DE: &boss_wing_slots[n]
 ;; OUT:
-;;  ...
+;;  DE: &boss_wing_slots[n + 3]
 ;;-----------------------------------------------------------------------------
 c_1D03:
        rrc  c
@@ -1218,7 +1229,7 @@ l_1D0D:
        rst  0x10                                  ; HL += A
        ex   af,af'
        ld   a,(hl)
-       ex   de,hl
+       ex   de,hl                                 ; &boss_wing_slots[n] to HL
 
 ;;=============================================================================
 ;; out of section at l_1CF2
@@ -1226,10 +1237,14 @@ l_1D0D:
 ;;  A - object/index of diver/bomber e.g. red bomber wingman, captured ship etc.
 ;;-----------------------------------------------------------------------------
 l_1D16:
-       rla                                        ; from _1CFB
+; load boss_wing_slots[n + 0], and stash bit-7 of object/index in Cy
+       rla                                        ; object/index of captured ship from _1CFB
        rrca
-       ld   (hl),a                                ; e.g. HL==&92CA[n]
+       ld   (hl),a                                ; &boss_wing_slots[n + 0]
+
+; stash Cy flag
        ex   af,af'
+
        inc  l
        ld   a,iyl
        ld   (hl),a
@@ -1237,7 +1252,7 @@ l_1D16:
        ld   a,iyh
        ld   (hl),a
        inc  l
-       ex   de,hl
+       ex   de,hl                                 ; &boss_wing_slots[n]
        ret                                        ; back to _1CE0, end 'call _1D03'
 
 ;;=============================================================================

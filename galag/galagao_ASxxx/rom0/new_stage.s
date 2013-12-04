@@ -2,7 +2,7 @@
 ;; new_stage.s:
 ;;  gg1-3.2m, 'maincpu' (Z80)
 ;;
-;;  table data management for the game stages
+;; loads the new parameters for the game stages
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .module new_stage
@@ -19,14 +19,14 @@
 ;; c_2C00()
 ;;  Description:
 ;;   new stage setup
-;;   selects data table based on level and difficulty setting
+;;   selects table based on level and difficulty setting, loads the new
+;;   parameters for the stage
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 c_2C00:
-
        ld   a,(ds_plyr_actv +_b_stgctr)           ; new stage setup
 l_2C03:
 ; while (A > 0x1B)  A -= 4
@@ -44,9 +44,9 @@ l_2C0B:
        add  a,l
        ld   e,a
 
-; pTbl = flt_dat_atk_ptns_lut[mchn_cfg.rank]
+; pTbl = bmbr_stg_cfg_lut[mchn_cfg.rank]
        ld   a,(b_mchn_cfg_rank)
-       ld   hl,#flt_dat_atk_ptns_lut              ; ld the table of ptrs
+       ld   hl,#bmbr_stg_cfg_lut              ; ld the table of ptrs
        rst  0x08                                  ; HL += 2A
        ld   a,(hl)
        inc  hl
@@ -57,7 +57,7 @@ l_2C0B:
        ld   a,e                                   ; adj_stg_cnt * 5
        rst  0x10                                  ; HL += A ... ofset into lut
 
-       ld   de,#ds_new_stage_parms + 0x00
+       ld   de,#ds_new_stage_parms
        ld   b,#5
 l_2C23:
        ld   a,(hl)
@@ -79,7 +79,7 @@ l_2C23:
        inc  hl
        djnz l_2C23
 
-; set ds_new_stage_parms[0x0A]
+; set ds_new_stage_parms[0x0A] ... number of remaining aliens for enable clone-attack
        ld   a,(ds_plyr_actv +_b_stgctr)           ; new stage setup
 ; if ( stage_ctr < 3 )  A = 0 ...
        cp   #3
@@ -89,7 +89,7 @@ l_2C23:
        jr   l_2C46
 l_2C3F:
 ; else if 0xFF == (plyr_state_actv.stage_ctr | 0x0FC)
-       or   #0xFC                                 ; challenge stages numbered so that bit_0 + bit_1 == 11b
+       or   #~0x03                                ; challenge stages numbered so that bit_0 + bit_1 == 11b
        inc  a
        jr   z,l_2C46
 ; ... then
@@ -98,10 +98,10 @@ l_2C3F:
 l_2C46:
        ld   (de),a                                ; ds_new_stage_parms[$A]
 
-; 16 02 02
+; 16 02 02 i.e. start of round defaults for yellow, red, boss bomber timers
        ld   bc,#0x0216
-       ld   (b_92C0 + 0x01),bc                    ; = $0216
-       ld   (b_92C0 + 0x00),bc                    ; = $0216
+       ld   (b_92C0 + 0x01),bc                    ; = $0216 (int values for ready timers of each bomber type)
+       ld   (b_92C0 + 0x00),bc                    ; = $0216 (int values for ready timers of each bomber type)
 
 ; adjust star speed
 
@@ -122,16 +122,26 @@ l_2C5B:
 ;;=============================================================================
 ; selected table is by difficulty (rank) configured by dip switch setting
 ;;-----------------------------------------------------------------------------
-flt_dat_atk_ptns_lut:
-;  .dw db_2CEF,db_2D71,db_2DF3,db_2C6D
-  .dw db_2C6D + 0x82 * 1
-  .dw db_2C6D + 0x82 * 2
-  .dw db_2C6D + 0x82 * 3
-  .dw db_2C6D + 0x82 * 0
+bmbr_stg_cfg_lut:
+  .dw bmbr_stg_cfg_dat + 0x82 * 1
+  .dw bmbr_stg_cfg_dat + 0x82 * 2
+  .dw bmbr_stg_cfg_dat + 0x82 * 3
+  .dw bmbr_stg_cfg_dat + 0x82 * 0
 
-; each of these table entries if $82 (130) bytes
-; $1A unique stages, 5 bytes per entry, 1 parameter per nibble
-db_2C6D:
+; 26 stages of data: 4 sub-tables for the ranks, 5-bytes per stage (1 parameter per nibble)
+
+; 0: parameter for set bomb drop enable flags
+; 1: parameter for setting launch counter, bomber-type 0
+; 2: parameter for setting launch counter, bomber-type 1
+; 3: parameter for setting launch counter, bomber-type 2
+; 4: allowable max_bombers
+; 5: increases allowable max_bombers after a time
+; 6: ds_plyr_actv +_b_captr_flag
+; 7: number of aliens left when continous bombing can start
+; 8: flag for reload attack-wave flite vector table pointer after stage-8
+; 9: flag for reload bombing flite vector table pointer after stage-8
+
+bmbr_stg_cfg_dat:
   .db 0x00,0x00,0x22,0xC6,0x00, 0x00,0x11,0x23,0xC7,0x00
   .db 0x00,0x00,0x00,0xC0,0x00, 0x11,0x12,0x23,0x97,0x00
   .db 0x11,0x23,0x23,0x98,0x00, 0x21,0x24,0x33,0x98,0x00
