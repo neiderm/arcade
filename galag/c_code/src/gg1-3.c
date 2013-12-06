@@ -278,7 +278,8 @@ void f_23DD(void)
 /*=============================================================================
 ;; c_23E0()
 ;;  Description:
-;;   f_23DD() ... player changeover
+;;   allows frame count to be passed directly to f_23DD() for update at player
+;;   changeover.
 ;; IN:
 ;;  A==_frame_counter
 ;; OUT:
@@ -531,8 +532,8 @@ void c_25A2(void)
 
     if (A & 0x03) // if ! challenge_stage
     {
-        // offset into _stage_data_idx, @row
-        A = (B % 4) - 1;
+        // offset into _stage_data_idx, @row ... adjusts index since every 4th stage is a challenge stage
+        A = B - (B / 4) - 1; // srl  b etc.
 
         // select the row, @rank
         A = db_combat_stg_dat_idx[ mchn_cfg.rank ][ A ];
@@ -1028,7 +1029,7 @@ void f_2916(void)
             A = D & 0x07; // color table in bits<0:2>
             mrw_sprite.cclr[ L ].b1 = A;
 
-            if (!(D & 0x80)) // bit  7,d
+            if (0 == (D & 0x80)) // bit  7,d
             {
                 ds_bug_motion_que[IX].b0F = 0;
             }
@@ -1215,4 +1216,3 @@ void f_2A90(void)
     task_actv_tbl_0[0x09] = 1; // f_1DE6 ... collective bug movement
     return;
 }
-
