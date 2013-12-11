@@ -54,8 +54,33 @@ static uint8 j_07C2(uint8, uint8, uint8);
 
 
 /*
-* I think this means word-to-bytes
+ if ld new address, hl+=2 ... loads new ptr
+ not ld new address, hl+=3 ... skips 16-bit ptr and skips control byte
+x=_flite_path_init
+.=_next_superloop ($0B87,$0B8B,$0B8C)
+/=_flite_path_init ($0BFF)
+        $FF  case_0E49   make_object_inactive
+/       $FE  case_0B16   HL+=9 ... alien breaks formation to attack ship (level 3+)
+x       $FD  case_0B46   inc HL x2 ... alien returns to base from sortie
+/       $FC  case_0B4E   inc HL x2 (not ptr) ... yellow alien loopback from dive, or boss left position and start dive
+x       $FB  case_0AA0   HL+=1 ... element of convoy formation hits turning point and heads to home
+/.      $FA  case_0BD1   inc HL x2, x3, yellow alien passed under bottom of screen and turns for home
+.       $F9  case_0B5F   HL+=1 ... yellow alien passed under bottom of screen and turns for home
+.       $F8  case_0B87   HL+=1 ... tractor beam reaches ship
+x       $F7  case_0B98   inc HL x2, x3, load 16-bit address ... attack convoy
+.       $F6  case_0BA8   HL+=1 ... one red alien left in "free flight mode"
+x       $F5  case_0942   HL+=1 ... ?
+x       $F4  case_0A53   HL+=1 ... capture boss diving
+/       $F3  case_0A01   HL+=9 ... diving alien left formation and fired
+x       $F2  case_097B   inc HL x3 ... special 3 ship squadron (yellow alien split)
+.       $F1  case_0968   HL+=1 ... diving attacks stop and aliens go home
+.       $F0  case_0955   inc HL x2, x3: load 16-bit address ... attack convoy
+.       $EF  case_094E   inc HL x2, x3: load 16-bit address ... one red alien left in "free flight mode"
 */
+
+/*
+ * I think this means word-to-bytes
+ */
 #define W2B( _arg_ )   (_arg_ & 0x00FF), (_arg_ >> 8)
 
 /*
@@ -81,11 +106,11 @@ static const uint8 flv_p_004b[] =
     0x23,0xF0,0x26,0x23,0x14,0x13,0xFE,
     0x0D,0x0B,0x0A,0x08,0x06,0x04,0x03,0x01,0x23,0xFF,
     0xFF,0xFF,
-//};
-//static const uint8 _flv_i_005e[] = {
+//_flv_i_005e
     0x44,0xE4,0x18,0xFB,0x44,0x00,0xFF,0xFF,
     0xC9 // junk ?
 };
+
 static const uint8 flv_d_0067[] =
 {
     0x23,0x08,0x08,0x23,0x03,0x1B,0x23,0x08,0x0F,0x23,0x16,0x15,0xF7,
@@ -93,16 +118,42 @@ static const uint8 flv_d_0067[] =
     0x23,0x16,0x03,0xF0,
     W2B(_flv_i_0097),
     0x23,0x16,0x19,0xFB,0x23,0x00,0xFF,0xFF,
-//};
-//static const uint8 _flv_i_0084[] = {
+//_flv_i_0084
     0x23,0x16,0x01,0xFE,
     0x0D,0x0C,0x0A,0x08,0x06,0x04,0x03,0x01,0x23,0xFC,
     0x30,0x23,0x00,0xFF,
     0xFF,
-//};
-//static const uint8 _flv_i_0097[] = {
+//_flv_i_0097
     0x44,0x27,0x0E,0xFB,0x44,0x00,0xFF,0xFF
 };
+
+static const uint8 flv_d_009f[] =
+{
+    0x33,0x06,0x18,0x23,0x00,0x18,0xf7,
+    W2B(_flv_i_00b6),
+    0x23,0xf0,0x08,0xf0,
+    W2B(_flv_i_00cc),
+    0x23,0xf0,0x20,0xfb,0x23,0x00,0xff,0xff,
+// p_flv_00b6:
+    0x23,0xf0,0x20,0x23,0x10,0x0d,0xfe,
+    0x1a,0x18,0x15,0x10,0x0c,0x08,0x05,0x03,0x23,0xfe,
+    0x30,0x23,0x00,0xff,
+    0xff,
+// p_flv_00cc:
+    0x33,0xe0,0x10,0xfb,0x44,0x00,0xff,0xff
+};
+
+static const uint8 flv_d_00d4[] =
+{
+    0x23,0x03,0x18,0x33,0x04,0x10,0x23,0x08,0x0a,0x44,0x16,0x12,0xf7,
+    W2B(_flv_i_0160),
+    0x44,0x16,0x03,0xf0,
+    W2B(_flv_i_0173),// stg 13
+    0x44,0x16,0x1d,0xfb,0x23,0x00,0xff,0xff
+};
+
+// db_flv_00f1: this one or db_flv_0411 for boss launcher
+
 
 // Copy of home position LUT from task_man.
 const uint8 db_obj_home_posn_RC[] =
@@ -115,19 +166,127 @@ const uint8 db_obj_home_posn_RC[] =
     0x18, 0x06, 0x18, 0x0c, 0x1a, 0x06, 0x1a, 0x0c, 0x18, 0x08, 0x18, 0x0a, 0x1a, 0x08, 0x1a, 0x0a
 };
 
+// Create explicit array, this one is not contiguous with previous! Note the
+// naming convention changed on this one - only referenced by init copy to RAM.
+//static const uint8 flv_p_0160[] =
 
-static const uint8 flv_d_01E8[] =   // // 6: challenge stage convoy
+const uint8 flv_d_017b[] =
+{
+    0x23,0x06,0x18,0x23,0x00,0x18,0xf7,
+    W2B( _flv_i_0192),
+    0x44,0xf0,0x08,0xf0,
+    W2B( _flv_i_01a8),
+    0x44,0xf0,0x20,0xfb,0x23,0x00,0xff,0xff,
+//p_flv_0192:
+    0x44,0xf0,0x26,0x23,0x10,0x0b,0xfe,
+    0x22,0x20,0x1e,0x1b,0x18,0x15,0x12,0x10,0x23,0xfe,
+    0x30,0x23,0x00,0xff,
+    0xff,
+//p_flv_01a8:,
+    0x66,0xe0,0x10,0xfb,0x44,0x00,0xff,0xff,
+};
+
+const uint8 flv_d_01b0[] =
+{
+    0x23,0x03,0x20,0x23,0x08,0x0f,0x23,0x16,0x12,0xf7,
+    W2B(_flv_i_01ca),
+    0x23,0x16,0x03,0xf0,
+    W2B(_flv_i_01e0),
+    0x23,0x16,0x1d,0xfb,0x23,0x00,0xff,0xff,
+// p_flv_01ca:
+    0x23,0x16,0x01,0xfe,
+    0x0d,0x0c,0x0b,0x09,0x07,0x05,0x03,0x02,0x23,0x02,0x20,0x23,0xfc,
+    0x12,0x23,0x00,0xff,
+    0xff,
+// p_flv_01e0:
+    0x44,0x20,0x14,0xfb,0x44,0x00,0xff,0xff
+};
+
+static const uint8 flv_d_01E8[] =   // 6: challenge stage convoy
 {
     0x23,0x00,0x10,0x23,0x01,0x40,0x22,0x0c,0x37,0x23,0x00,0xff,0xff
 };
-static const uint8 flv_d_01F5[] =   // // 7: challenge stage convoy
+
+static const uint8 flv_d_01F5[] =   // 7: challenge stage convoy
 {
     0x23,0x02,0x3a,0x23,0x10,0x09,0x23,0x00,0x18,0x23,0x20,0x10,
     0x23,0x00,0x18,0x23,0x20,0x0d,0x23,0x00,0xff,0xff
 };
 
+static const uint8 flv_d_020b[] =
+{
+    0x23,0x00,0x10,0x23,0x01,0x30,0x00,0x40,0x08,0x23,0xff,0x30,0x23,0x00,0xff,0xff,
+};
 
-static const uint8 flv_d_atk_yllw[] = // yellow alien attack params
+static const uint8 flv_d_021b[] =
+{
+    0x23,0x00,0x30,0x23,0x05,0x80,0x23,0x05,0x4c,0x23,0x04,0x01,0x23,0x00,0x50,0xff,
+};
+
+static const uint8 flv_d_022b[] =
+{
+    0x23,0x00,0x28,0x23,0x06,0x1d,0x23,0x00,0x11,0x00,0x40,0x08,0x23,0x00,0x11,
+    0x23,0xfa,0x1d,0x23,0x00,0x50,0xff,
+};
+
+static const uint8 flv_d_0241[] =
+{
+    0x23,0x00,0x21,0x00,0x20,0x10,0x23,0xf8,0x20,0x23,0xff,0x20,0x23,0xf8,0x1b,
+    0x23,0xe8,0x0b,0x23,0x00,0x21,0x00,0x20,0x08,0x23,0x00,0x42,0xff,
+};
+
+static const uint8 flv_d_025d[] =
+{
+    0x23,0x00,0x08,0x00,0x20,0x08,0x23,0xf0,0x20,0x23,0x10,0x20,0x23,0xf0,0x40,
+    0x23,0x10,0x20,0x23,0xf0,0x20,0x00,0x20,0x08,0x23,0x00,0x30,0xff,
+};
+
+static const uint8 flv_d_0279[] =
+{
+    0x23,0x10,0x0c,0x23,0x00,0x20,0x23,0xe8,0x10,
+    0x23,0xf4,0x10,0x23,0xe8,0x10,0x23,0xf4,0x32,0x23,0xe8,0x10,0x23,0xf4,0x32,
+    0x23,0xe8,0x10,0x23,0xf4,0x10,0x23,0xe8,0x0e,0x23,0x02,0x30,0xff,
+};
+
+static const uint8 flv_d_029e[] =
+{
+    0x23,0xf1,0x08,0x23,0x00,0x10,0x23,0x05,0x3c,0x23,0x07,0x42,0x23,0x0a,0x40,
+    0x23,0x10,0x2d,0x23,0x20,0x19,0x00,0xfc,0x14,0x23,0x02,0x4a,0xff,
+};
+
+static const uint8 flv_d_02ba[] =
+{
+    0x23,0x04,0x20,0x23,0x00,0x16,0x23,0xf0,0x30,0x23,0x00,0x12,0x23,0x10,0x30,
+    0x23,0x00,0x12,0x23,0x10,0x30,0x23,0x00,0x16,0x23,0x04,0x20,0x23,0x00,0x10,0xff,
+};
+
+static const uint8 flv_d_02d9[] =
+{
+    0x23,0x00,0x15,0x00,0x20,0x08,0x23,0x00,0x11,
+    0x00,0xe0,0x08,0x23,0x00,0x18,0x00,0x20,0x08,0x23,0x00,0x13,
+    0x00,0xe0,0x08,0x23,0x00,0x1f,0x00,0x20,0x08,0x23,0x00,0x30,0xff,
+};
+
+static const uint8 flv_d_02fb[] =
+{
+    0x23,0x02,0x0e,0x23,0x00,0x34,
+    0x23,0x12,0x19,0x23,0x00,0x20,0x23,0xe0,0x0e,0x23,0x00,0x12,0x23,0x20,0x0e,
+    0x23,0x00,0x0c,0x23,0xe0,0x0e,0x23,0x1b,0x08,0x23,0x00,0x10,0xff,
+};
+
+static const uint8 flv_d_031d[] =
+{
+    0x23,0x00,0x0d,0x00,0xc0,0x04,0x23,0x00,0x21,0x00,0x40,0x06,0x23,0x00,0x51,
+    0x00,0xc0,0x06,0x23,0x00,0x73,0xff,
+};
+
+static const uint8 flv_d_0333[] =
+{
+    0x23,0x08,0x20,0x23,0x00,0x16,0x23,0xe0,0x0c,0x23,0x02,0x0b,
+    0x23,0x11,0x0c,0x23,0x02,0x0b,0x23,0xe0,0x0c,0x23,0x00,0x16,0x23,0x08,0x20,0xff,
+};
+
+static const uint8 flv_d_atk_yllw[] =
 {
     0x12,0x18,0x1e,
 //};
@@ -157,14 +316,15 @@ static const uint8 flv_d_atk_yllw[] = // yellow alien attack params
     W2B(_flv_i_036c), // oops shot captured fighter
 //};
 //static const uint8 _flv_i_039e[] = {
-    0x12,0xf8,0x10,0x12,0x00,0x40,0xfb,0x12,0x00,0xff,0xff
+    0x12,0xf8,0x10,0x12,0x00,0x40,
+    0xfb,0x12,0x00,0xff,0xff
 };
 
-static const uint8 flv_d_atk_red[] = // red alien attack params
+static const uint8 flv_d_atk_red[] =
 {
     0x12,0x18,0x1d,
 //};
-//static const uint8 _flv_i_03ac[] = { // reads from this one in level 0 so get on it
+//static const uint8 _flv_i_03ac[] = {
     0x12,0x00,0x28,0x12,0xfa,0x02,0xf3,
     0x3f,0x3b,0x36,0x32,0x28,0x26,0x24,0x22,0x12,0x04,0x30,0x12,0xfc,
     0x30,0x12,0x00,0x18,0xf8,0xf9,0xfa,
@@ -188,8 +348,8 @@ static const uint8 flv_d_atk_red[] = // red alien attack params
     W2B(_flv_i_03cc),
 //};
 //static const uint8 _flv_i_040c[] = {
-    0xfb,
-    0x12,0x00,0xff,0xff,
+    0xfb,0x12,0x00,0xff,0xff,
+//flv_d_0411: this one or flv_d_00f1
     0x12,0x18,0x14,
 //};
 //static const uint8 _flv_i_0414[] = {
@@ -246,84 +406,6 @@ uint16  flv_0B46_set_ptr(uint16 u16hl)
   } \
 }
 
-// offsets from gg1-5 map file - can use t_flv_offs enum in place of hard
-// values for what it's worth
-void flv_init_data(void)
-{
-    FLV_MCPY( flv_d_001d      , 0x001D)
-    FLV_MCPY( flv_p_004b      , 0x004B)
-//  FLV_MCPY(_flv_i_005e      , 0x005E)
-    FLV_MCPY( flv_d_0067      , 0x0067)
-//  FLV_MCPY(_flv_i_0084      , 0x0084)
-//  FLV_MCPY(_flv_i_0097      , 0x0097)
-//  FLV_MCPY( flv_d_0097      , 0x0097)
-//  FLV_MCPY( flv_d_009f      , 0x009F)
-//  FLV_MCPY(_flv_i_00b6      , 0x00B6)
-//  FLV_MCPY(_flv_i_00cc      , 0x00CC)
-//  FLV_MCPY( flv_d_00d4      , 0x00D4)
-//  FLV_MCPY(_flv_i_0160      , 0x0160)
-//  FLV_MCPY(_flv_i_0173      , 0x0173)
-//  FLV_MCPY( flv_d_017b      , 0x017B)
-//  FLV_MCPY(_flv_i_0192      , 0x0192)
-//  FLV_MCPY(_flv_i_01a8      , 0x01A8)
-//  FLV_MCPY( flv_d_01b0      , 0x01B0)
-//  FLV_MCPY(_flv_i_01ca      , 0x01CA)
-//  FLV_MCPY(_flv_i_01e0      , 0x01E0)
-//  FLV_MCPY( flv_d_01e8      , 0x01E8)
-//  FLV_MCPY( flv_d_01f5      , 0x01F5)
-//  FLV_MCPY( flv_d_020b      , 0x020B)
-//  FLV_MCPY( flv_d_021b      , 0x021B)
-//  FLV_MCPY( flv_d_022b      , 0x022B)
-//  FLV_MCPY( flv_d_0241      , 0x0241)
-//  FLV_MCPY( flv_d_025d      , 0x025D)
-//  FLV_MCPY( flv_d_0279      , 0x0279)
-//  FLV_MCPY( flv_d_029e      , 0x029E)
-//  FLV_MCPY( flv_d_02ba      , 0x02BA)
-//  FLV_MCPY( flv_d_02d9      , 0x02D9)
-//  FLV_MCPY( flv_d_02fb      , 0x02FB)
-//  FLV_MCPY( flv_d_031d      , 0x031D)
-//  FLV_MCPY( flv_d_0333      , 0x0333)
-    FLV_MCPY( flv_d_atk_yllw  , 0x034F)
-//  FLV_MCPY(_flv_i_0352      , 0x0352)
-//  FLV_MCPY(_flv_i_0358      , 0x0358)
-//  FLV_MCPY(_flv_i_0363      , 0x0363)
-//  FLV_MCPY(_flv_i_036c      , 0x036C)
-//  FLV_MCPY(_flv_i_037c      , 0x037C)
-//  FLV_MCPY(_flv_i_039e      , 0x039E)
-    FLV_MCPY( flv_d_atk_red   , 0x03A9)
-//  FLV_MCPY(_flv_i_03ac      , 0x03AC)
-//  FLV_MCPY(_flv_i_03cc      , 0x03CC)
-//  FLV_MCPY(_flv_i_03d7      , 0x03D7)
-//  FLV_MCPY(_flv_i_040c      , 0x040C)
-//  FLV_MCPY(_flv_i_0414      , 0x0414)
-//  FLV_MCPY(_flv_i_0420      , 0x0420)
-//  FLV_MCPY(_flv_i_0425      , 0x0425)
-//  FLV_MCPY(_flv_i_0430      , 0x0430)
-//  FLV_MCPY( flv_d_cboss      , 0x046B)
-//  FLV_MCPY(_flv_i_0499      , 0x0499)
-//  FLV_MCPY( flv_d_04c6      , 0x04C6)
-//  FLV_MCPY(_flv_i_04c6      , 0x04C6)
-//  FLV_MCPY(_flv_i_04cf      , 0x04CF)
-//  FLV_MCPY( flv_d_04cf      , 0x04CF)
-//  FLV_MCPY( flv_d_04d8      , 0x04D8)
-//  FLV_MCPY(_flv_i_04d8      , 0x04D8)
-//  FLV_MCPY( flv_d_0502      , 0x0502)
-//  FLV_MCPY(_flv_i_0502      , 0x0502)
-//  FLV_MCPY( flv_d_0fda      , 0x0FDA)
-//  FLV_MCPY( flv_d_0ff0      , 0x0FF0)
-}
-
-// additional stage data (see db_2A3C)
-const uint8 fltvct_FDA[] =
-{
-    0x23, 0x00, 0x1B, 0x23, 0xF0, 0x40, 0x23, 0x00, 0x09, 0x23, 0x05,
-    0x11, 0x23, 0x00, 0x10, 0x23, 0x10, 0x40, 0x23, 0x04, 0x30, 0xFF
-};
-const uint8 fltvct_FF0[] =
-{
-    0x23, 0x02, 0x35, 0x23, 0x08,
-    0x10, 0x23, 0x10, 0x3C, 0x23, 0x00, 0xFF, 0xFF, 0x32, 0xFF
-};
 
 /*=============================================================================
 ;; cpu1_init()
@@ -373,7 +455,7 @@ void cpu1_init(void)
     irq_acknowledge_enable_cpu1 = 1; // sfr_6821
 
 
-    // shouldn't go here
+    // shouldn't be here
     flv_init_data();
 }
 
@@ -1218,7 +1300,7 @@ void f_08D3(void)
 
                         case 0x05: // _0BD1: bee has flown under bottom of screen and now turns for home
 
-                            // ld   a,(b_92A0 + 0x0A)                     ; unknown flag
+                            // ld   a,(b_92A0 + 0x0A) ; flag set when continuous bombing
                             // ld   c,a
                             // ld   a,(ds_cpu0_task_actv + 0x1D)          ; f_2000 (destroyed boss that captured ship)
                             // dec  a
@@ -1240,8 +1322,8 @@ void f_08D3(void)
                             }
                             break;
 
-                        // red alien flew through bottom of screen to top, heading for home
-                        // yellow alien flew under bottom of screen and now turns for home
+                            // red alien flew through bottom of screen to top, heading for home
+                            // yellow alien flew under bottom of screen and now turns for home
                         case 0x06: // _0B5F:
                             E = ds_bug_motion_que[b_bug_que_idx].b10;
                             E = db_obj_home_posn_RC[ E + 1 ]; // column index
@@ -1271,8 +1353,8 @@ void f_08D3(void)
                             goto l_0DFB_next_superloop;
                             break;
 
-                        // red alien flew through bottom of screen to top, heading for home
-                        // yellow alien flew under bottom of screen and now turns for home
+                            // red alien flew through bottom of screen to top, heading for home
+                            // yellow alien flew under bottom of screen and now turns for home
                         case 0x07: // _0B87: tractor beam reaches ship
                             ds_bug_motion_que[b_bug_que_idx].b01 = 0x9C; // ld   0x01(ix),#$9C
 
@@ -1316,11 +1398,12 @@ void f_08D3(void)
                         case 0x0B: // _0A53: capture boss diving
                             break;
 
-                        // red guy stuck in a circle if this doesn't work he can't get home
+                            // red guy stuck in a circle if this doesn't work he can't get home
                         case 0x0C: // _0A01: diving elements have left formation (set bomb target?)
                         {
                             reg16 tmpA;
 
+                            // setup horizontal limits for targetting
                             A = mrw_sprite.posn[SPR_IDX_SHIP].b0;
                             if ( A <= 0x1E )
                             {
@@ -1330,6 +1413,7 @@ void f_08D3(void)
                             {
                                 A = 0xD1;
                             }
+
                             // l_0A16:
                             tmpA.word = A;
                             if ( 0 != glbls9200.flip_screen ) // bit  0,c
@@ -1343,7 +1427,7 @@ void f_08D3(void)
                             A = ds_bug_motion_que[b_bug_que_idx].b03;
                             tmpA.word -= A;
                             tmpA.word >>= 1; // rra  a ... Cy into <7>
-                            tmpA.pair.b1 = 0; // clear3 it so the overflow condition can be tested
+                            tmpA.pair.b1 = 0; // clear it so the overflow condition can be tested
 
                             if ( 0 != (ds_bug_motion_que[b_bug_que_idx].b13 & 0x80)) // bit  7,0x13(ix)
                             {
@@ -1353,7 +1437,8 @@ void f_08D3(void)
                             // l_0A2C_:
                             tmpA.word += 0x18;
                             A = tmpA.pair.b0;
-                            if (0 == tmpA.pair.b1)  A = 0; // overflow ... xor  a
+
+                            if (0 == tmpA.pair.b1)  A = 0; // !overflow ... xor  a
                             //l_0A32:
                             if ( tmpA.word >= 0x30) tmpA.word = 0x2F;
 
@@ -2052,4 +2137,81 @@ static uint16 c_0EAA(uint8 _A_, uint16 _HL_)
 void f_0ECA(void)
 {
 
+}
+
+// additional challenge stage data (see db_2A3C)
+static const uint8 flv_d_0fda[] =
+{
+    0x23,0x00,0x1B,0x23,0xF0,0x40,0x23,0x00,0x09,0x23,0x05,0x11,
+    0x23,0x00,0x10,0x23,0x10,0x40,0x23,0x04,0x30,0xFF
+};
+static const uint8 flv_d_0ff0[] =
+{
+    0x23,0x02,0x35,0x23,0x08,0x10,
+    0x23,0x10,0x3C,0x23,0x00,0xFF,0xFF
+};
+
+/************************************/
+
+// offsets from gg1-5 map file - can use t_flv_offs enum in place of hard
+// values for what it's worth
+void flv_init_data(void)
+{
+    FLV_MCPY( flv_d_001d      , 0x001D) // stg 1
+    FLV_MCPY( flv_p_004b      , 0x004B) // this one is a "jump" but is not contigous with previous so must be copied explicitly
+    FLV_MCPY( flv_d_0067      , 0x0067) // stg 1
+    FLV_MCPY( flv_d_009f      , 0x009F) // stg 2
+//  FLV_MCPY(_flv_i_00b6      , 0x00B6)
+//  FLV_MCPY(_flv_i_00cc      , 0x00CC)
+    FLV_MCPY( flv_d_00d4      , 0x00D4) // stg 2
+//  FLV_MCPY(_flv_i_0160      , 0x0160)
+//  FLV_MCPY(_flv_i_0173      , 0x0173)
+    FLV_MCPY( flv_d_017b      , 0x017B)
+//  FLV_MCPY(_flv_i_0192      , 0x0192)
+//  FLV_MCPY(_flv_i_01a8      , 0x01A8)
+    FLV_MCPY( flv_d_01b0      , 0x01B0)
+//  FLV_MCPY(_flv_i_01ca      , 0x01CA)
+//  FLV_MCPY(_flv_i_01e0      , 0x01E0)
+    FLV_MCPY( flv_d_01E8      , 0x01E8) // chllg stg (3)
+    FLV_MCPY( flv_d_01F5      , 0x01F5) // chllg stg (3)
+    FLV_MCPY( flv_d_020b      , 0x020B)
+    FLV_MCPY( flv_d_021b      , 0x021B)
+    FLV_MCPY( flv_d_022b      , 0x022B)
+    FLV_MCPY( flv_d_0241      , 0x0241)
+    FLV_MCPY( flv_d_025d      , 0x025D)
+    FLV_MCPY( flv_d_0279      , 0x0279)
+    FLV_MCPY( flv_d_029e      , 0x029E)
+    FLV_MCPY( flv_d_02ba      , 0x02BA)
+FLV_MCPY( flv_d_02d9      , 0x02D9)
+FLV_MCPY( flv_d_02fb      , 0x02FB)
+FLV_MCPY( flv_d_031d      , 0x031D)
+FLV_MCPY( flv_d_0333      , 0x0333)
+    FLV_MCPY( flv_d_atk_yllw  , 0x034F)
+//  FLV_MCPY(_flv_i_0352      , 0x0352)
+//  FLV_MCPY(_flv_i_0358      , 0x0358)
+//  FLV_MCPY(_flv_i_0363      , 0x0363)
+//  FLV_MCPY(_flv_i_036c      , 0x036C)
+//  FLV_MCPY(_flv_i_037c      , 0x037C)
+//  FLV_MCPY(_flv_i_039e      , 0x039E)
+    FLV_MCPY( flv_d_atk_red   , 0x03A9)
+//  FLV_MCPY(_flv_i_03ac      , 0x03AC)
+//  FLV_MCPY(_flv_i_03cc      , 0x03CC)
+//  FLV_MCPY(_flv_i_03d7      , 0x03D7)
+//  FLV_MCPY(_flv_i_040c      , 0x040C)
+//  FLV_MCPY(_flv_i_0414      , 0x0414)
+//  FLV_MCPY(_flv_i_0420      , 0x0420)
+//  FLV_MCPY(_flv_i_0425      , 0x0425)
+//  FLV_MCPY(_flv_i_0430      , 0x0430)
+//  FLV_MCPY( flv_d_cboss      , 0x046B)
+//  FLV_MCPY(_flv_i_0499      , 0x0499)
+//  FLV_MCPY( flv_d_04c6      , 0x04C6)
+//  FLV_MCPY(_flv_i_04c6      , 0x04C6)
+//  FLV_MCPY(_flv_i_04cf      , 0x04CF)
+//  FLV_MCPY( flv_d_04cf      , 0x04CF)
+//  FLV_MCPY( flv_d_04d8      , 0x04D8)
+//  FLV_MCPY(_flv_i_04d8      , 0x04D8)
+//  FLV_MCPY( flv_d_0502      , 0x0502)
+//  FLV_MCPY(_flv_i_0502      , 0x0502)
+    FLV_MCPY( flv_d_0fda      , 0x0FDA)
+    FLV_MCPY( flv_d_0ff0      , 0x0FF0)
 }

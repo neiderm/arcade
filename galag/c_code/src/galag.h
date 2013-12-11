@@ -17,7 +17,8 @@ typedef unsigned int uint32;
 
 // mchn cfg dipswitches
 
-typedef struct {
+typedef struct
+{
     uint8 bonus[2];
     uint8 nships;
     uint8 cab_type;
@@ -32,7 +33,8 @@ typedef struct {
 //   odd-bytes are used to implement various loosely related global flags and
 //   states... so a separate structure is created to try to clear things up.
 
-typedef struct {
+typedef struct
+{
     uint8 game_state; //               01
     uint8 demo_idx; //                 03
     //uint8 b8_demo_scrn_txt_indx; //  05
@@ -45,7 +47,8 @@ typedef struct {
     uint8 flip_screen; //              15:  0 ...not_flipped
 } tstruct_b9200;
 
-typedef struct {
+typedef struct
+{
     uint8 num_ships; // mchn_cfg_nships
     uint8 stage_ctr;
     uint8 *p_atkwav_tbl; // &8920[n] (see 2896)
@@ -80,7 +83,8 @@ typedef struct {
  * This one can be used on its own if word access is not required, which
  * would clean up the notation a little bit.
  */
-typedef struct struct_pair {
+typedef struct struct_pair
+{
 #ifdef LSB_FIRST
     uint8 b0;
     uint8 b1;
@@ -93,7 +97,8 @@ typedef struct struct_pair {
 /*
  * Use this for byte or word access to 16-bit registers.
  */
-typedef union {
+typedef union
+{
     uint16 word;
     t_bpair pair;
 } reg16;
@@ -102,7 +107,8 @@ typedef union {
  * sprite buffer sizes are doubled, which wastes a little memory but it means
  * that it is not necessary to convert from byte-indexing to t_bpair indexing.
  */
-typedef struct struct_mrw_sprite {
+typedef struct struct_mrw_sprite
+{
 
     // offset[0]: tile code
     // offset[1]: color map code
@@ -155,7 +161,8 @@ extern unsigned char *galaga_starcontrol;
 // Object status structure... 2 bytes per element.
 // Order is common to sprite buffer and register banks.
 
-typedef struct object_status {
+typedef struct object_status
+{
     uint8 state; //   [ 0 + n ] : object state
     uint8 obj_idx; // [ 1 + n ] : offset into 9100[] .. see 2980... 0x10(ix),a links back to the object offset in 8800
 } struct_obj_status;
@@ -169,7 +176,8 @@ typedef struct object_status {
 //  11 + offset
 //  13 + offset
 
-typedef struct struct_bug_flying_status {
+typedef struct struct_bug_flying_status
+{
     uint8 b00;
     uint8 b01;
     uint8 b02;
@@ -198,47 +206,46 @@ typedef struct struct_bug_flying_status {
  */
 typedef enum
 {
-    _flv_d_001d     = 0x001D,
+    _flv_d_001d      = 0x001D,
     _flv_i_004b      = 0x004B,
     _flv_i_005e      = 0x005E,
-    _flv_d_0067     = 0x0067,
+    _flv_d_0067      = 0x0067,
     _flv_i_0084      = 0x0084,
     _flv_i_0097      = 0x0097,
-//    _flv_d_0097     = 0x0097,
-//    _flv_d_009f     = 0x009F,
-//  _flv_i_00b6      = 0x00B6,
-//  _flv_i_00cc      = 0x00CC,
-//    _flv_d_00d4     = 0x00D4,
-//  _flv_i_0160      = 0x0160,
-//  _flv_i_0173      = 0x0173,
-//    _flv_d_017b     = 0x017B,
-//  _flv_i_0192      = 0x0192,
-//  _flv_i_01a8      = 0x01A8,
-//    _flv_d_01b0     = 0x01B0,
-//  _flv_i_01ca      = 0x01CA,
-//  _flv_i_01e0      = 0x01E0,
-    _flv_d_01e8     = 0x01E8,
-    _flv_d_01f5     = 0x01F5,
-//    _flv_d_020b     = 0x020B,
-//    _flv_d_021b     = 0x021B,
-//    _flv_d_022b     = 0x022B,
-//    _flv_d_0241     = 0x0241,
-//    _flv_d_025d     = 0x025D,
-//    _flv_d_0279     = 0x0279,
-//    _flv_d_029e     = 0x029E,
-//    _flv_d_02ba     = 0x02BA,
-//    _flv_d_02d9     = 0x02D9,
-//    _flv_d_02fb     = 0x02FB,
-//    _flv_d_031d     = 0x031D,
-//    _flv_d_0333     = 0x0333,
-    _flv_d_atk_yllw = 0x034F,
+    _flv_d_009f      = 0x009F,
+    _flv_i_00b6      = 0x00B6,
+    _flv_i_00cc      = 0x00CC,
+    _flv_d_00d4      = 0x00D4,
+    _flv_i_0160      = 0x0160,
+    _flv_i_0173      = 0x0173,
+    _flv_d_017b      = 0x017B,
+    _flv_i_0192      = 0x0192,
+    _flv_i_01a8      = 0x01A8,
+    _flv_d_01b0      = 0x01B0,
+    _flv_i_01ca      = 0x01CA,
+    _flv_i_01e0      = 0x01E0,
+    _flv_d_01e8      = 0x01E8,
+    _flv_d_01f5      = 0x01F5,
+    _flv_d_020b      = 0x020B,
+    _flv_d_021b      = 0x021B,
+    _flv_d_022b      = 0x022B,
+    _flv_d_0241      = 0x0241,
+    _flv_d_025d      = 0x025D,
+    _flv_d_0279      = 0x0279,
+    _flv_d_029e      = 0x029E,
+    _flv_d_02ba      = 0x02BA,
+    _flv_d_02d9      = 0x02D9,
+    _flv_d_02fb      = 0x02FB,
+    _flv_d_031d      = 0x031D,
+    _flv_d_0333      = 0x0333,
+    _flv_d_atk_yllw  = 0x034F,
     _flv_i_0352      = 0x0352,
 //  _flv_i_0358      = 0x0358,
 //  _flv_i_0363      = 0x0363,
     _flv_i_036c      = 0x036C,
     _flv_i_037c      = 0x037C,
     _flv_i_039e      = 0x039E,
-    _flv_d_atk_red  = 0x03A9,
+    _flv_d_atk_red   = 0x03A9,
     _flv_i_03ac      = 0x03AC,
     _flv_i_03cc      = 0x03CC,
     _flv_i_03d7      = 0x03D7,
@@ -247,18 +254,18 @@ typedef enum
     _flv_i_0420      = 0x0420,
 //  _flv_i_0425      = 0x0425,
     _flv_i_0430      = 0x0430,
-//    _flv_d_cboss    = 0x046B,
+//  _flv_d_cboss     = 0x046B,
 //  _flv_i_0499      = 0x0499,
-//    _flv_d_04c6     = 0x04C6,
+//  _flv_d_04c6      = 0x04C6,
 //  _flv_i_04c6      = 0x04C6,
 //  _flv_i_04cf      = 0x04CF,
-//    _flv_d_04cf     = 0x04CF,
-//    _flv_d_04d8     = 0x04D8,
+//  _flv_d_04cf      = 0x04CF,
+//  _flv_d_04d8      = 0x04D8,
 //  _flv_i_04d8      = 0x04D8,
-//    _flv_d_0502     = 0x0502,
+//  _flv_d_0502      = 0x0502,
 //  _flv_i_0502      = 0x0502,
-//    _flv_d_0fda     = 0x0FDA,
-//    _flv_d_0ff0     = 0x0FF0,
+    _flv_d_0fda      = 0x0FDA,
+    _flv_d_0ff0      = 0x0FF0,
 //
 } t_flv_offs;
 

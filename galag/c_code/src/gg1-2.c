@@ -66,7 +66,7 @@ void bmbr_setup_fltq_boss(uint8 L, uint16 pDE)
 {
     uint8 rotn_flag, obj_idx;
     rotn_flag = L & 0x80;
-    obj_idx &= 0x7F; // res  7,l
+    obj_idx = L & 0x7F; // res  7,l
     bmbr_setup_fltq(obj_idx, pDE, rotn_flag);
 }
 
