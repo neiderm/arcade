@@ -403,7 +403,7 @@ b_92B0:
                             ; accumulator for division remainder (f_1EA4)
 
 b_92C0:
-         ; related to stage configuration parms?            2C46
+; bomber activation timers (3 bytes) and init values (3 bytes)
          .ds     $$03
          .ds     $$01  ; unused (force even alignment of following member)
          .ds     $$03
@@ -542,10 +542,10 @@ ds_99B9_star_ctrl:
 b8_ship_collsn_detectd_status:
          .ds     1
 
-
 ds_new_stage_parms:
          .ds     $$0A       ; each byte stores 1 nibble of bytes $0 thru $A of table dw_2C65[] (new stage)
          .ds     $$01       ; bonus-bee when bug count reaches $0A (0 for challenge stage)
+
          .ds     $$15       ; unused
 
 ds20_99E0:
