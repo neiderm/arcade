@@ -32,7 +32,7 @@
 				</Linker>
 			</Target>
 			<Target title="Debug Galag">
-				<Option output="bin/Debug/galagx" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/DebugX/galag" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="../xmame-0.36.1" />
 				<Option object_output="obj/DebugGX/" />
 				<Option type="1" />
