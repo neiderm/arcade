@@ -67,7 +67,7 @@ static uint8 ds30_susp_plyr_obj_data[0x30]; // c_player_active_switch
 static uint8 credit_cnt;
 
 // forward declarations
-static const uint8 d_attrmode_sptiles_ships[];
+static const uint8 d_attrmode_sptiles_ships[][4];
 static const uint8 d_0495[];
 static const uint8 str_1UP[];
 static const uint8 str_2UP[];
@@ -79,7 +79,7 @@ static const uint8 d_0909[];
 static void c_game_init(void);
 static void c_game_init_putc(uint8 const *HL, uint16 DE);
 static void j_060F_new_stage(void);
-static void c_game_bonus_info_show_line(uint8, uint8, uint8 const *);
+static void c_game_bonus_info_show_line(uint8, uint8, uint8);
 static void j_0612_plyr_setup(void);
 static void j_061E_plyr_respawn(void);
 static void c_093C(uint8 CA);
@@ -289,21 +289,21 @@ int game_state_ready(void)
         // ld   (p_attrmode_sptiles),hl ... not necessary to keep persistent pointer for function paramter
 
         // E=bonus score digit, C=string_out_pe_index
-        c_game_bonus_info_show_line(A, 0x1B, d_attrmode_sptiles_ships + 0 * 4);
+        c_game_bonus_info_show_line(A, 0x1B, 0);
 
         A = mchn_cfg.bonus[1];
         if (0xFF != A) // ... else l_While_Ready
         {
             A &= 0x7F;
 
-            c_game_bonus_info_show_line(A, 0x1C, d_attrmode_sptiles_ships + 1 * 4);
+            c_game_bonus_info_show_line(A, 0x1C, 1);
             A = mchn_cfg.bonus[1];
 
             // if bit 7 is set, the third bonus award does not apply
             if (0 == (0x80 & A)) // goto l_While_Ready
             {
                 A &= 0x7F;
-                c_game_bonus_info_show_line(A, 0x1D, d_attrmode_sptiles_ships + 2 * 4);
+                c_game_bonus_info_show_line(A, 0x1D, 2);
             }
         }
     }
@@ -395,7 +395,7 @@ int game_mode_start(void)
  OUT:
   ...
 -----------------------------------------------------------------------------*/
-static void c_game_bonus_info_show_line(uint8 E, uint8 C, uint8 const *pHL)
+static void c_game_bonus_info_show_line(uint8 E, uint8 C, uint8 idx)
 {
     uint16 HL;
     uint16 DE;
@@ -411,8 +411,7 @@ static void c_game_bonus_info_show_line(uint8 E, uint8 C, uint8 const *pHL)
 
     c_string_out(HL, 0x1E); // draw 0's
 
-    sprite_tiles_display(pHL); // show the fighter sprite
-
+    sprite_tiles_display(d_attrmode_sptiles_ships[idx]); // show the fighter sprite
     return;
 }
 
@@ -426,11 +425,11 @@ static void c_game_bonus_info_show_line(uint8 E, uint8 C, uint8 const *pHL)
 ;;  2: X coordinate
 ;;  3: Y coordinate
  */
-static const uint8 d_attrmode_sptiles_ships[] =
+static const uint8 d_attrmode_sptiles_ships[][4] =
 {
-    0x00, 0x81, 0x19, 0x56,
-    0x02, 0x81, 0x19, 0x62,
-    0x04, 0x81, 0x19, 0x6E
+    {0x00, 0x81, 0x19, 0x56},
+    {0x02, 0x81, 0x19, 0x62},
+    {0x04, 0x81, 0x19, 0x6E}
 };
 
 /*=============================================================================
