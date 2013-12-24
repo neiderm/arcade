@@ -3,7 +3,7 @@
 ;;  gg1-3.s (gg1-3.2m)
 ;;    Manages formation, attack convoys, boss/capture.
 ;;
- *******************************************************************************/
+*******************************************************************************/
 /*
  ** header file includes
  */
@@ -383,11 +383,12 @@ void c_23E0(uint8 frame_ct)
             case 0x01:
                 L = E;
 
-                // use bit-1 of 4 Hz timer to toggle bug flap every 1/2
-                // second (selects tile code/offset 6 or 7)
+                // use bit-1 of 4 Hz timer to animate nested aliens every 1/2
+                // second (selects tile code/offset 6 or 7 - fighters don't
+                // have any animation, so same tile bitmap in both 6 and 7)
                 mrw_sprite.cclr[L].b0 &= ~0x01;
                 mrw_sprite.cclr[L].b0 |=
-                    0 != (ds3_92A0_frame_cts[2] & 0x02);
+                    (0 != (ds3_92A0_frame_cts[2] & 0x02));
 
                 // if 0, then skip the rest but count object
                 if (0 != glbls9200.flying_bug_attck_condtn)
@@ -480,7 +481,7 @@ void c_23E0(uint8 frame_ct)
                 break;
             }
         }
-        while (B++ < 32); // half of object set
+        while (++B < 32); // half of object set
     }
     else
     {
@@ -872,10 +873,12 @@ static const uint8 d_stage_chllg_rnd_attrib[] =
     20, 0x80 + 0x3C,
     30, 0x80 + 0x3D
 };
+
 static const uint8 d_2908[] =
 {
     0xA5, 0x5A, 0xA9, 0x0F, 0x0A, 0x50
 };
+
 static const uint8 d_290E[] =
 {
     0x36, 0x24, 0xD4, 0xBA, 0xE4, 0xCC, 0xA8, 0xF4
@@ -1164,7 +1167,6 @@ static const uint8 db_2A6C[] =
 void f_2A90(void)
 {
     uint8 B, C, L;
-
 
     if (((ds3_92A0_frame_cts[0] - 1) & 0x03) != 0) // why -1 ?
         return;
