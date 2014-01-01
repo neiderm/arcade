@@ -573,17 +573,13 @@ void c_25A2(void)
     while (0xFF != *pHL_db_stg_dat++) // stg_dat[n] ... check for end of record in stage flite data table
     {
         uint8 obj_ID_tmpb_9100[0x16];
-        uint8 *pbHL_obj_ID_tmpb;
         uint8 C, L;
 
         /*
          setup temp array of next attack wave: consisting of 0 to X transients
          (if any) and always 8 "non-transient" attackers
          */
-        // pbHL_obj_ID_tmpb = ds_bug_motion_que; // test side effect of memset ds_9100 $FF (debugging f_08D3)
-        pbHL_obj_ID_tmpb = &obj_ID_tmpb_9100[0];
-
-        memset(pbHL_obj_ID_tmpb, 0xFF, 16);
+        memset(obj_ID_tmpb_9100, 0xFF, 16);
 
 
         if (0 != (*pHL_db_stg_dat & 0x0F)) // A == _stg_dat[ 2 + 3 * n + 0 ]
@@ -604,13 +600,13 @@ void c_25A2(void)
         while (B > 0) // 8
         {
             // j_263F_skip_until_ff ... check for unused slot in tmp buffer
-            while (0xFF != pbHL_obj_ID_tmpb[ L ])
+            while (0xFF != obj_ID_tmpb_9100[ L ])
             {
                 L++;
             }
 
             // l_2647_is_ff
-            pbHL_obj_ID_tmpb[L++] = *pdb_attk_wav_IDs++;
+            obj_ID_tmpb_9100[L++] = *pdb_attk_wav_IDs++;
 
             if (B == 5)
                 L = 8;
@@ -640,15 +636,15 @@ void c_25A2(void)
         L = 0; // ld   hl,#ds_atk_wav_tmp_buf
 
         // l_2662_read_until_ff
-        while (0xFF != pbHL_obj_ID_tmpb[L + 0])
+        while (0xFF != obj_ID_tmpb_9100[L + 0])
         {
             *pDE_ds_8920_atk_wv_obj_t++ = B; // L parameter
 
-            *pDE_ds_8920_atk_wv_obj_t++ = pbHL_obj_ID_tmpb[L + 0]; // L object ID
+            *pDE_ds_8920_atk_wv_obj_t++ = obj_ID_tmpb_9100[L + 0]; // L object ID
 
             *pDE_ds_8920_atk_wv_obj_t++ = C; // R parameter
 
-            *pDE_ds_8920_atk_wv_obj_t++ = pbHL_obj_ID_tmpb[L + 8]; // R object ID
+            *pDE_ds_8920_atk_wv_obj_t++ = obj_ID_tmpb_9100[L + 8]; // R object ID
 
             L++;
         }
@@ -1169,7 +1165,9 @@ void f_2A90(void)
     uint8 B, C, L;
 
     if (((ds3_92A0_frame_cts[0] - 1) & 0x03) != 0) // why -1 ?
+    {
         return;
+    }
 
     // check for exit condition
     if (0 == b_bugs_actv_nbr &&
