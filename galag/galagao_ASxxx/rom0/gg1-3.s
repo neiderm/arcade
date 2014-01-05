@@ -736,12 +736,15 @@ d_23A1:
 ;; f_23DD()
 ;;  Description:
 ;;   This task is never disabled.
-;;   Updates each object in the table at 8800. Iterating through the table at
-;;   b8800, it develops a cumulative count of active bugs.
+;;   Updates each object in obj_status[] and updates global count of active
+;;   objects.
 ;;   Call here for f_1D32, but normally this is a periodic task called 60Hz.
-;;   Effectively, the entire update is done 15Hz. It updates each half of the
-;;   objects on alternate odd frames. On one even frame it simply exits and on
-;;   the other it updates the global bug count and resets the cumulative count.
+;;   Using bits <1:0> of framecounter as the state variable, 1 cycle of this
+;;   task is completed over four successive frames, i.e. the cycle is repeated
+;;   at a rate of 15Hz. Half of the objects are updated at each alternating odd
+;;   frame. On one even frame object count is updated.
+;;   The function body is broken out to a separate subroutine allowing the
+;;   frame count to be forced in A (needed for update at player changeover)
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -756,8 +759,7 @@ f_23DD:
 ;; c_23E0()
 ;;  Description:
 ;;   Implementation of f_23DD()
-;;   Provide a call interface so that the mob update can be forced on a player
-;;   changeover.
+;;   See comments for f_23DD() above.
 ;; IN:
 ;;  A==_frame_counter
 ;; OUT:
@@ -768,12 +770,13 @@ c_23E0:
        bit  0,a
        jp   z,l_2596_even_frame
 
-; set initial offset of 8800 +0 or +2 (alternates 0,4,8.. or 2,6,10... )
+; frame count bit-1 provides start index/offset of obj_status[], i.e. 0,4,8,etc.
+; on frame 1 and 2,6,10,etc. on frame 3
        and  #0x02
        ld   e,a                                   ; E==0 if frame 1, E==2 if frame 3
 
        ld   a,(b_bugs_actv_cnt)
-       ld   ixl,a
+       ld   ixl,a                                 ; use as "local" variable for object counter
 
        ld   b,#32                                 ; size of object set / 2
 l_23EF:
@@ -910,7 +913,8 @@ l_2483:
 case_2488:
        ld   h,#>ds_sprite_code
        ld   l,e
-; use bit-1 of 4 Hz timer to toggle bug flap every 1/2 second (selects tile code/offset 6 or 7)
+; alternate between tile code 6 and 7 every 1/2 sec: rotate bit-1 of 4 Hz timer into Cy
+; and then rl the Cy into bit-0 of sprite code
        ld   a,(ds3_92A0_frame_cts + 2)
        rrc  (hl)
        rrca
@@ -1132,12 +1136,11 @@ case_2590:
        jp   l_2414_inc_active
 
 l_2596_even_frame:
-; if ( ! frame_2 ) return
-       bit  1,a                                   ; A == frame_count
+; if ( framect & 0x02 ) ...
+       bit  1,a                                   ; frame_count
        ret  z
-
-; else update_active_bug_count
-       ld   hl,#b_bugs_actv_cnt                   ; =0
+; ... update object_count
+       ld   hl,#b_bugs_actv_cnt                   ; store active_objects_nbr and clear the object count
        ld   a,(hl)
        ld   (hl),#0
        inc  l
@@ -1193,7 +1196,7 @@ l_25B4:
 ; ... then ...
 ; HL = &idx_tbl[ rank * 17 ][ 0 ] ... select index table row, by rank
        ld   a,(b_mchn_cfg_rank)
-       ld   l,#0x11
+       ld   l,#17
        call c_104E_mul_16_8                       ; L = rank * 17
        ld   a,l
        ld   hl,#d_combat_stg_dat_idx
@@ -1416,7 +1419,7 @@ l_2681_end_of_table:
 
 l_26A4_done:
        ld   a,#0x7F                               ; end token marker
-       ld   (de),a                                ; e.g. *(8977):=$7F
+       ld   (de),a                                ; ($8920 + $11*5)
 
        ret
 
@@ -1973,9 +1976,9 @@ f_2A90:
        dec  c
        dec  c                                     ; C = -1
 
-; update the table
+; initialize index and loop counter, update the table
 l_2AAB:
-       ld   l,#0                                  ; initialize index into LUT
+       ld   l,#0                                  ; index into table
        ld   b,#10                                 ; nbr of column positions
 l_2AAF:
 ; increment the relative position
@@ -1991,7 +1994,6 @@ l_2AAF:
 ; HL+=2
        inc  l
        inc  l
-
        djnz l_2AAF
 
 ; if ( 0 == nestlr_inh  ||  0 != obj_pos_rel[0] )  ...

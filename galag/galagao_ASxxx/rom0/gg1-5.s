@@ -311,8 +311,10 @@ db_flv_atk_red:
   .db 0x12,0x18,0x1d
  p_flv_03ac:
   .db 0x12,0x00,0x28,0x12,0xfa,0x02,0xf3
-  .db 0x3f,0x3b,0x36,0x32,0x28,0x26,0x24,0x22,0x12,0x04,0x30,0x12,0xfc
-  .db 0x30,0x12,0x00,0x18,0xf8,0xf9,0xfa
+  ; $03B3
+  .db 0x3f,0x3b,0x36,0x32,0x28,0x26,0x24,0x22
+  ; $03BB
+  .db 0x12,0x04,0x30,0x12,0xfc,0x30,0x12,0x00,0x18,0xf8,0xf9,0xfa
   .dw p_flv_040c
   .db 0xef
   .dw p_flv_03d7
@@ -326,7 +328,7 @@ db_flv_atk_red:
   .dw p_flv_040c
   .db 0xf6,0xb0
   .db 0x23,0x08,0x20,0x23,0x00,0x08,0x23,0xf8,0x02,0xf3
-  .db 0x34,0x31,0x2d,0x29,0x22,0x26,0x1f,0x18            ; i'm a weird line
+  .db 0x34,0x31,0x2d,0x29,0x22,0x26,0x1f,0x18
   .db 0x23,0x08,0x18,0x23,0xf8,0x18,0x23,0x00,0x10,0xf8,0xf9,0xfd
   .dw p_flv_03cc
  p_flv_040c:
@@ -1644,8 +1646,9 @@ l_0A10:
 l_0A16:
        bit  0,c
        jr   z,l_0A1E
-       add  a,#0x0E                               ; when?
+       add  a,#0x0E
        neg
+; 9.7 fixed point math
 l_0A1E:
        srl  a
        sub  0x03(ix)
@@ -1655,7 +1658,7 @@ l_0A1E:
        neg
 l_0A2C_:
        add  a,#0x18
-       jp   p,l_0A32                              ; !p on overflow
+       jp   p,l_0A32                              ; jumps if S is reset (!p on overflow)
        xor  a                                     ; !overflow
 l_0A32:
        cp   #0x30
@@ -1663,7 +1666,6 @@ l_0A32:
        ld   a,#0x2F                               ; when?
 l_0A38:
        ld   h,a
-
        ld   a,#6
        call c_0EAA                                ; HL = HL / A
        ld   a,h
@@ -1863,12 +1865,12 @@ case_0B4E:  ; $03
        set  5,0x13(ix)                            ; bee or boss dive
        jp   l_0BFF                                ; save pointer and goto _flite_pth_cont
 
-; bee has flown under bottom of screen and now turns for home
-; hmm.... well no, this is working on moth $40 that is nested. The bee is at the bottom though.
-; or maybe a boss
+; red alien flew through bottom of screen to top, heading for home
+; yellow alien flew under bottom of screen and now turns for home
 case_0B5F:  ; $06
        ld   a,(b_9215_flip_screen)
        ld   c,a
+
        ld   e,0x10(ix)                            ; home_posn_rc[ obj_id + 1 ]
        inc  e
        ld   d,#>db_obj_home_posn_RC               ; home_posn_rc[ ix($10) + 1 ] ... column position index
@@ -1890,7 +1892,8 @@ l_0B76:
        ld   (b_9AA0 + 0x13),a                     ; ~0 ... sound-fx count/enable registers, bug dive attack sound
        jr   l_0B8B                                ; inc hl and finalize
 
-; tractor beam reaches ship
+; red alien flew through bottom of screen to top, heading for home
+; yellow alien flew under bottom of screen and now turns for home
 case_0B87:  ; $07
        ld   0x01(ix),#0x9C
 l_0B8B:
@@ -1908,6 +1911,8 @@ case_0B98:  ; $08
        ld   a,0x10(ix)                            ; offset of object ...8800[L]
        and  #0x38
        cp   #0x38                                 ; "transient"? ($38, $3A, $3C, $3E)
+
+; from case_0BD1 ... if (1 == cont_bmb_flag && 0 == task_actv[0x1D]) then ... HL += 3
 l_0B9F:
        jp   z,l_0B46                              ; load next ptr
 ; ptr to data table inc 3x ... (2 incs to skip address in table e.g. $0024?)
@@ -1937,11 +1942,12 @@ l_0BB4:
        ld   0x0F(ix),a                            ; b_92C0[$08] ... bomb drop enable flags
        jp   l_0B8B                                ; inc hl and finalize
 
-; bee has flown under bottom of screen and now turns for home
+; homing, red transit to top, yellow from off-screen at bottom or skip if in continuous mode
 case_0BD1:  ; $05
-       ld   a,(b_92A0 + 0x0A)                     ; if continuous bombing flag is set, then skip reload data pointer
+; if (1 == cont_bmb_flag && 0 == task_actv[0x1D]) then pD += 3 else pD = *(pHL)
+       ld   a,(b_92A0 + 0x0A)                     ; continuous bombing flag, test for reload data pointer
        ld   c,a
-       ld   a,(ds_cpu0_task_actv + 0x1D)          ; f_2000 (destroyed boss that captured ship)
+       ld   a,(ds_cpu0_task_actv + 0x1D)          ; f_2000 (destroyed boss that captured ship) test for reload data pointer
        dec  a
        and  c
        jr   l_0B9F                                ; load next ptr or skip
