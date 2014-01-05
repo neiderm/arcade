@@ -1397,7 +1397,6 @@ void f_08D3(void)
                         case 0x0B: // _0A53: capture boss diving
                             break;
 
-                            // red guy stuck in a circle if this doesn't work he can't get home
                         case 0x0C: // _0A01: diving elements have left formation (set bomb target?)
                         {
                             reg16 tmpA;
@@ -1422,7 +1421,8 @@ void f_08D3(void)
                             }
 
                             // l_0A1E:  9.7 fixed-point math
-                            tmpA.word >>= 1; // srl  a
+                            tmpA.word >>= 1; // srl  a ... sX<8:1> in tmpA
+
                             A = ds_bug_motion_que[b_bug_que_idx].b03;
                             tmpA.word -= A;
                             tmpA.word >>= 1; // rra  a ... Cy into <7>
@@ -1439,9 +1439,13 @@ void f_08D3(void)
                             A = tmpA.pair.b0;
 
                             // is result > $7F ?
-                            if (0 == tmpA.pair.b1)  A = 0; // !overflow ... xor  a
+                            if (0 != tmpA.pair.b1) // jp   p,l_0A32
+                            {
+                               A = 0; // xor  a ... S is set (overflow)
+                            }
+
                             //l_0A32:
-                            if ( tmpA.word >= 0x30) tmpA.word = 0x2F;
+                            if (A >= 0x30) A = 0x2F;
 
                             //l_0A38:
                             A = c_0EAA(6, A); // HL = HL / A
