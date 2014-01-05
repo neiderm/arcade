@@ -66,7 +66,7 @@ x       $FD  case_0B46   inc HL x2 ... alien returns to base from sortie
 x       $FB  case_0AA0   HL+=1 ... element of convoy formation hits turning point and heads to home
 /.      $FA  case_0BD1   inc HL x2, x3, yellow alien passed under bottom of screen and turns for home
 .       $F9  case_0B5F   HL+=1 ... yellow alien passed under bottom of screen and turns for home
-.       $F8  case_0B87   HL+=1 ... tractor beam reaches ship
+.       $F8  case_0B87   HL+=1 ... red alien transit to top
 x       $F7  case_0B98   inc HL x2, x3, load 16-bit address ... attack convoy
 .       $F6  case_0BA8   HL+=1 ... one red alien left in "free flight mode"
 x       $F5  case_0942   HL+=1 ... ?
@@ -343,7 +343,7 @@ static const uint8 flv_d_atk_red[] =
     W2B(_flv_i_040c),
     0xf6,0xb0,
     0x23,0x08,0x20,0x23,0x00,0x08,0x23,0xf8,0x02,0xf3,
-    0x34,0x31,0x2d,0x29,0x22,0x26,0x1f,0x18,            //    i'm a weird line
+    0x34,0x31,0x2d,0x29,0x22,0x26,0x1f,0x18,
     0x23,0x08,0x18,0x23,0xf8,0x18,0x23,0x00,0x10,0xf8,0xf9,0xfd,
     W2B(_flv_i_03cc),
 //};
@@ -378,13 +378,13 @@ uint8 flv_get_data(uint16 phl)
 {
     return flv_data[phl];
 }
-
+// this one is separate to allow breakpoint prior to selection of new command token
 uint8 flv_get_data_uber(uint16 phl)
 {
     return  flv_get_data(phl);
 }
 
-// ld new data ptr into de and ex into hl ... resultant de not used
+// return the next two bytes as a 16-bit address/offset with which to reload the data pointer
 uint16  flv_0B46_set_ptr(uint16 u16hl)
 {
     reg16 de;
@@ -1222,6 +1222,7 @@ void f_08D3(void)
                             break;
 
                         case 0x04: // _0AA0: attack wave element hits turning point and heads to home
+
                             L = ds_bug_motion_que[b_bug_que_idx].b10;
 
                             // use byte-pointer as index of pairs:
@@ -1298,8 +1299,7 @@ void f_08D3(void)
                             // jp   j_090E_flite_path_init
                             break;
 
-                        case 0x05: // _0BD1: bee has flown under bottom of screen and now turns for home
-
+                        case 0x05: // _0BD1: homing, red transit to top, yellow from offscreen at bottom or skip if in continuous mode
                             // ld   a,(b_92A0 + 0x0A) ; flag set when continuous bombing
                             // ld   c,a
                             // ld   a,(ds_cpu0_task_actv + 0x1D)          ; f_2000 (destroyed boss that captured ship)
@@ -1308,8 +1308,7 @@ void f_08D3(void)
                             // jr   l_0B9F
 
                             // l_0B9F:
-                            // jp   z,l_0B46
-                            if (0) // if ( 0 != b_92A0_0A && 0 == ds_cpu0_task_actv[0x1D])
+                            if (0) // if ( 1 == b_92A0_0A && 0 == ds_cpu0_task_actv[0x1D]) // jp   z,l_0B46
                             {
                                 pHLdata += 3; // inc  hl (x3)
                                 // jp   j_090E_flite_path_init
@@ -1355,7 +1354,7 @@ void f_08D3(void)
 
                             // red alien flew through bottom of screen to top, heading for home
                             // yellow alien flew under bottom of screen and now turns for home
-                        case 0x07: // _0B87: tractor beam reaches ship
+                        case 0x07: // _0B87:
                             ds_bug_motion_que[b_bug_que_idx].b01 = 0x9C; // ld   0x01(ix),#$9C
 
                             //l_0B8B
@@ -1421,14 +1420,15 @@ void f_08D3(void)
                                 tmpA.word += 0x0E;
                                 tmpA.word = -A; // neg
                             }
-                            // l_0A1E:
 
+                            // l_0A1E:  9.7 fixed-point math
                             tmpA.word >>= 1; // srl  a
                             A = ds_bug_motion_que[b_bug_que_idx].b03;
                             tmpA.word -= A;
                             tmpA.word >>= 1; // rra  a ... Cy into <7>
                             tmpA.pair.b1 = 0; // clear it so the overflow condition can be tested
 
+                            // typically .b13 if set then negate data to (ix)0x0C
                             if ( 0 != (ds_bug_motion_que[b_bug_que_idx].b13 & 0x80)) // bit  7,0x13(ix)
                             {
                                 tmpA.word = -tmpA.word; // neg
@@ -1438,6 +1438,7 @@ void f_08D3(void)
                             tmpA.word += 0x18;
                             A = tmpA.pair.b0;
 
+                            // is result > $7F ?
                             if (0 == tmpA.pair.b1)  A = 0; // !overflow ... xor  a
                             //l_0A32:
                             if ( tmpA.word >= 0x30) tmpA.word = 0x2F;
@@ -1446,7 +1447,7 @@ void f_08D3(void)
                             A = c_0EAA(6, A); // HL = HL / A
                             A += 1;
                             A = flv_get_data(pHLdata + A);
-                            ds_bug_motion_que[b_bug_que_idx].b0D = A;
+                            ds_bug_motion_que[b_bug_que_idx].b0D = A; // expiration of this data-set
                             pHLdata += 9;
                             // jp   l_0BFF
                             goto l_0BFF; // gotta get out somehow
@@ -1969,9 +1970,9 @@ static uint16 c_0E5B(uint16 _DE_, uint8 _H_, uint8 _L_)
     // l_0E67:
     C = A;
 
-    A = D - _H_;
+    A = D - _H_; // sub  h
 
-    if (_H_ > D)
+    if (_H_ > D) // jr   nc,l_0E76
     {
         B ^= 1; // xor  #0x01
         B |= 2; // or   #0x02
@@ -1985,7 +1986,7 @@ static uint16 c_0E5B(uint16 _DE_, uint8 _H_, uint8 _L_)
     Cy ^= B; // rla ... rra
     Cy ^= 1; // ccf
     B <<= 1; // rl   b ...
-    B |= Cy; // ... rl   b
+    B |= (Cy & 0x01); // ... rl   b
 
     // pop  af
 
