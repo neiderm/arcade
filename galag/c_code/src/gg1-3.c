@@ -7,19 +7,19 @@
 /*
  ** header file includes
  */
-#include <string.h> // malloc
+#include <string.h> // memset
 #include "galag.h"
 
 /*
  ** defines and typedefs
  */
 
-// data type for _2A3C ... pointer to flight pattern tables in bug flying queue
-typedef struct struct_flite_ptn_cfg
+// data type, motion control config data
+typedef struct
 {
     uint16 p_tbl; // pointer to data tables for flying pattern control.
     uint8 idx; // bits 13:15 - selection index into lut 2A6C.
-} t_flite_ptn_cfg;
+} t_atkw_mctl_d;
 
 /*
  ** extern declarations of variables defined in other files
@@ -39,30 +39,35 @@ t_bug_flying_status ds_bug_motion_que[ 0x0C ];
 
 uint8 stg_chllg_rnd_attrib[2];
 uint8 b_92E2_stg_parm[2]; // bomb-drop control and counter ... TODO: in gg1-5.c
-uint8 b_bugs_actv_nbr;
+uint8 b_bugs_actv_nbr; // total count of remaining aggressors according to object state dispatcher
 
 /*
  ** static external definitions in this file
  */
 
 // variables
-static uint8 ds_8920_atk_wv_obj_tbl [0x60]; // attack wave object setup tables
-static uint8 bugs_actv_cnt;
-static const uint8 d_stage_chllg_rnd_attrib[];
-static const uint8 d_2908[];
-static const uint8 d_290E[];
-static const uint8 db_attk_wav_IDs[];
-static const uint8 db_combat_stg_dat_idx[4][17];
-static const uint8 db_challg_stg_data_idx[];
-static const uint8 db_combat_stg_dat[];
-static const uint8 db_challg_stg_dat[];
-static const t_flite_ptn_cfg db_2A3C[];
-static const uint8 db_2A6C[];
+
+// accumulated count of remaining aggressors according to object state dispatcher
+static uint8 objs_dspch_ccnt; // probably includes zombie fighter
+
+ // attack wave sequencer table: 16-bytes * 5 waves + 6 bytes for markers ($7E, $7F)
+static uint8 atkw_seqt[0x56];
+
+// forward declarations
+static const uint8 atkw_chllg_rnd_attrib[];
+static const uint8 atkw_bdrp_enbl[];
+static const uint8 atkw_chlg_spcclr[];
+static const uint8 atkw_oids[];
+static const uint8 atkw_combat_stg_d_idx[][17];
+static const uint8 atkw_challg_stg_d_idx[];
+static const uint8 atkw_combat_stg_dat[];
+static const uint8 atkw_challg_stg_dat[];
+static const t_atkw_mctl_d atkw_mctl_fptn_d[];
+static const uint8 atkw_mctl_cinits[];
 
 // function prototypes
-static void c_23E0(uint8);
-static void c_28E9(uint8 *, uint8 *, uint8, uint8);
-
+static void atkw_eclass_init(uint8 *, uint8 *, uint8, uint8);
+static void objs_dispatcher(uint8);
 
 /*=============================================================================
 ;; f_2000()
@@ -124,7 +129,7 @@ void f_2222(void)
 }
 
 /*=============================================================================
-;; rckt_hit_hdlr()
+;; objs_dispatcher_rckt_hit()
 ;;  Description:
 ;;   animates bug explosion animation on rocket hit ... downsized f_23DD()
 ;; IN:
@@ -133,7 +138,7 @@ void f_2222(void)
 ;;  ...
 ;;
 ;;---------------------------------------------------------------------------*/
-static void rckt_hit_hdlr(uint8 E)
+static void objs_dispatcher_rckt_hit(uint8 E)
 {
     reg16 AF;
     uint8 A, C, L;
@@ -248,7 +253,7 @@ static void rckt_hit_hdlr(uint8 E)
 
     // l_2529:
     mrw_sprite.ctrl[ L ].b0 = C;
-    b8800_obj_status[ L ].state = 5;
+    b8800_obj_status[ L ].state = 5; // disposition ... showing score bitmap
     b8800_obj_status[ L ].obj_idx = 0x13; // counter for score bitmap
 
     //jp   case_2416
@@ -258,13 +263,9 @@ static void rckt_hit_hdlr(uint8 E)
 /*=============================================================================
 ;; f_23DD()
 ;;  Description:
-;;   This task is never disabled.
-;;   Updates each object in the table at 8800. Iterating through the table at
-;;   b8800, it develops a cumulative count of active bugs.
-;;   Call here for f_1D32, but normally this is a periodic task called 60Hz.
-;;   Effectively, the entire update is done 15Hz. It updates each half of the
-;;   objects on alternate odd frames. On one even frame it simply exits and on
-;;   the other it updates the global bug count and resets the cumulative count.
+;;   16mS task, always enabled.
+;;   Walk the object status table, counting active elements and handle all
+;;   states.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -272,20 +273,25 @@ static void rckt_hit_hdlr(uint8 E)
 ;;---------------------------------------------------------------------------*/
 void f_23DD(void)
 {
-    c_23E0(ds3_92A0_frame_cts[0]);
+    objs_dispatcher(ds3_92A0_frame_cts[0]);
 }
 
 /*=============================================================================
-;; c_23E0()
+;; objs_dispatcher()
 ;;  Description:
-;;   allows frame count to be passed directly to f_23DD() for update at player
+     Object state dispatcher
+;;   Frame count passed from f_23DD() or specified value for update at player
 ;;   changeover.
+;;   Once complete pass through the object status table is completed every 4
+;;   frames. On alternate odd frames half of the objects are updated. On one
+;;   even frame it simply exits and on the other even frame the global
+;;   attacker count is refreshed and the cumulative count resets.
 ;; IN:
-;;  A==_frame_counter
+;;  A==frame_counter
 ;; OUT:
 ;;  ...
 ;;----------------------------------------------------------------------------*/
-void c_23E0(uint8 frame_ct)
+void objs_dispatcher(uint8 frame_ct)
 {
     if (0 != (0x01 & frame_ct))
     {
@@ -301,13 +307,13 @@ void c_23E0(uint8 frame_ct)
         {
             switch (b8800_obj_status[ E ].state)
             {
-                // test for $80 (inactive status)
+                // ignore me (fighter, or inactive invader)
             case 0x80:
                 // _2416
                 E += 4;
                 break;
 
-                // _2422: after getting to the loop spot, or anytime on a diving attack.
+                // _2422: dive attack or homing from formation pattern
             case 0x09:
                 L = E;
                 C = db_obj_home_posn_RC[L + 0]; // row position index
@@ -319,12 +325,13 @@ void c_23E0(uint8 frame_ct)
                 ds_bug_motion_que[ b8800_obj_status[ E ].obj_idx ].b12 = C;
 
                 // jp   l_2413 ... reset index to .b0 and continue
-                bugs_actv_cnt += 1; // 2414
+                objs_dspch_ccnt += 1; // 2414
                 E += 4; // 2416
                 break;
 
                 // _243C: shot my damn ship (DE==8862 ... 8863 counts down from $0F for all steps of explosion)
             case 0x08:
+                //b8800_obj_status[ E ].state) = 0x80;
                 break;
 
                 // _245F: rotating back into position in the collective
@@ -342,8 +349,7 @@ void c_23E0(uint8 frame_ct)
                     else
                     {
                         // jr   z,l_2483
-                        // ld   a,#1  ; disposition = 1: home
-                        b8800_obj_status[ E ].state = 1; // ld   (de),a
+                        b8800_obj_status[ E ].state = 1; // disposition ... stationary
                         // jr   l_249B
                     }
                 }
@@ -375,11 +381,11 @@ void c_23E0(uint8 frame_ct)
                 mrw_sprite.ctrl[ E ].b1 = ds_home_posn_org[ C ].pair.b1;
 
                 // jp   l_2413 ...  reset index to .b0 and continue
-                bugs_actv_cnt += 1; // 2414
+                objs_dspch_ccnt += 1; // 2414
                 E += 4; // 2416
                 break;
 
-                // _2488: assimilated into the collective.
+                // _2488: stationary
             case 0x01:
                 L = E;
 
@@ -405,16 +411,16 @@ void c_23E0(uint8 frame_ct)
                     // dec  e  ; reset index/pointer to b0
 
                     // l_2414_inc_active:
-                    //bugs_actv_cnt++;
+                    //objs_dspch_ccnt++;
                 }
                 // l_2414_inc_active:
-                bugs_actv_cnt += 1; // 2414
+                objs_dspch_ccnt += 1; // 2414
                 E += 4; // 2416
                 break;
 
                 // _24B2: nearly fatally shot
             case 0x04:
-                rckt_hit_hdlr(E);
+                objs_dispatcher_rckt_hit(E);
                 // _2416
                 E += 4;
                 break;
@@ -433,23 +439,24 @@ void c_23E0(uint8 frame_ct)
                 E += 4;
                 break;
 
-                // terminate cylons or bombs that have gone past the sides or bottom of screen
-            case 0x03: // _254D ; state progression ... 7's to 3's, and then 9's, 2's, and finally 1's
-            case 0x06: // _254D ; disable this one and the borg runs out of nukes
+                // _254D: terminate out of bounds bombs or "transient" invaders
+            case 0x03: // state progression ... 7's to 3's, and then 9's, 2's, and finally 1's
+            case 0x06: // release slot for bomb when out of range
                 if ( mrw_sprite.posn[ E ].b0 < 0xF4 )
                 {
                     reg16 tmpA;
                     tmpA.pair.b1 = mrw_sprite.ctrl[ E ].b1; // sy<8>
-                    tmpA.pair.b0 = mrw_sprite.posn[ E ].b1; // sy<0:7>
-                    tmpA.word >>= 1; // rra
+                    tmpA.pair.b0 = mrw_sprite.posn[ E ].b1; // sy<7:0>
 
-                    if ( tmpA.word >= 0x0B && tmpA.word < 0xA5 )
+                    tmpA.word >>= 1; // rra ... only sy<8:1> in compare
+
+                    if ( tmpA.pair.b0 >= 0x0B && tmpA.pair.b0 < 0xA5 )
                     {
-                        // in range
-                        if ( 6 != b8800_obj_status[ E ].state )
+                        // in range but don't include bombs in the count
+                        if ( 6 != b8800_obj_status[ E ].state ) // if not bomb (i.e. if disposition 3, pattern maneuvering)
                         {
                             // l_2414_inc_active:
-                            bugs_actv_cnt += 1;
+                            objs_dspch_ccnt += 1;
                         }
                         // l_2416
                         E += 4;
@@ -458,7 +465,7 @@ void c_23E0(uint8 frame_ct)
                 }
 
                 // l_2571:
-                if ( 3 == b8800_obj_status[ E ].state  )
+                if ( 3 == b8800_obj_status[ E ].state ) // disposition pattern control, out of bounds, release mctl slot
                 {
                     // l_2582_kill_bug_q_slot:
                     uint8 A;
@@ -472,8 +479,8 @@ void c_23E0(uint8 frame_ct)
 
                 // _2590: once for each spawning orc (new stage)
             case 0x07:
-                b8800_obj_status[ E ].state = 3; // disposition = 3 ... from 7 (spawning)
-                bugs_actv_cnt += 1;
+                b8800_obj_status[ E ].state = 3; // disposition ... transition to pattern control from 7 (spawning)
+                objs_dspch_ccnt += 1;
                 E += 4;
                 break;
 
@@ -488,8 +495,8 @@ void c_23E0(uint8 frame_ct)
         // l_2596_even_frame
         if (0 != (0x02 & frame_ct))
         {
-            b_bugs_actv_nbr = bugs_actv_cnt;
-            bugs_actv_cnt = 0;
+            b_bugs_actv_nbr = objs_dspch_ccnt;
+            objs_dspch_ccnt = 0;
         }
     }
     return;
@@ -498,9 +505,10 @@ void c_23E0(uint8 frame_ct)
 /*=============================================================================
 ;; c_25A2()
 ;;  Description:
-;;   Setup the mob to do its evil work. Builds up 5 tables at
-;;   b_8920 which organizes the mob objects into the flying waves.
-;;   These are formed into the attack wave queue structures by f_2916().
+;;   Build attack wave sequence table ($7E $7E $7E $7E $7E $7F)
+;;   Follows c_2896 (initializes each invader by station)
+;;   Individual attack wave elements are inserted into motion control queued
+;;   by f_2916().
 ;;   The format is oriented toward having two flights of 4 creatures in each
 ;;   wave, so they are configured in pairs and I refer to as "lefty" and "righty"
 ;;   in each pair, although it is an arbitrary designation. In waves that fly
@@ -515,12 +523,12 @@ void c_23E0(uint8 frame_ct)
 ;;----------------------------------------------------------------------------*/
 void c_25A2(void)
 {
-    uint8 const * pdb_attk_wav_IDs;
+    uint8 const * p_atkw_oids;
     uint8 const * pHL_db_stg_dat;
     uint8 *pDE_ds_8920_atk_wv_obj_t;
     uint8 A, B;
 
-    pdb_attk_wav_IDs = db_attk_wav_IDs;
+    p_atkw_oids = &atkw_oids[0];
 
     // if past the highest stage ($17) we can only keep playing the last 4 levels
 
@@ -537,19 +545,19 @@ void c_25A2(void)
         A = B - (B / 4) - 1; // srl  b etc.
 
         // select the row, @rank
-        A = db_combat_stg_dat_idx[ mchn_cfg.rank ][ A ];
+        A = atkw_combat_stg_d_idx[ mchn_cfg.rank ][ A ];
 
         // &stage_dat[row][0]
-        pHL_db_stg_dat = &db_combat_stg_dat[A];
+        pHL_db_stg_dat = &atkw_combat_stg_dat[A];
     }
     else /* challenge stage */
     {
         A = (plyr_state_actv.stage_ctr >> 2) & 0x07; // divide by 4
 
-        A = db_challg_stg_data_idx[A];
+        A = atkw_challg_stg_d_idx[A];
 
         // &stage_dat[row][0]
-        pHL_db_stg_dat = &db_challg_stg_dat[A];
+        pHL_db_stg_dat = &atkw_challg_stg_dat[A];
     }
 
     /*
@@ -561,7 +569,7 @@ void c_25A2(void)
     /*
      Initialize table of attack-wave structs with start token of 1st group
      */
-    pDE_ds_8920_atk_wv_obj_t = ds_8920_atk_wv_obj_tbl; // de = &b_8920[0]
+    pDE_ds_8920_atk_wv_obj_t = &atkw_seqt[0]; // de = &b_8920[0]
     *pDE_ds_8920_atk_wv_obj_t++ = 0x7E; // inc e ... start token of each group
 
     /*
@@ -606,7 +614,7 @@ void c_25A2(void)
             }
 
             // l_2647_is_ff
-            obj_ID_tmpb_9100[L++] = *pdb_attk_wav_IDs++;
+            obj_ID_tmpb_9100[L++] = *p_atkw_oids++;
 
             if (B == 5)
                 L = 8;
@@ -629,7 +637,7 @@ void c_25A2(void)
          e.g. '58 5a 5c 5e ff ff ff ff|28 2a 2c 2e ff ff ff ff'
          where 'x' == 'unused', and each "pair" of attacking enemy fighers
          is formed by queueing up alternating U and V elements.
-         U and V are IDs loaded from db_attk_wav_IDs (UUUUVVVV)
+         U and V are IDs loaded from atkw_oids (UUUUVVVV)
          Each iteration of the loop inserts a U-V pair i.e. " bb uu cc vv"
          ... where B and C are used to select the bug motion depending whether he is a "lefty" or a "righty".
          */
@@ -672,15 +680,15 @@ void c_25A2(void)
 ;;----------------------------------------------------------------------------*/
 
 /*
- Selection indices for stage data ... pre-computed multiples of 18 for row offsets.
+ Selection indices for attack-wave configurations in each stge. Optimized with
+ pre-computed multiples of 18 (row offsets into data tables).
 
- combat levels, e.g. 1,2,5,6,7,9 etc.
+ Combat levels, e.g. 1,2,5,6,7,9 etc.
  4 sets... 1 for each rank "B", "C", "D", or "A"
  In each set, one element per stage, i.e. 17 distinct stage configurations (see l_25AC)
- Indices are pre-multiplied (multiples of 0x12, i.e. row length of combat__stg_data)
  */
 
-static const uint8 db_combat_stg_dat_idx[4][17] =
+static const uint8 atkw_combat_stg_d_idx[][17] =
 {
     {0x00, 0x12, 0x24, 0x36, 0x00, 0x48, 0x6C, 0x5A, 0x48, 0x6C, 0x00, 0x7E, 0xA2, 0x90, 0xB4, 0xD8, 0xC6},
     {0x00, 0x12, 0x48, 0x6C, 0x5A, 0x7E, 0xA2, 0x00, 0x7E, 0xD8, 0xC6, 0xB4, 0xD8, 0xC6, 0xB4, 0xD8, 0xC6},
@@ -688,8 +696,8 @@ static const uint8 db_combat_stg_dat_idx[4][17] =
     {0x00, 0x12, 0x48, 0x36, 0x24, 0x48, 0x6C, 0x00, 0x7E, 0xA2, 0x90, 0xB4, 0xD8, 0x00, 0xB4, 0xD8, 0xC6}
 };
 
-// challenge stage e.g. 3,8,10 etc. 8 unique challenge stages... no variation for rank.
-static const uint8 db_challg_stg_data_idx[] =
+// Challenge stage e.g. 3,8,10 etc. 8 unique challenge stages... no variation for rank.
+static const uint8 atkw_challg_stg_d_idx[] =
 {
     0x00, 0x12, 0x24, 0x36, 0x48, 0x5A, 0x6C, 0x7E
 };
@@ -704,13 +712,13 @@ static const uint8 db_challg_stg_data_idx[] =
     c_25A2, controls loading of transients into attack wave table
   byte 1 & 2
     bit  7    byte-2 only ... if clear, 2nd bug of pair is delayed for trailing formation
-    bit  6    if set selects second set of 3-bytes in db_2A6C[]
-    bits 5:0  index of word in LUT at db_2A3C ( $18 entries)
+    bit  6    if set selects second set of 3-bytes in atkw_mctl_cinits[]
+    bits 5:0  index of word in LUT at atkw_mctl_fptn_d ( $18 entries)
     bit  0    also, if set, ix($0E) = $44 ... bomb delay set-count (finalize_object)
  */
 
 // combat stage data
-static const uint8 db_combat_stg_dat[] =
+static const uint8 atkw_combat_stg_dat[] =
 {
     0x14,0x00, 0x00,0x00,0xC0, 0x00,0x01,0x01, 0x00,0x41,0x41, 0x00,0x40,0x40, 0x00,0x00,0x00, 0xFF,
     0x14,0x01, 0x00,0x42,0x82, 0x00,0x03,0x85, 0x00,0x43,0xC5, 0x00,0x42,0xC4, 0x00,0x02,0x84, 0xFF,
@@ -728,7 +736,7 @@ static const uint8 db_combat_stg_dat[] =
 };
 
 // challenge stage data
-static const uint8 db_challg_stg_dat[] =
+static const uint8 atkw_challg_stg_dat[] =
 {
     0xFF,0x00, 0x00,0x06,0xC6, 0x00,0x07,0x07, 0x00,0x47,0x47, 0x00,0x46,0x46, 0x00,0x06,0x06, 0xFF, //  3
     0xFF,0x00, 0x00,0x08,0xC8, 0x00,0x09,0xC9, 0x00,0x09,0xC9, 0x00,0x48,0x48, 0x00,0x08,0x08, 0xFF, //  7
@@ -740,8 +748,8 @@ static const uint8 db_challg_stg_dat[] =
     0xFF,0x00, 0x00,0x14,0xD4, 0x00,0x15,0x15, 0x00,0x55,0x55, 0x00,0x14,0xD4, 0x00,0x14,0xD4, 0xFF  // 31
 };
 
-// This is a table of object IDs which organizes the mob into the series of 5 waves.
-static const uint8 db_attk_wav_IDs[] =
+// object IDs of non-transient elements inserted into 5 attack waves
+static const uint8 atkw_oids[] =
 {
     0x58, 0x5A, 0x5C, 0x5E, 0x28, 0x2A, 0x2C, 0x2E,
     0x30, 0x34, 0x36, 0x32, 0x50, 0x52, 0x54, 0x56,
@@ -768,11 +776,7 @@ void c_2896(void)
     uint8 HL, IXL, A, B, C, D, E;
 
     // once per stage, set the player's private pointer to attack wave object setup tables
-#ifndef HELP_ME_DEBUG
-    plyr_state_actv.p_atkwav_tbl = &ds_8920_atk_wv_obj_tbl[0];
-#else
-    plyr_state_actv.p_atkwav_tbl = &ds_8920_atk_wv_obj_tbl[ 0 + 0x11 ];
-#endif
+    plyr_state_actv.p_atkwav_tbl = &atkw_seqt[0];
 
     if (0 == plyr_state_actv.not_chllng_stg)
     {
@@ -787,11 +791,11 @@ void c_2896(void)
         // l_28B5:
         A &= 0x03;
 
-        stg_chllg_rnd_attrib[0] = d_stage_chllg_rnd_attrib[A + 0];
-        stg_chllg_rnd_attrib[1] = d_stage_chllg_rnd_attrib[A + 1];
+        stg_chllg_rnd_attrib[0] = atkw_chllg_rnd_attrib[A + 0];
+        stg_chllg_rnd_attrib[1] = atkw_chllg_rnd_attrib[A + 1];
 
         A = C & 0x07;
-        D = d_290E[A];
+        D = atkw_chlg_spcclr[A];
         E = D;
 
         // jr   l_28D0
@@ -807,15 +811,15 @@ void c_2896(void)
     HL = 0x08; // offsetof first bee in the group
     IXL = 1; // start count for bit shifting
 
-    c_28E9(&IXL, &HL, 0x14, D); // 20 bees ... $08-$2E
-    c_28E9(&IXL, &HL, 0x08, 0x10); // bosses and bonus-bees ... $30-$$3E
-    c_28E9(&IXL, &HL, 0x10, E); // 16 moths ... $40
+    atkw_eclass_init(&IXL, &HL, 0x14, D); // 20 bees ... $08-$2E
+    atkw_eclass_init(&IXL, &HL, 0x08, 0x10); // bosses and bonus-bees ... $30-$$3E
+    atkw_eclass_init(&IXL, &HL, 0x10, E); // 16 moths ... $40
 }
 
 /*=============================================================================
-;; c_28E9()
+;; atkw_eclass_init()
 ;;  Description:
-;;    Initialize a class of creatures.
+;;    attack-wave elements intialized by "class"
 ;; IN:
 ;;  B == number of creatures in this class
 ;;  HL == sprite_code_bufl[ $08 + ? ]
@@ -827,10 +831,10 @@ void c_2896(void)
 ;; After that, reload C every 8 times.
 ;; Each time, C is RL'd into Cy, and Cy RR'd into A.
 ;;----------------------------------------------------------------------------*/
-void c_28E9(uint8 *pIXL, uint8 *pHL, uint8 B, uint8 IXH)
+void atkw_eclass_init(uint8 *pIXL, uint8 *pHL, uint8 B, uint8 IXH)
 {
     static reg16 C; // make it 16 so we can shift out of bit-7
-    static uint8 IY; // tmp index into d_2908[]
+    static uint8 IY; // tmp index into atkw_bdrp_enbl[]
     uint8 A;
 
     while (B > 0)
@@ -839,7 +843,7 @@ void c_28E9(uint8 *pIXL, uint8 *pHL, uint8 B, uint8 IXH)
 
         if (0 == *pIXL)
         {
-            C.word = d_2908[ IY++ ];
+            C.word = atkw_bdrp_enbl[ IY++ ];
             *pIXL = 8;
         }
 
@@ -862,7 +866,7 @@ void c_28E9(uint8 *pIXL, uint8 *pHL, uint8 B, uint8 IXH)
 ;; .b1: obj_collsn_notif[] ... hit-flag + sprite-code for score tile
 ;; (base-score multiples are * 10 thanks to d_scoreman_inc_lut[0])
 */
-static const uint8 d_stage_chllg_rnd_attrib[] =
+static const uint8 atkw_chllg_rnd_attrib[] =
 {
     10, 0x80 + 0x38,
     15, 0x80 + 0x39,
@@ -870,12 +874,14 @@ static const uint8 d_stage_chllg_rnd_attrib[] =
     30, 0x80 + 0x3D
 };
 
-static const uint8 d_2908[] =
+// attack wave bomb drop enable flags
+static const uint8 atkw_bdrp_enbl[] =
 {
     0xA5, 0x5A, 0xA9, 0x0F, 0x0A, 0x50
 };
 
-static const uint8 d_290E[] =
+// attack wave challenge stage sprite code+color params
+static const uint8 atkw_chlg_spcclr[] =
 {
     0x36, 0x24, 0xD4, 0xBA, 0xE4, 0xCC, 0xA8, 0xF4
 };
@@ -955,7 +961,7 @@ void f_2916(void)
         uint8 IX; // used as index into bug_motion_que[], not as a byte-pointer
         uint8 A, B, C, L;
         uint8 token_b0; // holds the lsb of the token-pair until needed
-        uint8 HL; // not a pointer, offset into db_2A6C
+        uint8 HL; // not a pointer, offset into atkw_mctl_cinits
 
         // Process next object ... if frame_ct is multiple of 8, or bit 7 set.
 
@@ -969,7 +975,7 @@ void f_2916(void)
 
         // ready to insert another entry into the queue
 
-        // make byte offset into lut at db_2A3C  (_finalize_object) ... also we're done with bit-7
+        // make byte offset into lut at atkw_mctl_fptn_d  (_finalize_object) ... also we're done with bit-7
         token_b0 = *plyr_state_actv.p_atkwav_tbl << 1; // sla  c
 
         // find a slot in the queue
@@ -1059,13 +1065,13 @@ void f_2916(void)
         ds_bug_motion_que[IX].b0E = B;
 
         // have to re-adjust C since the lut is implemented as a table of structs, not bytes.
-        ds_bug_motion_que[IX].p08.word = db_2A3C[ C / 2 ].p_tbl;
+        ds_bug_motion_que[IX].p08.word = atkw_mctl_fptn_d[ C / 2 ].p_tbl;
 
-        // In z80, these bits were in <7:5> of db_2A3C[].b1, but here they are already shifted into <2:0>
-        A = db_2A3C[ C / 2 ].idx; // have to re-adjust C to use as an index into table of structs.
+        // In z80, these bits were in <7:5> of atkw_mctl_fptn_d[].b1, but here they are already shifted into <2:0>
+        A = atkw_mctl_fptn_d[ C / 2 ].idx; // have to re-adjust C to use as an index into table of structs.
 
         // use byte offset as index into the lut
-        // ld   hl,#db_2A6C
+        // ld   hl,#atkw_mctl_cinits
         // rst  0x10  ; HL += A
         HL = (A << 1) + A; // multiply x3 ... sneaky!
 
@@ -1076,9 +1082,9 @@ void f_2916(void)
             HL += 3;
         }
 
-        ds_bug_motion_que[IX].b01 = db_2A6C[HL + 0];
-        ds_bug_motion_que[IX].b03 = db_2A6C[HL + 1];
-        ds_bug_motion_que[IX].b05 = db_2A6C[HL + 2];
+        ds_bug_motion_que[IX].b01 = atkw_mctl_cinits[HL + 0];
+        ds_bug_motion_que[IX].b03 = atkw_mctl_cinits[HL + 1];
+        ds_bug_motion_que[IX].b05 = atkw_mctl_cinits[HL + 2];
 
         ds_bug_motion_que[IX].b00 = 0;
         ds_bug_motion_que[IX].b02 = 0;
@@ -1093,6 +1099,7 @@ void f_2916(void)
 
 
 /*============================================================================
+ * Motion-control attack-wave flight pattern selection.
  * The original format of this data was packed into a 16-bit, as follows:
  * bits 0:12  - pointer to data tables for flying pattern control.
  * bits 13:15 - selection index into lut 2A6C.
@@ -1101,7 +1108,7 @@ void f_2916(void)
  * pointer and lut index.
  * Indices into this table are placed into bits 0:5 of stage data tables.
  *===========================================================================*/
-static const t_flite_ptn_cfg db_2A3C[] =
+static const t_atkw_mctl_d atkw_mctl_fptn_d[] =
 {
     {_flv_d_001d, 0x00},          // 0: stage 1
     {_flv_d_0067, 0x02},          // 1: stage 1
@@ -1130,10 +1137,11 @@ static const t_flite_ptn_cfg db_2A3C[] =
 };
 
 /*
+ ** motion-control coordinate inits
  ** bits 13:15 from above provide selection index into the lut.
  ** bit-6 of _stg_dat selects the second set of 3-bytes.
  */
-static const uint8 db_2A6C[] =
+static const uint8 atkw_mctl_cinits[] =
 {
     // 0x01(ix) 0x03(ix) 0x05(ix)
     0x9B, 0x34, 0x03, // 0
