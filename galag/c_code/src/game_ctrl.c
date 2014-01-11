@@ -67,12 +67,12 @@ static uint8 ds30_susp_plyr_obj_data[0x30]; // c_player_active_switch
 static uint8 credit_cnt;
 
 // forward declarations
-static const uint8 d_attrmode_sptiles_ships[][4];
+static const uint8 gctl_bonus_fightr_tiles[][4];
 static const uint8 gctl_score_initd[];
 static const uint8 gctl_str_1up[];
 static const uint8 gctl_str_2up[];
 static const uint8 gctl_str_000[];
-static const uint8 d_07FB[];
+static const uint8 gctl_score_inc_dat[];
 static const uint8 d_0909[];
 
 // function prototypes
@@ -85,8 +85,8 @@ static void j_061E_plyr_respawn(void);
 static void gctl_1up2up_displ(uint8 CA);
 static void round_start_or_restart(void);
 static void gctl_1up2up_blink(uint8 const *, uint16, uint8);
-static void c_0728_score_and_bonus_mgr(void);
-static void c_07D8(uint16, uint8);
+static void gctl_score_upd(void);
+static void gctl_score_incr_digit(uint16, uint8);
 static void c_080B_monitor_stage_start_or_restart_conditions();
 static void j_0650_handle_end_challeng_stg(void);
 static uint8 c_08BE(uint8, uint8, uint8 const *);
@@ -411,7 +411,7 @@ static void c_game_bonus_info_show_line(uint8 E, uint8 C, uint8 idx)
 
     c_string_out(HL, 0x1E); // draw 0's
 
-    sprite_tiles_display(d_attrmode_sptiles_ships[idx]); // show the fighter sprite
+    sprite_tiles_display(gctl_bonus_fightr_tiles[idx]); // show the fighter sprite
     return;
 }
 
@@ -425,7 +425,7 @@ static void c_game_bonus_info_show_line(uint8 E, uint8 C, uint8 idx)
 ;;  2: X coordinate
 ;;  3: Y coordinate
  */
-static const uint8 d_attrmode_sptiles_ships[][4] =
+static const uint8 gctl_bonus_fightr_tiles[][4] =
 {
     {0x00, 0x81, 0x19, 0x56},
     {0x02, 0x81, 0x19, 0x62},
@@ -445,7 +445,7 @@ void While_Game_Running(void)
 {
     while (1) // jr   l_045E_while_play_game
     {
-        c_0728_score_and_bonus_mgr();
+        gctl_score_upd();
         c_080B_monitor_stage_start_or_restart_conditions();
 
         // I don't remember what actually causes the game to recycle, but
@@ -576,7 +576,7 @@ void jp_049E_handle_stage_start_or_restart(void)
     }
     while (ds4_game_tmrs[3] > 0);
 
-    c_0728_score_and_bonus_mgr();
+    gctl_score_upd();
 
     plyr_state_actv.b_nbugs = b_bugs_actv_nbr;
 
@@ -773,7 +773,7 @@ static void j_0650_handle_end_challeng_stg(void)
 
     // l_06BA:
     ds_bug_collsn[0x0F] += A;
-    c_0728_score_and_bonus_mgr();
+    gctl_score_upd();
     c_tdelay_3();
     c_tdelay_3();
 
@@ -790,13 +790,14 @@ static void j_0650_handle_end_challeng_stg(void)
 
 
 /*=============================================================================
-;;  c_0728_score_and_bonus_mgr
+;;  gctl_score_upd
 ;;  Description:
+;;    Update score
 ;;    Red == 50
 ;;    Yellow == 80
 ;;    (x2 if flying)
 ;;----------------------------------------------------------------------------*/
-static void c_0728_score_and_bonus_mgr(void)
+static void gctl_score_upd(void)
 {
     reg16 AF;
     uint8 A, B, C, E, L, IXL;
@@ -817,7 +818,7 @@ static void c_0728_score_and_bonus_mgr(void)
     {
         // ex   de,hl ... stash HL
 
-        C = d_07FB[ B - 1 ]; // ld   hl,#d_07FB - 1
+        C = gctl_score_inc_dat[ B - 1 ]; // ld   hl,#gctl_score_inc_dat - 1
 
         // l_0740
         while ( 0 != ds_bug_collsn[L] ) // jr   z,l_0762
@@ -826,10 +827,10 @@ static void c_0728_score_and_bonus_mgr(void)
             ds_bug_collsn[L] -= 1; // dec  (hl)
 
             A = C & 0x0F; // and  #0x0F
-            c_07D8(0x0300 + IXL, A);
+            gctl_score_incr_digit(0x0300 + IXL, A);
 
             A = (C >> 4) & 0x0F; // rlca * 4
-            c_07D8(0x0300 + IXL + 1, A);
+            gctl_score_incr_digit(0x0300 + IXL + 1, A);
 
             // jr   l_0740
         }
@@ -927,17 +928,17 @@ static void c_0728_score_and_bonus_mgr(void)
 
 
 /*=============================================================================
-;; c_07D8()
+;; gctl_score_incr_digit()
 ;;  Description:
-;;   handle score inrement (c_0728_score_and_bonus_mgr)
+;;   handle score inrement (gctl_score_upd)
 ;; IN:
-;;  A == d_07FB[B-1]
+;;  A == gctl_score_inc_dat[B-1]
 ;;        twice on 1 update, 1st is low nibble, 2nd is high nibble
 ;;  HL== index into tile_ram
 ;; OUT:
 ;;  HL=
 ;;---------------------------------------------------------------------------*/
-static void c_07D8(uint16 hl, uint8 a)
+static void gctl_score_incr_digit(uint16 hl, uint8 a)
 {
     if ( 0 == a )
         return;
@@ -986,8 +987,8 @@ static void c_07D8(uint16 hl, uint8 a)
 
 
 //=============================================================================
-// data for _073A
-static const uint8 d_07FB[] =
+// score increment data (significant digits packed as nibbles)
+static const uint8 gctl_score_inc_dat[] =
 {
     0x10,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
     0x50,0x08,0x08,0x08,0x05,0x08,0x15,0x00
