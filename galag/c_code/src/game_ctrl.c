@@ -69,9 +69,9 @@ static uint8 credit_cnt;
 // forward declarations
 static const uint8 d_attrmode_sptiles_ships[][4];
 static const uint8 gctl_score_initd[];
-static const uint8 str_1UP[];
-static const uint8 str_2UP[];
-static const uint8 str_0974[];
+static const uint8 gctl_str_1up[];
+static const uint8 gctl_str_2up[];
+static const uint8 gctl_str_000[];
 static const uint8 d_07FB[];
 static const uint8 d_0909[];
 
@@ -82,9 +82,9 @@ static void j_060F_new_stage(void);
 static void c_game_bonus_info_show_line(uint8, uint8, uint8);
 static void j_0612_plyr_setup(void);
 static void j_061E_plyr_respawn(void);
-static void c_093C(uint8 CA);
+static void gctl_1up2up_displ(uint8 CA);
 static void round_start_or_restart(void);
-static void c_095F(uint8 const *, uint16, uint8);
+static void gctl_1up2up_blink(uint8 const *, uint16, uint8);
 static void c_0728_score_and_bonus_mgr(void);
 static void c_07D8(uint16, uint8);
 static void c_080B_monitor_stage_start_or_restart_conditions();
@@ -1149,12 +1149,12 @@ void f_0935()
     uint8 A;
 
     A = ds3_92A0_frame_cts[0] >> 4;
-    c_093C(A);
+    gctl_1up2up_displ(A);
 }
 
 
 /*=============================================================================
-;; c_093C()
+;; gctl_1up2up_displ()
 ;;  Description:
 ;;   Blink 1UP/2UP
 ;; IN:
@@ -1163,71 +1163,64 @@ void f_0935()
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void c_093C(uint8 CA)
+static void gctl_1up2up_displ(uint8 C)
 {
-    uint8 A, B, C;
-
-    C = CA; // stash counter in C
+    uint8 A;
 
     if (IN_GAME_MODE != glbls9200.game_state) return;
 
-    B = plyr_state_actv.p1or2;
+    A = ~plyr_state_actv.p1or2 & C; // cpl
 
-    A = ~B & C; // cpl
-
-    c_095F(str_1UP, 0x03C0 + 0x19, A); // 'P' of 1UP
+    gctl_1up2up_blink(gctl_str_1up, 0x03C0 + 0x19, A); // 'P' of 1UP
 
     if (!two_plyr_game) return;
 
-    A = B & C; // 1 if 2UP
+    A = plyr_state_actv.p1or2 & C; // 1 if 2UP
 
-    c_095F(str_2UP, 0x03C0 + 0x04, A); // 'P' of 2UP
+    gctl_1up2up_blink(gctl_str_2up, 0x03C0 + 0x04, A); // 'P' of 2UP
 
     return;
 }
 
 /*=============================================================================
-;; c_095F()
+;; gctl_1up2up_blink()
 ;;  Description:
 ;;   draw 3 characters (preserves BC)
 ;; IN:
 ;;  A==1 ...  wipe text
 ;;  A==0 ...  show text at HL
-;;  HL == pointer to xUP text
+;;  HL == pointer to gctl_str_1up text or gctl_str_2up text
 ;; OUT:
 ;; PRESERVES:
 ;;  BC
 ;;---------------------------------------------------------------------------*/
-static void c_095F(uint8 const *_HL, uint16 DE, uint8 A)
+static void gctl_1up2up_blink(uint8 const *HL, uint16 DE, uint8 A)
 {
-    uint16 BC;
-    uint8 const *HL;
+    uint8 B;
 
-    HL = _HL;
-
-    BC = 3;
-
-    if ((A & 1) != 0)
+    for (B = 0; B < 3; B++)
     {
-        HL = str_0974;
-    }
-
-    while (BC-- > 0)
-    {
-        m_tile_ram[DE++] = *HL++;
+        if ((A & 1) != 0)
+        {
+            m_tile_ram[DE + B] = *(gctl_str_000 + B);
+        }
+        else
+        {
+            m_tile_ram[DE + B] = *(HL + B);
+        }
     }
 }
 
 //=============================================================================
-static const uint8 str_1UP[] =
+static const uint8 gctl_str_1up[] =
 {
-    0x19, 0x1E, 0x01
+    0x19, 0x1E, 0x01 // "1 UP"
 };
-static const uint8 str_2UP[] =
+static const uint8 gctl_str_2up[] =
 {
-    0x19, 0x1E, 0x02
+    0x19, 0x1E, 0x02 // "2 UP"
 };
-static const uint8 str_0974[] =
+static const uint8 gctl_str_000[] =
 {
     0x24, 0x24, 0x24 // "spaces"
 };
