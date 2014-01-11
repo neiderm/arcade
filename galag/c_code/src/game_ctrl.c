@@ -68,7 +68,7 @@ static uint8 credit_cnt;
 
 // forward declarations
 static const uint8 d_attrmode_sptiles_ships[][4];
-static const uint8 d_0495[];
+static const uint8 gctl_score_initd[];
 static const uint8 str_1UP[];
 static const uint8 str_2UP[];
 static const uint8 str_0974[];
@@ -76,8 +76,8 @@ static const uint8 d_07FB[];
 static const uint8 d_0909[];
 
 // function prototypes
-static void c_game_init(void);
-static void c_game_init_putc(uint8 const *HL, uint16 DE);
+static void gctl_plyr_init(void);
+static void gctl_score_init(uint8, uint16);
 static void j_060F_new_stage(void);
 static void c_game_bonus_info_show_line(uint8, uint8, uint8);
 static void j_0612_plyr_setup(void);
@@ -179,7 +179,7 @@ void j_Game_init(void)
     c_1230_init_taskman_structs();
 
     // data structures for 12 objects
-    memset(ds_bug_motion_que, 0, sizeof (t_bug_flying_status) * 0x0C /* 0xF0 */);
+    memset(ds_bug_motion_que, 0, sizeof (t_bug_flying_status) * 0x0C);
 
     /*
     ; Not sure here...
@@ -353,7 +353,7 @@ int game_mode_start(void)
     task_actv_tbl_0[0x12] = 1; // f_1D76, star ctrl
 
     // do one-time inits
-    c_game_init(); // setup number of lives and scores
+    gctl_plyr_init(); // setup number of lives and scores
     c_game_or_demo_init();
 
     j_string_out_pe(1, -1, 4); //  "PLAYER 1" (always starts with P1 no matter what!)
@@ -456,19 +456,19 @@ void While_Game_Running(void)
 }
 
 /*=============================================================================
-;; c_game_init()
+;; gctl_plyr_init()
 ;;  Description:
-;;   New game, 00 scores for player 1 (and player 2 if needed). "2UP" redrawn later.
+;;   Initialize player score and nbr fighters after start button hit.
+;;   "2UP" redrawn later.
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void c_game_init(void)
+static void gctl_plyr_init(void)
 {
-    uint8 const *HL;
+    uint8 A, HL;
     uint16 DE;
-    uint8 A;
 
     // get nbr of ships from machine config
     A = 3; // tmp ...    ld   a,(b8_mchn_cfg_nships)
@@ -476,54 +476,46 @@ static void c_game_init(void)
     plyr_state_susp.num_ships = A;
 
     DE = 0x03E0 + 0x18; // player 1 score, right tile of "00"
-    HL = &d_0495[0];
-    c_game_init_putc(HL, DE);
+    HL = 0;
+    gctl_score_init(HL, DE);
 
     DE = 0x03E0 + 0x03; // player 2 score
-    HL = &d_0495[0];
+    HL = 0;
 
     if (!two_plyr_game)
     {
         // advance src pointer past "00" to erase player 2 score (start of spaces)
-        HL += 2;
+        HL = 2;
     }
 
-    c_game_init_putc(HL, DE);
+    gctl_score_init(HL, DE);
 
     return;
 }
 
 /*=============================================================================
-;; c_game_init_putc
+;; gctl_score_init
 ;;  Description:
 ;;   we saved 4 bytes of code space by factoring out the part that copies 7
 ;;   characters. Then we wasted about 50 uSec by repeating the erase 2UP
 ;; IN:
-;;  HL: src tbl pointer ... either 0495 or 0497
+;;  HL: initial offset 0 or 2 into gctl_score_initd[]
 ;;  DE: dest pointer (offset)
 ;; OUT:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void c_game_init_putc(uint8 const *HL, uint16 DE)
+static void gctl_score_init(uint8 HL, uint16 DE)
 {
-    uint8 const *tmpHL = HL;
-    uint16 tmpDE = DE;
     uint8 C;
 
-    C = 7;
-
-    while (C-- > 0)
+    for (C = 0; C < 7; C++)
     {
-        m_tile_ram[ tmpDE++ ] = *(tmpHL++);
+        m_tile_ram[DE + C] = gctl_score_initd[HL + C];
     }
 
-    tmpHL = &d_0495[2]; // ld   hl,#d_0497
-    tmpDE = 0x03C0 + 3;
-    C = 4;
-
-    while (C-- > 0)
+    for (C = 0; C < 4; C++)
     {
-        m_tile_ram[ tmpDE++ ] = *(tmpHL++);
+        m_tile_ram[0x03C0 + 3 + C] = gctl_score_initd[2 + C];
     }
 
     return;
@@ -531,8 +523,8 @@ static void c_game_init_putc(uint8 const *HL, uint16 DE)
 
 
 /*===========================================================================*/
-// "00" and space characters for initial score display
-static const uint8 d_0495[] =
+// init data for score display ... "00" and space characters
+static const uint8 gctl_score_initd[] =
 {
     0x00, 0x00,
     0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24
