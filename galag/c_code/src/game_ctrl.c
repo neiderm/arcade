@@ -62,9 +62,9 @@ tstruct_b9200 glbls9200;
 //static uint8 sfr_A000[6]; // galaga_starcontrol
 static uint8 sfr_A007; // flip_screen_port=0 (not_flipped) ... (unimplemented in MAME?)
 static uint8 sfr_6820; //galaga_interrupt_enable_1_w
-static uint8 two_plyr_game;
-static uint8 ds30_susp_plyr_obj_data[0x30]; // c_player_active_switch
-static uint8 credit_cnt;
+static uint8 gctl_two_plyr_game;
+static uint8 gctl_credit_cnt;
+//static uint8 ds30_susp_plyr_obj_data[0x30]; // c_player_active_switch
 
 // forward declarations
 static const uint8 gctl_bonus_fightr_tiles[][4];
@@ -73,23 +73,23 @@ static const uint8 gctl_str_1up[];
 static const uint8 gctl_str_2up[];
 static const uint8 gctl_str_000[];
 static const uint8 gctl_score_inc_dat[];
-static const uint8 d_0909[];
+static const uint8 gctl_bmbr_enbl_tmrdat[][4];
 
 // function prototypes
 static void gctl_plyr_init(void);
 static void gctl_score_init(uint8, uint16);
 static void j_060F_new_stage(void);
-static void c_game_bonus_info_show_line(uint8, uint8, uint8);
+static void c_game_bonus_info_line_disp(uint8, uint8, uint8);
 static void j_0612_plyr_setup(void);
 static void j_061E_plyr_respawn(void);
 static void gctl_1up2up_displ(uint8 CA);
 static void round_start_or_restart(void);
 static void gctl_1up2up_blink(uint8 const *, uint16, uint8);
 static void gctl_score_upd(void);
-static void gctl_score_incr_digit(uint16, uint8);
+static void gctl_score_digit_incr(uint16, uint8);
 static void c_080B_monitor_stage_start_or_restart_conditions();
-static void j_0650_handle_end_challeng_stg(void);
-static uint8 c_08BE(uint8, uint8, uint8 const *);
+static void gctl_chllng_stg_end(void);
+static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8, uint8);
 
 
 /*=============================================================================
@@ -189,7 +189,7 @@ void j_Game_init(void)
      */
     task_actv_tbl_0[0x1E] = 0x20;
 
-    credit_cnt = io_input[0];
+    gctl_credit_cnt = io_input[0];
 
     task_actv_tbl_0[0x1E] = 0; // just wrote $20 here see above
 
@@ -234,7 +234,7 @@ int j_Game_start(void)
     c_1230_init_taskman_structs();
 
 
-    if (credit_cnt == 0) glbls9200.game_state = ATTRACT_MODE;
+    if (gctl_credit_cnt == 0) glbls9200.game_state = ATTRACT_MODE;
     else glbls9200.game_state = READY_TO_PLAY_MODE;
 
 
@@ -289,21 +289,21 @@ int game_state_ready(void)
         // ld   (p_attrmode_sptiles),hl ... not necessary to keep persistent pointer for function paramter
 
         // E=bonus score digit, C=string_out_pe_index
-        c_game_bonus_info_show_line(A, 0x1B, 0);
+        c_game_bonus_info_line_disp(A, 0x1B, 0);
 
         A = mchn_cfg.bonus[1];
         if (0xFF != A) // ... else l_While_Ready
         {
             A &= 0x7F;
 
-            c_game_bonus_info_show_line(A, 0x1C, 1);
+            c_game_bonus_info_line_disp(A, 0x1C, 1);
             A = mchn_cfg.bonus[1];
 
             // if bit 7 is set, the third bonus award does not apply
             if (0 == (0x80 & A)) // goto l_While_Ready
             {
                 A &= 0x7F;
-                c_game_bonus_info_show_line(A, 0x1D, 2);
+                c_game_bonus_info_line_disp(A, 0x1D, 2);
             }
         }
     }
@@ -367,7 +367,7 @@ int game_mode_start(void)
     }
 
     memset(ds_bug_collsn, 0, 0x10);
-    memset(ds30_susp_plyr_obj_data, 0, 0x30);
+    //memset(ds30_susp_plyr_obj_data, 0, 0x30);
 
     c_string_out(0x03B0, 0x0B); // erase PLAYER 1 text
 
@@ -382,7 +382,7 @@ int game_mode_start(void)
 
 
 /*=============================================================================
- c_game_bonus_info_show_line()
+ c_game_bonus_info_line_disp()
   Description:
    coinup... displays each line of "1st BONUS, 2ND BONUS, AND FOR EVERY".
    Successive calls to this are made depending upon machine config, e.g.
@@ -395,7 +395,7 @@ int game_mode_start(void)
  OUT:
   ...
 -----------------------------------------------------------------------------*/
-static void c_game_bonus_info_show_line(uint8 E, uint8 C, uint8 idx)
+static void c_game_bonus_info_line_disp(uint8 E, uint8 C, uint8 idx)
 {
     uint16 HL;
     uint16 DE;
@@ -411,7 +411,7 @@ static void c_game_bonus_info_show_line(uint8 E, uint8 C, uint8 idx)
 
     c_string_out(HL, 0x1E); // draw 0's
 
-    sprite_tiles_display(gctl_bonus_fightr_tiles[idx]); // show the fighter sprite
+    sprite_tiles_display(&gctl_bonus_fightr_tiles[idx][0]); // show the fighter sprite
     return;
 }
 
@@ -482,7 +482,7 @@ static void gctl_plyr_init(void)
     DE = 0x03E0 + 0x03; // player 2 score
     HL = 0;
 
-    if (!two_plyr_game)
+    if (!gctl_two_plyr_game)
     {
         // advance src pointer past "00" to erase player 2 score (start of spaces)
         HL = 2;
@@ -587,7 +587,7 @@ void jp_049E_handle_stage_start_or_restart(void)
     if ( 0 == plyr_state_actv.not_chllng_stg )
     {
         // jp's back to 04DC_new_stage_setup
-        j_0650_handle_end_challeng_stg();
+        gctl_chllng_stg_end();
     }
 
     //j_04DC_new_stage_setup
@@ -684,7 +684,7 @@ static void round_start_or_restart(void)
 
 
 /*=============================================================================
-;; j_0650_handle_end_challeng_stg()
+;; gctl_chllng_stg_end()
 ;;  Description:
 ;;
 ;; IN:
@@ -692,7 +692,7 @@ static void round_start_or_restart(void)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void j_0650_handle_end_challeng_stg(void)
+static void gctl_chllng_stg_end(void)
 {
     uint16 DE;
     uint8 A;
@@ -827,10 +827,10 @@ static void gctl_score_upd(void)
             ds_bug_collsn[L] -= 1; // dec  (hl)
 
             A = C & 0x0F; // and  #0x0F
-            gctl_score_incr_digit(0x0300 + IXL, A);
+            gctl_score_digit_incr(0x0300 + IXL, A);
 
             A = (C >> 4) & 0x0F; // rlca * 4
-            gctl_score_incr_digit(0x0300 + IXL + 1, A);
+            gctl_score_digit_incr(0x0300 + IXL + 1, A);
 
             // jr   l_0740
         }
@@ -928,7 +928,7 @@ static void gctl_score_upd(void)
 
 
 /*=============================================================================
-;; gctl_score_incr_digit()
+;; gctl_score_digit_incr()
 ;;  Description:
 ;;   handle score inrement (gctl_score_upd)
 ;; IN:
@@ -938,7 +938,7 @@ static void gctl_score_upd(void)
 ;; OUT:
 ;;  HL=
 ;;---------------------------------------------------------------------------*/
-static void gctl_score_incr_digit(uint16 hl, uint8 a)
+static void gctl_score_digit_incr(uint16 hl, uint8 a)
 {
     if ( 0 == a )
         return;
@@ -1082,9 +1082,9 @@ void f_0857(void)
     }
 
     // l_0865: bomb drop enable flags
-    // A==new_stage_parms[0], HL==d_0909, C==num_bugs_on_scrn
-    A = c_08BE(ds_new_stage_parms[0], b_bugs_actv_nbr, d_0909);
-    b_92C0_0[0x08] = A;
+    // A==new_stage_parms[0], HL==gctl_bmbr_enbl_tmrdat, C==num_bugs_on_scrn
+    A = gctl_bmbr_enbl_tmrs_set(ds_new_stage_parms[0], b_bugs_actv_nbr, 0);
+    b_92C0_0[0x08] = A; // bomb drop enable timer loaded to bombers (0x0F)ix
 
     if (1) //  if (0 != b_92AA_cont_bombing_flag)
     {
@@ -1103,33 +1103,41 @@ A = ds_new_stage_parms[0x01];
 }
 
 /*=============================================================================
-;; c_08BE()
+;; gctl_bmbr_enbl_tmrs_set()
 ;;  Description:
-;;   for f_0857
+;;   set bomber enable timers (for f_0857)
 ;; IN:
 ;;  A == new_stage_parms[0] or [1]: selects set of 4 (indexes 0 thru 7)
 ;;  C == num_bugs_on_scrn
-;;  HL == data pointer into d_0909
+;;  L == index into gctl_bmbr_enbl_tmrdat
 ;; OUT:
 ;;  A==(hl)
 ;;---------------------------------------------------------------------------*/
-static uint8 c_08BE(uint8 A, uint8 C, uint8 const *pHL)
+static uint8 gctl_bmbr_enbl_tmrs_set(uint8 A, uint8 C, uint8 L)
 {
     uint8 rv, idx, sel;
 
     idx = A * 4;
     sel = C / 10; // call c_divmod
-    rv = pHL[idx + sel];
+    rv = gctl_bmbr_enbl_tmrdat[L][idx + sel];
     return rv;
 }
 
 /*---------------------------------------------------------------------------*/
-static const uint8 d_0909[] =
+static const uint8 gctl_bmbr_enbl_tmrdat[][4] =
 {
-    0x03,0x03,0x01,0x01, 0x03,0x03,0x03,0x01, 0x07,0x03,0x03,0x01, 0x07,0x03,0x03,0x03,
-    0x07,0x07,0x03,0x03, 0x0F,0x07,0x03,0x03, 0x0F,0x07,0x07,0x03, 0x0F,0x07,0x07,0x07,
+    { 0x03,0x03,0x01,0x01},
+    { 0x03,0x03,0x03,0x01},
+    { 0x07,0x03,0x03,0x01},
+    { 0x07,0x03,0x03,0x03},
+    { 0x07,0x07,0x03,0x03},
+    { 0x0F,0x07,0x03,0x03},
+    { 0x0F,0x07,0x07,0x03},
+    { 0x0F,0x07,0x07,0x07},
 //d_0929:
-    0x06,0x0A,0x0F,0x0F, 0x04,0x08,0x0D,0x0D, 0x04,0x06,0x0A,0x0A
+    { 0x06,0x0A,0x0F,0x0F},
+    { 0x04,0x08,0x0D,0x0D},
+    { 0x04,0x06,0x0A,0x0A}
 };
 
 
@@ -1174,7 +1182,7 @@ static void gctl_1up2up_displ(uint8 C)
 
     gctl_1up2up_blink(gctl_str_1up, 0x03C0 + 0x19, A); // 'P' of 1UP
 
-    if (!two_plyr_game) return;
+    if (!gctl_two_plyr_game) return;
 
     A = plyr_state_actv.p1or2 & C; // 1 if 2UP
 
@@ -1289,11 +1297,11 @@ void f_0977(void)
         // l_099F_update_freeplay_or_credit:
         uint16 DE = 0x0000 + 0x003C; // dest of "C" of "CREDIT"
 
-        if (credit_cnt == 0xA0) // goto puts_freeplay ...  i.e. > 99 (BCD)
+        if (gctl_credit_cnt == 0xA0) // goto puts_freeplay ...  i.e. > 99 (BCD)
         {
             ; // jr   z,l_09D9_puts_freeplay                ; skip credits status
         }
-        else if (credit_cnt < 0xA0) // do credit update display
+        else if (gctl_credit_cnt < 0xA0) // do credit update display
         {
             // puts "credit"
             uint8 BC = sizeof (str_09CA);
@@ -1347,21 +1355,21 @@ void f_0977(void)
     }
 
     // l_09FF_check_credits_used:
-    B = credit_cnt; // stash the previous credit count
+    B = gctl_credit_cnt; // stash the previous credit count
 
-    if (io_input[0] == credit_cnt)
+    if (io_input[0] == gctl_credit_cnt)
         return; // return if no change of game state
 
-    else if (io_input[0] > credit_cnt)
+    else if (io_input[0] > gctl_credit_cnt)
     {
         // jr   c,l_0A1A_update_credit_ct             ; Cy is set (credit_hw > credit_ct)
     }
-    else if (io_input[0] < credit_cnt)
+    else if (io_input[0] < gctl_credit_cnt)
     {
-        // two_plyr_game = credits_used - 1;
-        two_plyr_game = credit_cnt - io_input[0] - 1;
+        // gctl_two_plyr_game = credits_used - 1;
+        gctl_two_plyr_game = gctl_credit_cnt - io_input[0] - 1;
 
-        credit_cnt = io_input[0];
+        gctl_credit_cnt = io_input[0];
         glbls9200.game_state = IN_GAME_MODE;
 
 #ifdef HELP_ME_DEBUG
@@ -1374,10 +1382,10 @@ void f_0977(void)
     }
 
     // l_0A1A_update_credit_ct
-    credit_cnt = io_input[0];
+    gctl_credit_cnt = io_input[0];
 
     // no coin_in sound for free-play
-    if (credit_cnt == 0xA0)
+    if (gctl_credit_cnt == 0xA0)
         return;
     else
     {
