@@ -33,8 +33,9 @@
 ;;=============================================================================
 ;; j_Game_init()
 ;;  Description:
-;;   One time Game startup after machine initialization.
-;;   Falls through to Game_start.
+;;   Once per machine-reset following hardware initialization.
+;;   Put screen and other significant memory structures into known state prior
+;;   to executing into "main function".
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -133,7 +134,7 @@ l_032A:
        call c_1230_init_taskman_structs
 
 ; data structures for 12 objects
-       rst  0x28                                  ; memset(_9100_object_motion,0,$F0) ... object motion structs.
+       rst  0x28                                  ; memset(motion_que,0,$$14 * 12) ... object motion structs.
 
 ; Not sure here...
 ; this would have the effect of disabling/skipping the task at 0x1F (f_0977)
@@ -163,7 +164,7 @@ l_032A:
 ;;    and skips directly to "Ready" state, otherwise it
 ;;    stays in Attract mode state.
 ;;
-;;    When all ships are destroyed, execution jumps back to Game_start.
+;;    Resumes here following completion of a game.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -198,25 +199,25 @@ j_Game_start:
        call c_sctrl_sprite_ram_clr                ; clear sprite mem etc.
        call c_1230_init_taskman_structs
 
-
-; if ( credit_cnt == 0 )   game_state = ATTRACT_MODE
+; allow attract-mode festivities to be skipped if credit available
+; if ( credit_cnt == 0 )  game_state = ATTRACT_MODE
        ld   a,(b8_99B8_credit_cnt)
        and  a
        ld   a,#1                                  ; 1 == ATTRACT_MODE
        jr   z,l_0380
-; else   game_state = READY_TO_PLAY_MODE
+; else  game_state = READY_TO_PLAY_MODE
        ld   a,#2                                  ; 2 == READY_TO_PLAY_MODE
 l_0380:
        ld   (b8_9201_game_state),a                ; = (credit_cnt==0 ? ATTRACT : READY) ... (m/c start, game_state init)
 
-; if ( game_state == READY )  ... do game start stuff
+; if ( credit_cnt == 0 ) ...
        jr   nz,l_game_state_ready
 
-; else  ... do attract mode stuff
+; ... do attract mode stuff
        xor  a
        ld   (ds_9200_glbls + 0x03),a              ; b_9200_glbls.demo_idx = 0
 
-; task_activ_tbl[2] = 1; // f_17B2 (control demo mode)
+; task_activ_tbl[2] = 1; // f_17B2 (demo mode control)
        inc  a
        ld   (ds_cpu0_task_actv + 0x02),a         ; 1 ... f_17B2 (control demo mode)
 
@@ -231,6 +232,8 @@ l_038D_While_Attract_Mode:
        call c_sctrl_playfld_clr
        rst  0x28                                  ; memset(_9100_game_data,0,$F0)
        call c_sctrl_sprite_ram_clr
+
+; game_state == READY
 
 l_game_state_ready:
        xor  a
@@ -278,10 +281,13 @@ l_While_Ready:
        jr   z,l_While_Ready
 
 ; /****  start button was hit ******************/
+
        ld   (b_9AA0 + 0x17),a                     ; sound_mgr_reset: non-zero causes re-initialization of sound mgr process
+
 ; clear sprite mem etc.
        call c_sctrl_playfld_clr
        call c_sctrl_sprite_ram_clr
+
 ; stars paused
        ld   hl,#0xA005                            ; star_ctrl_port_bit6 -> 0, then 1
        ld   (hl),#0
@@ -398,7 +404,7 @@ d_attrmode_sptiles_ships:
 ;;=============================================================================
 ;; jp_045E_While_Game_Running()
 ;;  Description:
-;;   Everything runs out of this loop once the game is started.
+;;   background super loop following game-start
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -498,7 +504,7 @@ d_0495:
 ;;-----------------------------------------------------------------------------
 jp_049E_handle_stage_start_or_restart:
 
-; return is by jp back so first, clear the push'd return address of the call
+; return is by jp ... pop the push'd return address of call c_080B_monitor_stage_start_
        pop  hl
 
        ld   hl,#ds4_game_tmrs + 3                 ; = 4 (set a time to wait while ship exploding)
@@ -515,7 +521,7 @@ l_04A4_do_wait_explosion_tmr:
 ;  else {{
 ;      ship in play is destroyed, but the "landing" ship remains in play.
        xor  a
-       ld   (ds_9200_glbls + 0x13),a              ; restart stage flag := 0
+       ld   (ds_9200_glbls + 0x13),a              ; 0 ... restart stage flag
        inc  a
        ld   (ds_cpu1_task_actv + 0x05),a          ; 1  (cpu1:f_05EE)
 
@@ -533,7 +539,7 @@ l_04B9_while_captd_ship_landing:
        and  a
        jr   nz,l_04B9_while_captd_ship_landing
 
-       jr   j_04DC_new_stage_setup
+       jr   j_04DC_new_stage_setup                ; jp's to j_0632_round_start_
 ;    }
 ;  }}
 
@@ -553,7 +559,7 @@ l_04C1_while_wait_explosion_tmr:
 
 ; if ( restart stage flag || bugs_actv_nbr>0 ) {{
        ld   c,a                                   ; A==bugs remaining in round (could be 0 if ship hit last one)
-       ld   a,(ds_9200_glbls + 0x13)              ; restart stage flag (could not be here if nbr_bugs > 0  && flag==0 )
+       ld   a,(ds_9200_glbls + 0x13)              ; restart stage flag (could not be here if nbr_bugs > 0 && flag==0 )
        or   c
        jr   nz,l_04E2_terminate_or_gameover
 ; }} else {{
@@ -568,7 +574,7 @@ j_04DC_new_stage_setup:
 
 ; end of stage ... "normal"
        call c_new_stg_game_only
-       jp   j_0632_round_start_or_restart         ; jp   jp_045E_While_Game_Running
+       jp   j_0632_round_start_or_restart         ; jp  _045E_While_Game_Running
 ; }}
 
 ;;=============================================================================
@@ -687,7 +693,7 @@ l_0562:
 ;   else if ( stage_rst_flag > 1 ) {
 ;      check for stg_restart flag, indicating a fighter-capture event.
 ;      I'm not sure what we gain by checking this.. it still ends up in handle_plyr_change...
-       ld   a,(ds_9200_glbls + 0x13)              ; check if active plyr (final) ship captured (restart stage flag== 2)
+       ld   a,(ds_9200_glbls + 0x13)              ; check if active plyr (final) ship captured (restart stage flag == 2)
        dec  a
        jr   nz,j_058E_handle_plyr_changeover
 ;   }
@@ -875,8 +881,8 @@ l_062C:
 j_0632_round_start_or_restart:
 
        ld   a,#1
-       ld   (ds_cpu0_task_actv + 0x15),a          ; 1  (f_1F04 ...fire button input))
-       ld   (ds_cpu1_task_actv + 0x05),a          ; 1  (cpu1:f_05EE)
+       ld   (ds_cpu0_task_actv + 0x15),a          ; 1 ... f_1F04 (fire button input)
+       ld   (ds_cpu1_task_actv + 0x05),a          ; 1 ... cpu1:f_05EE (hit-detection)
        ld   (ds_plyr_actv +_b_atk_wv_enbl),a      ; 1  (0 when respawning player ship)
 
        ld   c,#0x0B                               ; index into string table
@@ -887,7 +893,7 @@ j_0632_round_start_or_restart:
        ld   hl,#m_tile_ram + 0x03A0 + 0x0E
        call c_string_out                          ; erase "PLAYER 1"
 
-       jp   jp_045E_While_Game_Running            ; return to Game Runner Loop
+       jp   jp_045E_While_Game_Running            ; resume background super loop
 
 
 ;;=============================================================================
@@ -1276,10 +1282,10 @@ l_07F8_while:
        jr   l_07E9_while_1
 
 ;;=============================================================================
-;; score manager increment look up table (BCD encoded)
-;; Base score-factors applied to multiples reported via _bug_collsn[]. Values
-;; are ordered by color group, i.e. as per _bug_collsn, but indexing is
-;; reversed, probably to take advantage of djnz.
+;; Base-factors of points awareded for enemy hits, applied to multiples
+;; reported via _bug_collsn[]. Values are BCD-encoded, and ordered by object
+;; color group, i.e. as per _bug_collsn.
+;; Indexing is reversed, probably to take advantage of djnz.
 ;; Index $00 is a base factor of 10 for challenge-stage bonuses to which a
 ;; variable bonus-multiplier is applied (_bug_collsn[$0F]).
 d_scoreman_inc_lut:
@@ -1301,6 +1307,7 @@ d_scoreman_inc_lut:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 c_080B_monitor_stage_start_or_restart_conditions:
+
 ;  if ( num_bugs == 0  &&  !f_2916 active )  ... 9AA0[0] = 0
        ld   a,(ds_cpu0_task_actv + 0x08)          ; f_2916 (supervises attack waves)
        ld   b,a
@@ -1309,6 +1316,7 @@ c_080B_monitor_stage_start_or_restart_conditions:
        jr   nz,l_081B                             ; nbr of bugs > 0, so check for restart_stage event
 ; then ...
        ld   (b_9AA0 + 0x00),a                     ; 0 ... sound-fx count/enable registers, pulsing formation sound effect
+
        jp   jp_049E_handle_stage_start_or_restart ; cleared the round ... num_bugs_on_screen ==0 || !f_2916_active
 
 ; else ... check if a restart-stage condition has been flagged
@@ -1319,8 +1327,9 @@ l_081B:
        ret  z                                     ; not the end of the stage, and not restart_stage event
 ; ...
        xor  a
-       ld   (ds_plyr_actv +_b_atk_wv_enbl),a      ; 0 ...restart_stage_flag has been set
-       jp   jp_049E_handle_stage_start_or_restart
+       ld   (ds_plyr_actv +_b_atk_wv_enbl),a      ; 0 ... restart_stage_flag has been set
+
+       jp   jp_049E_handle_stage_start_or_restart ; restart_stage_flag has been set
 
 
 ;;=============================================================================
@@ -1392,7 +1401,7 @@ l_0865:
        ld   a,(b_bugs_actv_nbr)
        ld   c,a                                   ; parameter to c_08BE
        ld   a,(ds_new_stage_parms + 0x00)
-       ld   hl,#d_0909
+       ld   hl,#d_0909 + 0 * 4
        call c_08BE                                ; A==new_stage_parms[0], HL==d_0909, C==num_bugs_on_scrn
        ld   (b_92C0 + 0x08),a                     ; = c_08BE() ... bomb drop enable flags
 
@@ -1416,7 +1425,7 @@ l_0865:
 l_0888:
 ; ... else after bugs_actv_nbr exceeds parameter_7 until continous bombing begins
        ld   a,(ds_new_stage_parms + 0x01)
-       ld   hl,#d_0909 + 4 * 8                    ; offset the data pointer
+       ld   hl,#d_0909 + 8 * 4                    ; offset the data pointer
        call c_08BE                                ; A==new_stage_parms[1], HL==d_0929, C==num_bugs_on_scrn
        ld   (b_92C0 + 0x04),a                     ; =c_08BE()
 
