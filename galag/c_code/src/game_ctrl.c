@@ -268,17 +268,7 @@ int j_Game_start(void)
     }
 
     // l_game_state_ready:
-    return 0;
-}
 
-/*=============================================================================
-;;  game_state_ready
-;;  Description:
-;;    l_game_state_ready
-;;
-;;-----------------------------------------------------------------------------*/
-int game_state_ready(void)
-{
     glbls9200.flying_bug_attck_condtn = 0; // 1 at demo mode, 3 at game start, and now 0
 
     j_string_out_pe(1, -1, 0x13); // "(c) 1981 NAMCO LTD"
@@ -311,17 +301,9 @@ int game_state_ready(void)
             return 1;
         }
     }
-    return 0;
-}
 
-/*=============================================================================
-;;  game_mode_start
-;;  Description:
-;;    start button was hit
-;;
-;;-----------------------------------------------------------------------------*/
-int game_mode_start(void)
-{
+    // start button was hit
+
     // sound_mgr_reset: non-zero causes re-initialization of CPU-sub2 process
     b_9AA0[0x17] = glbls9200.game_state;
 
@@ -371,6 +353,28 @@ int game_mode_start(void)
 
     // jp   j_060F_new_stage
 
+    return 0;
+}
+
+/*=============================================================================
+;;  game_state_ready
+;;  Description:
+;;
+;;-----------------------------------------------------------------------------*/
+int game_state_ready(void)
+{
+    // start button was hit
+    return 0;
+}
+
+/*=============================================================================
+;;  game_mode_start
+;;  Description:
+;;    start button was hit
+;;
+;;-----------------------------------------------------------------------------*/
+int game_mode_start(void)
+{
     return 0;
 }
 
