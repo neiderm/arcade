@@ -80,7 +80,7 @@ static void gctl_plyr_init(void);
 static void gctl_score_init(uint8, uint16);
 static void j_060F_new_stage(void);
 static void gctl_bonus_info_line_disp(uint8, uint8, uint8);
-static void gctrl_plyr_startup(void);
+static void gctl_plyr_startup(void);
 static void gctl_plyr_respawn(void);
 static void gctl_1up2up_displ(uint8 CA);
 static void gctl_fghtr_rdy(void);
@@ -113,7 +113,7 @@ void c_sctrl_sprite_ram_clr(void)
 }
 
 /*=============================================================================
-;; j_Game_init()
+;; gctl_runtime_init()
 ;;  Description:
 ;;   Once per machine-reset following hardware initialization.
 ;;   Put screen and other significant memory structures into known state prior
@@ -197,7 +197,7 @@ void j_Game_init(void)
 }
 
 /*=============================================================================
-;; j_Game_start()
+;; gctl_main()
 ;;  Description:
 ;;    Initialization, and one-time check for credits (monitoring credit count
 ;;    and updating "GameState" is otherwise handled by a 16mS task). If credits
@@ -250,7 +250,7 @@ int j_Game_start(void)
         {
             if (0 != _updatescreen(1)) // 1 == blocking wait for vblank
             {
-                return 1; // goto getout;
+                return 1;
             }
         }
 
@@ -279,35 +279,26 @@ int j_Game_start(void)
 ;;-----------------------------------------------------------------------------*/
 int game_state_ready(void)
 {
-    uint8 A;
-
     glbls9200.flying_bug_attck_condtn = 0; // 1 at demo mode, 3 at game start, and now 0
 
     j_string_out_pe(1, -1, 0x13); // "(c) 1981 NAMCO LTD"
     j_string_out_pe(1, -1, 1); // "PUSH START BUTTON"
 
-    A = mchn_cfg.bonus[0];
-
-    if (0xFF != A) // ... else l_While_Ready
+    if (0xFF != mchn_cfg.bonus[0]) // ... else l_While_Ready
     {
         // ld   (p_attrmode_sptiles),hl ... not necessary to keep persistent pointer for function paramter
 
         // E=bonus score digit, C=string_out_pe_index
-        gctl_bonus_info_line_disp(A, 0x1B, 0);
+        gctl_bonus_info_line_disp(mchn_cfg.bonus[0], 0x1B, 0);
 
-        A = mchn_cfg.bonus[1];
-        if (0xFF != A) // ... else l_While_Ready
+        if (0xFF != mchn_cfg.bonus[1]) // ... else l_While_Ready
         {
-            A &= 0x7F;
-
-            gctl_bonus_info_line_disp(A, 0x1C, 1);
-            A = mchn_cfg.bonus[1];
+            gctl_bonus_info_line_disp(mchn_cfg.bonus[1] & 0x7F, 0x1C, 1);
 
             // if bit 7 is set, the third bonus award does not apply
-            if (0 == (0x80 & A)) // goto l_While_Ready
+            if (0 == (0x80 & mchn_cfg.bonus[1])) // goto l_While_Ready
             {
-                A &= 0x7F;
-                gctl_bonus_info_line_disp(A, 0x1D, 2);
+                gctl_bonus_info_line_disp(mchn_cfg.bonus[1] & 0x7F, 0x1D, 2);
             }
         }
     }
@@ -316,7 +307,9 @@ int game_state_ready(void)
     while (READY_TO_PLAY_MODE == glbls9200.game_state)
     {
         if (0 != _updatescreen(1)) // 1 == blocking wait for vblank
-            return 1; // goto getout;
+        {
+            return 1;
+        }
     }
     return 0;
 }
@@ -345,15 +338,11 @@ int game_mode_start(void)
 
     // memset( player_data, 0, $a0 )
 
-
     b_9AA0[0x17] = 0; // enable CPU-sub2 process
-
     ds_99B9_star_ctrl[0] = 0; // star ctrl stop (1 when ship on screen)
-
-    b_9AA0[ 0x0B ] = 1; // sound-fx count/enable, start of game theme
-
+    b_9AA0[0x0B] = 1; // sound-fx count/enable, start of game theme
     task_actv_tbl_0[0x12] = 1; // f_1D76, star ctrl
-    task_actv_tbl_0[0x12] = 1; // f_1D76, star ctrl
+    task_resv_tbl_0[0x12] = 1; // f_1D76, star ctrl
 
     // do one-time inits
     gctl_plyr_init(); // setup number of lives and scores
@@ -366,7 +355,9 @@ int game_mode_start(void)
     while (ds4_game_tmrs[3] > 0)
     {
         if (0 != _updatescreen(1)) // 1 == blocking wait for vblank
-            return 1; // goto getout;
+        {
+            return 1;
+        }
     }
 
     memset(ds_bug_collsn, 0, 0x10);
@@ -545,7 +536,7 @@ int game_runner(void)
     // jp   j_060F_new_stage   ; does not return, jp's to Game Loop
     j_060F_new_stage();
 
-    gctrl_plyr_startup();
+    gctl_plyr_startup();
 
     gctl_fghtr_rdy();
 
@@ -626,18 +617,18 @@ static void j_060F_new_stage(void)
 {
     c_new_stg_game_only(); // shows "STAGE X" and does setup
 
-    // gctrl_plyr_startup
+    // gctl_plyr_startup
 }
 
 /*=============================================================================
-;;  gctrl_plyr_startup:
+;;  gctl_plyr_startup:
 ;;  Description:
 ;;   Setup a new player... every time the player is changed on a 2P game or once
 ;;   at first ship of new 1P game. Shows Player 1 (2) text on stage restart.
 ;;   Out of "new_stage" or "plyr_changeover"
 ;;
 ;;----------------------------------------------------------------------------*/
-static void gctrl_plyr_startup(void)
+static void gctl_plyr_startup(void)
 {
     // P1 text is index 4, P2 is index 5
     c_string_out(0x0260 + 0x0E, plyr_state_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
