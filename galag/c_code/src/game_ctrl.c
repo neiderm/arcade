@@ -72,14 +72,14 @@ static const uint8 gctl_score_initd[];
 static const uint8 gctl_str_1up[];
 static const uint8 gctl_str_2up[];
 static const uint8 gctl_str_000[];
-static const uint8 gctl_score_inc_dat[];
+static const uint8 gctl_point_fctrs[];
 static const uint8 gctl_bmbr_enbl_tmrdat[][4];
 
 // function prototypes
 static void gctl_plyr_init(void);
 static void gctl_score_init(uint8, uint16);
 static void j_060F_new_stage(void);
-static void c_game_bonus_info_line_disp(uint8, uint8, uint8);
+static void gctl_bonus_info_line_disp(uint8, uint8, uint8);
 static void j_0612_plyr_setup(void);
 static void j_061E_plyr_respawn(void);
 static void gctl_1up2up_displ(uint8 CA);
@@ -87,7 +87,7 @@ static void round_start_or_restart(void);
 static void gctl_1up2up_blink(uint8 const *, uint16, uint8);
 static void gctl_score_upd(void);
 static void gctl_score_digit_incr(uint16, uint8);
-static void c_080B_monitor_stage_start_or_restart_conditions();
+static void gctl_bg_stg_restart_supv();
 static void gctl_chllng_stg_end(void);
 static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8, uint8);
 
@@ -289,21 +289,21 @@ int game_state_ready(void)
         // ld   (p_attrmode_sptiles),hl ... not necessary to keep persistent pointer for function paramter
 
         // E=bonus score digit, C=string_out_pe_index
-        c_game_bonus_info_line_disp(A, 0x1B, 0);
+        gctl_bonus_info_line_disp(A, 0x1B, 0);
 
         A = mchn_cfg.bonus[1];
         if (0xFF != A) // ... else l_While_Ready
         {
             A &= 0x7F;
 
-            c_game_bonus_info_line_disp(A, 0x1C, 1);
+            gctl_bonus_info_line_disp(A, 0x1C, 1);
             A = mchn_cfg.bonus[1];
 
             // if bit 7 is set, the third bonus award does not apply
             if (0 == (0x80 & A)) // goto l_While_Ready
             {
                 A &= 0x7F;
-                c_game_bonus_info_line_disp(A, 0x1D, 2);
+                gctl_bonus_info_line_disp(A, 0x1D, 2);
             }
         }
     }
@@ -382,7 +382,7 @@ int game_mode_start(void)
 
 
 /*=============================================================================
- c_game_bonus_info_line_disp()
+ gctl_bonus_info_line_disp()
   Description:
    coinup... displays each line of "1st BONUS, 2ND BONUS, AND FOR EVERY".
    Successive calls to this are made depending upon machine config, e.g.
@@ -395,7 +395,7 @@ int game_mode_start(void)
  OUT:
   ...
 -----------------------------------------------------------------------------*/
-static void c_game_bonus_info_line_disp(uint8 E, uint8 C, uint8 idx)
+static void gctl_bonus_info_line_disp(uint8 E, uint8 C, uint8 idx)
 {
     uint16 HL;
     uint16 DE;
@@ -446,7 +446,7 @@ void While_Game_Running(void)
     while (1) // jr   l_045E_while_play_game
     {
         gctl_score_upd();
-        c_080B_monitor_stage_start_or_restart_conditions();
+        gctl_bg_stg_restart_supv();
 
         // I don't remember what actually causes the game to recycle, but
         // here we  allow an escape from the superloop
@@ -560,7 +560,7 @@ int game_runner(void)
 ;;    j_0632_round_start_or_restart
 ;;       jp_045E_While_Game_Running
 ;;===========================================================================*/
-void jp_049E_handle_stage_start_or_restart(void)
+void gctl_stg_restart_hdlr(void)
 {
     // set a time to wait while ship exploding
     ds4_game_tmrs[3] = 4;
@@ -578,13 +578,14 @@ void jp_049E_handle_stage_start_or_restart(void)
 
     gctl_score_upd();
 
+    // count of remaining aggressors according to object state dispatcher
     plyr_state_actv.b_nbugs = b_bugs_actv_nbr;
 
     // check for "not (normal) end of stage conditions":
 
     // if ( restart stage flag || bugs_actv_nbr>0 ) {{
     //   jr   nz,l_04E2_terminate_or_gameover
-    if ( 0 == plyr_state_actv.not_chllng_stg )
+    if (0 == plyr_state_actv.not_chllng_stg)
     {
         // jp's back to 04DC_new_stage_setup
         gctl_chllng_stg_end();
@@ -670,7 +671,7 @@ static void j_061E_plyr_respawn(void)
 static void round_start_or_restart(void)
 {
     task_actv_tbl_0[0x15] = 1; // f_1F04 ...fire button input
-    //ds_cpu1_task_en[0x05] = 1;  // (enable cpu1:f_05EE)
+    //ds_cpu1_task_en[0x05] = 1;  // (enable cpu1:f_05EE ... fighter hit detection)
 
     // attack_wave_enable
     plyr_state_actv.b_atk_wv_enbl = 1; // 0 when respawning player ship
@@ -752,7 +753,7 @@ static void gctl_chllng_stg_end(void)
 
             C = 0x0B; // index into string table (27 spaces)
 
-            if ( 0 != (0x01 & B))
+            if (0 != (0x01 & B))
             {
                 C = 0x0C; // index into string table "PERFECT !"
             }
@@ -764,7 +765,7 @@ static void gctl_chllng_stg_end(void)
                 _updatescreen(1); // todo: check retval for ESC key
             }
         }
-        while(--B > 0); // djnz l_069B_while_b
+        while (--B > 0); // djnz l_069B_while_b
 
         j_string_out_pe(1, -1, 0x0D); // "SPECIAL BONUS 10000 PTS"
 
@@ -803,25 +804,25 @@ static void gctl_score_upd(void)
     uint8 A, B, C, E, L, IXL;
 
     IXL = 0xF9;
-    if ( 0 != plyr_state_actv.p1or2 )
+    if (0 != plyr_state_actv.p1or2)
     {
         IXL = 0xE4;
     }
 
     // l_0732:
 
-    B = 0x10; // ld   b,#0x10
+    B = 16; // ld   b,#0x10 ... sizeof(gctl_point_fctrs)
     L = 0; // ld   hl,#ds_bug_collsn + 0x00
 
     // l_0739_while_B
-    while ( B > 0 )
+    while (B > 0)
     {
         // ex   de,hl ... stash HL
 
-        C = gctl_score_inc_dat[ B - 1 ]; // ld   hl,#gctl_score_inc_dat - 1
+        C = gctl_point_fctrs[ B - 1 ]; // ld   hl,#gctl_point_fctrs - 1
 
         // l_0740
-        while ( 0 != ds_bug_collsn[L] ) // jr   z,l_0762
+        while (0 != ds_bug_collsn[L]) // jr   z,l_0762
         {
             //if ( 0 != ds_bug_collsn[L] )
             ds_bug_collsn[L] -= 1; // dec  (hl)
@@ -851,31 +852,31 @@ static void gctl_score_upd(void)
     E = 0;
     B = 6;
     // l_0771:
-    while ( B > 0)
+    while (B > 0)
     {
         A = m_tile_ram[ 0x0300 + E ]; // ld   a,(de)
         A -= m_tile_ram[ 0x03E0 + L ]; // sub  (hl)
         A += 9;
 
-        if ( A < 0xE5 ) // jr   nc,l_0788
+        if (A < 0xE5) // jr   nc,l_0788
         {
             A -= 0x0A;
 
-            if ( A >= 9 ) // jr   c,l_0788
+            if (A >= 9) // jr   c,l_0788
             {
                 // inc  a
-                if ( -1 == A)
+                if (-1 == A)
                 {
                     L -= 1; // dec  l
                     E -= 1; // dec  e
                     // djnz l_0771
                 }
-                else  break; // jr   nz,l_078E
+                else break; // jr   nz,l_078E
             }
             else
             {
                 // l_0788: tick away the remaining counts on B
-                while( B > 0 )
+                while (B > 0)
                 {
                     A -= m_tile_ram[ 0x03E0 + L ] = m_tile_ram[ 0x0300 + E ];
                     L -= 1; // dec  l
@@ -888,7 +889,7 @@ static void gctl_score_upd(void)
         // l_0788: tick away the remaining counts on B
         else
         {
-            while( B > 0 )
+            while (B > 0)
             {
                 A -= m_tile_ram[ 0x03E0 + L ] = m_tile_ram[ 0x0300 + E ];
                 L -= 1; // dec  l
@@ -907,7 +908,7 @@ static void gctl_score_upd(void)
     L = IXL + 4;
     AF.word = m_tile_ram[0x0300 + L];
 
-    if ( 0x24 == AF.pair.b0 )  AF.word = 0; // xor  a
+    if (0x24 == AF.pair.b0) AF.word = 0; // xor  a
 
     // l_0799:
     AF.word &= 0x3F;
@@ -919,7 +920,7 @@ static void gctl_score_upd(void)
     L -= 1;
     AF.word = m_tile_ram[0x0300 + L];
 
-    if ( 0x24 == AF.pair.b0 )  AF.word = 0; // xor  a
+    if (0x24 == AF.pair.b0) AF.word = 0; // xor  a
 
     // l_07A8:
     // check if a bonus fighter to be awarded
@@ -932,7 +933,7 @@ static void gctl_score_upd(void)
 ;;  Description:
 ;;   handle score inrement (gctl_score_upd)
 ;; IN:
-;;  A == gctl_score_inc_dat[B-1]
+;;  A == gctl_point_fctrs[B-1]
 ;;        twice on 1 update, 1st is low nibble, 2nd is high nibble
 ;;  HL== index into tile_ram
 ;; OUT:
@@ -940,18 +941,18 @@ static void gctl_score_upd(void)
 ;;---------------------------------------------------------------------------*/
 static void gctl_score_digit_incr(uint16 hl, uint8 a)
 {
-    if ( 0 == a )
+    if (0 == a)
         return;
 
     a += m_tile_ram[hl];
 
-    if ( a >= 0x24 ) // jr   c,l_07E1
+    if (a >= 0x24) // jr   c,l_07E1
     {
         a -= 0x24; // > 'Z' so subtract 'Z'
     }
 
     // l_07E1:
-    if ( a < 0x0A ) // jr   nc,l_07E7
+    if (a < 0x0A) // jr   nc,l_07E7
     {
         m_tile_ram[hl] = a;
         return;
@@ -961,20 +962,20 @@ static void gctl_score_digit_incr(uint16 hl, uint8 a)
     a -= 0x0A;
 
     // l_07E9_while_1:
-    while(1) // ... you gotta love while 1's
+    while (1) // ... you gotta love while 1's
     {
         m_tile_ram[hl] = a;
 
         hl += 1; // inc  l
         a = m_tile_ram[hl];
 
-        if ( 0x24 == a ) // 'Z'
+        if (0x24 == a) // 'Z'
         {
             a = 0; // xor  a ... set to 0 in case it breaks (if A == 9 )
         }
 
         // l_07F1:
-        if ( 0x09 != a )
+        if (0x09 != a)
         {
             m_tile_ram[hl] = a + 1; // inc  a
             return;
@@ -986,41 +987,57 @@ static void gctl_score_digit_incr(uint16 hl, uint8 a)
 }
 
 
-//=============================================================================
-// score increment data (significant digits packed as nibbles)
-static const uint8 gctl_score_inc_dat[] =
+/*=============================================================================
+;; Base-factors of points awareded for enemy hits, applied to multiples
+;; reported via _bug_collsn[]. Values are BCD-encoded, and ordered by object
+;; color group, i.e. as per _bug_collsn.
+;; Indexing is reversed, probably to take advantage of djnz.
+;; Index $00 is a base factor of 10 for challenge-stage bonuses to which a
+;; variable bonus-multiplier is applied (_bug_collsn[$0F]).
+;;---------------------------------------------------------------------------*/
+static const uint8 gctl_point_fctrs[] =
 {
-    0x10,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-    0x50,0x08,0x08,0x08,0x05,0x08,0x15,0x00
+    0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x50, 0x08, 0x08, 0x08, 0x05, 0x08, 0x15, 0x00
 };
 
 
 /*=============================================================================
-;; f_0827()
+;; c_080B_monitor_stage_start_or_re()
 ;;  Description:
-;;   empty task
+;;   supervises stage restart condition.
+;;   0 enemies remaining indicates condition for new-stage start.
+;;   Otherwise, 'restart_stage_flag" may indicate that the active
+;;   fighter has been destroyed or captured requiring a stage re-start.
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void c_080B_monitor_stage_start_or_restart_conditions(void)
+static void gctl_bg_stg_restart_supv(void)
 {
     // f_2916 (supervises attack waves)
-    if ( 0 == task_actv_tbl_0[0x08] && 0 == b_bugs_actv_nbr )
+    if (0 == task_actv_tbl_0[0x08] && 0 == b_bugs_actv_nbr) // count of remaining aggressors according to object state dispatcher
     {
+        // jr   nz,l_081B
+
         // cleared the round
         b_9AA0[0x00] = 0; // sound-fx count/enable registers, pulsing formation sound effect
+
+        // jp   jp_049E_handle_stage_start_
     }
     else
     {
-        if ( 0 == glbls9200.restart_stage ) // 0x13, restart stage flag
+        // fighter destroyed or captured?
+        if (0 == glbls9200.restart_stage) // 0x13, restart stage flag
         {
             return;
         }
+        // probably a stage-restart is pending
+        plyr_state_actv.b_atk_wv_enbl = 0;
     }
-    plyr_state_actv.b_atk_wv_enbl = 0;
-    jp_049E_handle_stage_start_or_restart();
+
+    gctl_stg_restart_hdlr();
 }
 
 /*=============================================================================
@@ -1076,7 +1093,7 @@ void f_0857(void)
 {
     uint8 A;
     // increases allowable max_flying_bugs_this_round after a time
-    if ( ds4_game_tmrs[2] < 0x3C )
+    if (ds4_game_tmrs[2] < 0x3C)
     {
         ds_new_stage_parms[4] = ds_new_stage_parms[5];
     }
@@ -1124,20 +1141,19 @@ static uint8 gctl_bmbr_enbl_tmrs_set(uint8 A, uint8 C, uint8 L)
 }
 
 /*---------------------------------------------------------------------------*/
-static const uint8 gctl_bmbr_enbl_tmrdat[][4] =
-{
-    { 0x03,0x03,0x01,0x01},
-    { 0x03,0x03,0x03,0x01},
-    { 0x07,0x03,0x03,0x01},
-    { 0x07,0x03,0x03,0x03},
-    { 0x07,0x07,0x03,0x03},
-    { 0x0F,0x07,0x03,0x03},
-    { 0x0F,0x07,0x07,0x03},
-    { 0x0F,0x07,0x07,0x07},
+static const uint8 gctl_bmbr_enbl_tmrdat[][4] ={
+    { 0x03, 0x03, 0x01, 0x01},
+    { 0x03, 0x03, 0x03, 0x01},
+    { 0x07, 0x03, 0x03, 0x01},
+    { 0x07, 0x03, 0x03, 0x03},
+    { 0x07, 0x07, 0x03, 0x03},
+    { 0x0F, 0x07, 0x03, 0x03},
+    { 0x0F, 0x07, 0x07, 0x03},
+    { 0x0F, 0x07, 0x07, 0x07},
 //d_0929:
-    { 0x06,0x0A,0x0F,0x0F},
-    { 0x04,0x08,0x0D,0x0D},
-    { 0x04,0x06,0x0A,0x0A}
+    { 0x06, 0x0A, 0x0F, 0x0F},
+    { 0x04, 0x08, 0x0D, 0x0D},
+    { 0x04, 0x06, 0x0A, 0x0A}
 };
 
 
