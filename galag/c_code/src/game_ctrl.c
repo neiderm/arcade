@@ -80,10 +80,10 @@ static void gctl_plyr_init(void);
 static void gctl_score_init(uint8, uint16);
 static void j_060F_new_stage(void);
 static void gctl_bonus_info_line_disp(uint8, uint8, uint8);
-static void j_0612_plyr_setup(void);
-static void j_061E_plyr_respawn(void);
+static void gctrl_plyr_startup(void);
+static void gctl_plyr_respawn(void);
 static void gctl_1up2up_displ(uint8 CA);
-static void round_start_or_restart(void);
+static void gctl_fghtr_rdy(void);
 static void gctl_1up2up_blink(uint8 const *, uint16, uint8);
 static void gctl_score_upd(void);
 static void gctl_score_digit_incr(uint16, uint8);
@@ -115,14 +115,14 @@ void c_sctrl_sprite_ram_clr(void)
 /*=============================================================================
 ;; j_Game_init()
 ;;  Description:
-;;   One time Game startup after machine initialization.
-;;   Falls through to Game_start.
+;;   Once per machine-reset following hardware initialization.
+;;   Put screen and other significant memory structures into known state prior
+;;   to executing into "main function".
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------*/
-
 void j_Game_init(void)
 {
     // ld   sp,#stk_cpu0_init
@@ -199,13 +199,16 @@ void j_Game_init(void)
 /*=============================================================================
 ;; j_Game_start()
 ;;  Description:
-;;    Performs initialization, and does a one-time check for credits
-;;    (monitoring credit count and updating "GameState" is otherwise handled
-;;    by a 16mS task). If credits available at startup, it updates "GameState"
-;;    and skips directly to "Ready" state, otherwise it
-;;    stays in Attract mode state.
+;;    Initialization, and one-time check for credits (monitoring credit count
+;;    and updating "GameState" is otherwise handled by a 16mS task). If credits
+;;    available at startup, updates "GameState" and skips directly to Ready
+;;    mode, otherwise stays in Attract mode.
 ;;
-;;    When all ships are destroyed, execution jumps back to Game_start.
+;;    When all fighters are destroyed, jp's back to gctl_main.
+;;
+;;    A bug in z80 code, credit count remains on-screen for a short time after
+;;    P1/P2 start button hit ... count is updated but displayed credit not refreshed.
+;;
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -233,26 +236,22 @@ int j_Game_start(void)
     c_sctrl_sprite_ram_clr();
     c_1230_init_taskman_structs();
 
-
-    if (gctl_credit_cnt == 0) glbls9200.game_state = ATTRACT_MODE;
-    else glbls9200.game_state = READY_TO_PLAY_MODE;
-
-
-    if (glbls9200.game_state == READY_TO_PLAY_MODE)
+    // allow attract-mode festivities to be skipped if credit available
+    if (gctl_credit_cnt == 0)
     {
-        /* jr   nz,l_game_state_ready */ // do game start stuff
-    }
-    else // do attract mode stuff
-    {
+        glbls9200.game_state = ATTRACT_MODE;
+
+        // do attract mode stuff
         glbls9200.demo_idx = 0;
-
         task_actv_tbl_0[2] = 1; // f_17B2 (control demo mode)
 
         // l_038D_While_Attract_Mode
         while (glbls9200.game_state == ATTRACT_MODE)
         {
             if (0 != _updatescreen(1)) // 1 == blocking wait for vblank
+            {
                 return 1; // goto getout;
+            }
         }
 
         // GameState == Ready ... reinitialize everything
@@ -260,12 +259,17 @@ int j_Game_start(void)
         c_sctrl_playfld_clr();
         memset(ds_bug_motion_que, 0, sizeof (t_bug_flying_status) * 0x0C /* 0xF0 */);
         c_sctrl_sprite_ram_clr();
+
+        // game_state == READY
+    }
+    else
+    {
+        glbls9200.game_state = READY_TO_PLAY_MODE;
     }
 
-    // jp   j_060F_new_stage ... does not return, jp's to Game Loop
+    // l_game_state_ready:
     return 0;
 }
-
 
 /*=============================================================================
 ;;  game_state_ready
@@ -316,7 +320,6 @@ int game_state_ready(void)
     }
     return 0;
 }
-
 
 /*=============================================================================
 ;;  game_mode_start
@@ -379,7 +382,6 @@ int game_mode_start(void)
 
     return 0;
 }
-
 
 /*=============================================================================
  gctl_bonus_info_line_disp()
@@ -543,21 +545,20 @@ int game_runner(void)
     // jp   j_060F_new_stage   ; does not return, jp's to Game Loop
     j_060F_new_stage();
 
-    j_0612_plyr_setup();
+    gctrl_plyr_startup();
 
-    round_start_or_restart();
+    gctl_fghtr_rdy();
 
     While_Game_Running();
 
     return 0;
 }
 
-
 /*=============================================================================
 ;;
 ;; jp (ret) to jp_045E_While_Game_Running
-;; jp (ret) j_0632_round_start_or_restart
-;;    j_0632_round_start_or_restart
+;; jp (ret) j_0632_gctl_fghtr_rdy
+;;    j_0632_gctl_fghtr_rdy
 ;;       jp_045E_While_Game_Running
 ;;===========================================================================*/
 void gctl_stg_restart_hdlr(void)
@@ -596,11 +597,23 @@ void gctl_stg_restart_hdlr(void)
     // end of stage ... "normal"
     c_new_stg_game_only();
 
-    // jp   j_0632_round_start_or_restart         ; jp   jp_045E_While_Game_Running
-    round_start_or_restart();
+    // jp   j_0632_gctl_fghtr_rdy         ; jp   jp_045E_While_Game_Running
+    gctl_fghtr_rdy();
     // jp   jp_045E_While_Game_Running
 }
 
+/*=============================================================================
+; Prepare "respawn" for 1 player game.
+; If the terminated ship was crashed by the last bug of the stage, then new
+; stage setup needs done.
+; Out of term_actv_plyr (if not 2p game)
+;;--------------------------------------------------------------------------- */
+void gctl_plyr_respawn_1P(void)
+{
+    if (0 == plyr_state_actv.b_nbugs ) c_new_stg_game_only();
+
+    gctl_plyr_respawn();
+}
 
 /*=============================================================================
 ;;  j_060F_new_stage
@@ -613,33 +626,34 @@ static void j_060F_new_stage(void)
 {
     c_new_stg_game_only(); // shows "STAGE X" and does setup
 
-    // j_0612_plyr_setup
+    // gctrl_plyr_startup
 }
 
 /*=============================================================================
-;;  j_0612_plyr_setup:
+;;  gctrl_plyr_startup:
 ;;  Description:
 ;;   Setup a new player... every time the player is changed on a 2P game or once
 ;;   at first ship of new 1P game. Shows Player 1 (2) text on stage restart.
+;;   Out of "new_stage" or "plyr_changeover"
 ;;
 ;;----------------------------------------------------------------------------*/
-static void j_0612_plyr_setup(void)
+static void gctrl_plyr_startup(void)
 {
     // P1 text is index 4, P2 is index 5
     c_string_out(0x0260 + 0x0E, plyr_state_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
 
-    // jr   j_061E_plyr_respawn
-    j_061E_plyr_respawn();
+    // jr   gctl_plyr_respawn
+    gctl_plyr_respawn();
 
     return;
 }
 
 /*=============================================================================
-;;  j_061E_plyr_respawn
+;;  gctl_plyr_respawn
 ;;  Description:
 ;;
 ;;----------------------------------------------------------------------------*/
-static void j_061E_plyr_respawn(void)
+static void gctl_plyr_respawn(void)
 {
     uint8 A;
 
@@ -660,15 +674,17 @@ static void j_061E_plyr_respawn(void)
     c_tdelay_3();
 
     return;
-    // j_0632_round_start_or_restart:
+    // j_0632_gctl_fghtr_rdy:
 }
 
 /*=============================================================================
-;;  j_0632_round_start_or_restart
+;;  j_0632_gctl_fghtr_rdy
 ;;  Description:
+;;   Out of stg_restart_hdlr or plyr_respawn
+;;   Readies fighter operation active by enabling rockets and hit-detection
 ;;
 ;;----------------------------------------------------------------------------*/
-static void round_start_or_restart(void)
+static void gctl_fghtr_rdy(void)
 {
     task_actv_tbl_0[0x15] = 1; // f_1F04 ...fire button input
     //ds_cpu1_task_en[0x05] = 1;  // (enable cpu1:f_05EE ... fighter hit detection)
@@ -682,7 +698,6 @@ static void round_start_or_restart(void)
 
     // jp   jp_045E_While_Game_Running  ; return to Game Runner Loop
 }
-
 
 /*=============================================================================
 ;; gctl_chllng_stg_end()
@@ -788,7 +803,6 @@ static void gctl_chllng_stg_end(void)
 
     // j_04DC_new_stage_setup
 }
-
 
 /*=============================================================================
 ;;  gctl_score_upd
@@ -927,7 +941,6 @@ static void gctl_score_upd(void)
     return; // tmp:  ... ret  nz
 }
 
-
 /*=============================================================================
 ;; gctl_score_digit_incr()
 ;;  Description:
@@ -1000,7 +1013,6 @@ static const uint8 gctl_point_fctrs[] =
     0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x50, 0x08, 0x08, 0x08, 0x05, 0x08, 0x15, 0x00
 };
-
 
 /*=============================================================================
 ;; c_080B_monitor_stage_start_or_re()
@@ -1156,7 +1168,6 @@ static const uint8 gctl_bmbr_enbl_tmrdat[][4] ={
     { 0x04, 0x06, 0x0A, 0x0A}
 };
 
-
 /*=============================================================================
 ;; f_0935()
 ;;  Description:
@@ -1176,7 +1187,6 @@ void f_0935()
     A = ds3_92A0_frame_cts[0] >> 4;
     gctl_1up2up_displ(A);
 }
-
 
 /*=============================================================================
 ;; gctl_1up2up_displ()
