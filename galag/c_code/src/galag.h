@@ -1,10 +1,8 @@
 /*
  * main header file for application interface to MAME code
  */
-
-#ifndef _BUGS_H_
-#define _BUGS_H_
-
+#ifndef _GALAG_H_
+#define _GALAG_H_
 
 /*
  * types
@@ -109,7 +107,6 @@ typedef union
  */
 typedef struct struct_mrw_sprite
 {
-
     // offset[0]: tile code
     // offset[1]: color map code
     t_bpair cclr[0x80];
@@ -275,7 +272,7 @@ typedef enum
  * extern declarations
  */
 
-/* bugs.c */
+/* galag.c */
 extern uint8 irq_acknowledge_enable_cpu0;
 extern uint8 irq_acknowledge_enable_cpu1;
 extern uint8 nmi_acknowledge_enable_cpu2;
@@ -301,31 +298,31 @@ extern uint8 _sfr_watchdog; // $$6830
 /* game_ctrl.c */
 extern uint8 b_bug_flyng_hits_p_round;
 extern tstruct_b9200 glbls9200;
-extern uint8 ds_99B9_star_ctrl[6];
-extern uint8 io_input[3];
-extern uint8 ds_bug_collsn[0x10];
+extern uint8 ds_99B9_star_ctrl[];
+extern uint8 io_input[];
+extern uint8 ds_bug_collsn[];
 
 /* task_man.c */
 extern t_struct_plyr_state plyr_state_actv;
 extern t_struct_plyr_state plyr_state_susp;
-extern uint8 task_actv_tbl_0[32];
-extern uint8 task_resv_tbl_0[32];
-extern uint8 ds4_game_tmrs[4];
+extern uint8 task_actv_tbl_0[];
+extern uint8 task_resv_tbl_0[];
+extern uint8 ds4_game_tmrs[];
 extern uint16 w_bug_flying_hit_cnt;
 
 /* gg1-4.c */
 extern struct_mchn_cfg mchn_cfg;
 
 /* gg1-5.c */
-extern uint8 ds3_92A0_frame_cts[3];
-extern uint8 cpu1_task_en[8];
+extern uint8 ds3_92A0_frame_cts[];
+extern uint8 cpu1_task_en[];
 extern uint8 b_bugs_flying_nbr;
 extern const uint8 db_obj_home_posn_RC[];
 extern uint8 b_9200_obj_collsn_notif[]; // only even-bytes used (uint16?)
 
 /* gg1-7.c */
-extern uint8 b_9AA0[0x0020];
-extern uint8 b_9A70[0x0010];
+extern uint8 b_9AA0[];
+extern uint8 b_9A70[];
 
 /* gg1-2.c */
 
@@ -354,7 +351,7 @@ extern uint8 b_92C0_A[]; // machine cfg params?
 
 /* gg1-3.c */
 extern t_bug_flying_status ds_bug_motion_que[];
-extern uint8 b_92E2_stg_parm[2];
+extern uint8 b_92E2_stg_parm[];
 extern uint8 b_bugs_actv_nbr;
 extern uint8 stg_chllg_rnd_attrib[];
 
@@ -366,7 +363,7 @@ extern uint8 ds_new_stage_parms[];
  * function prototypes
  */
 
-/* bugs.c*/
+/* galag.c */
 int _updatescreen(int);
 void c_io_cmd_wait(void);
 
@@ -374,24 +371,12 @@ void c_io_cmd_wait(void);
 void c_2896(void);
 void c_25A2(void);
 
-/* gg1-5.c */
-void cpu1_init(void);
-
-/* gg1-4.c */
-void cpu0_init(void);
-void svc_test_mgr(void);
-
 /* game_ctrl.c */
-void j_Game_init(void);
-int j_Game_start(void);
-int game_state_ready(void);
-int game_mode_start(void);
-int game_runner(void);
 uint16 c_text_out_i_to_d(uint16, uint16);
 void c_sctrl_sprite_ram_clr(void);
 
 /* task_man.c */
-void cpu0_rst38(void);
+void cpu0_rst38(void); //
 void c_textout_1uphighscore_onetime(void);
 void c_sctrl_playfld_clr(void);
 void c_new_stg_game_only(void);
@@ -409,12 +394,11 @@ void bmbr_setup_fltq_boss(uint8, uint16);
 void bmbr_setup_fltq_drone(uint8, uint16);
 
 /* gg1-5.c */
-void cpu1_init(void);
-void cpu1_rst38(void);
+void cpu1_rst38(void); //
 
 /* gg1-7.c */
-void cpu2_init(void);
-void cpu2_NMI(void);
+void cpu2_init(void); //
+void cpu2_NMI(void); //
 
 /* pe_string.c */
 void c_string_out(uint16, uint8);
@@ -431,5 +415,5 @@ enum {
 };
 
 
-#endif // _BUGS_H_
+#endif // _GALAG_H_
 

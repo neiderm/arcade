@@ -1,20 +1,8 @@
 /*******************************************************************************
  **  galag: precise re-implementation of a popular space shoot-em-up
  **  game_ctrl.s (gg1-1.3p)
- **    Manage high-level game control.
- **
- **  j_Game_init:
- **      One time entry from power-up routines.
- **  j_Game_start:
- **      Initializes game state. Starts with Title Screen, or "Press Start"
- **      screen if credit available.
- **  j_060F_new_stage:
- **      Sets up each new stage.
- **  jp_045E_While_Game_Running:
- **      Continous loop once the game is started, until gameover.
- **
- **  The possible modes of operation are:
- **    ATTRACT, READY-TO-PLAY, PLAY, HIGH SCORE INITIAL, and SELF-TEST."
+ **    Startup functions for game following low-level inits.
+ **    Entry into "main" and background task (superloop)
  **
  *******************************************************************************/
 
@@ -78,11 +66,9 @@ static const uint8 gctl_bmbr_enbl_tmrdat[][4];
 // function prototypes
 static void gctl_plyr_init(void);
 static void gctl_score_init(uint8, uint16);
-static void j_060F_new_stage(void);
 static void gctl_bonus_info_line_disp(uint8, uint8, uint8);
-static void gctl_plyr_startup(void);
 static void gctl_plyr_respawn(void);
-static void gctl_1up2up_displ(uint8 CA);
+static void gctl_1up2up_displ(uint8);
 static void gctl_fghtr_rdy(void);
 static void gctl_1up2up_blink(uint8 const *, uint16, uint8);
 static void gctl_score_upd(void);
@@ -123,7 +109,7 @@ void c_sctrl_sprite_ram_clr(void)
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------*/
-void j_Game_init(void)
+void gctl_runtime_init(void)
 {
     // ld   sp,#stk_cpu0_init
 
@@ -214,7 +200,7 @@ void j_Game_init(void)
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------*/
-int j_Game_start(void)
+int gctl_main(void)
 {
     sfr_A007 = 0; // flip_screen_port (not_flipped) ...unimplemented in MAME?
     glbls9200.flip_screen = 0; // not_flipped
@@ -351,30 +337,8 @@ int j_Game_start(void)
     plyr_state_actv.mcfg_bonus0 = mchn_cfg.bonus[0];
     plyr_state_susp.mcfg_bonus0 = mchn_cfg.bonus[0];
 
-    // jp   j_060F_new_stage
+    // jp   gctl_plyr_start_stg_init
 
-    return 0;
-}
-
-/*=============================================================================
-;;  game_state_ready
-;;  Description:
-;;
-;;-----------------------------------------------------------------------------*/
-int game_state_ready(void)
-{
-    // start button was hit
-    return 0;
-}
-
-/*=============================================================================
-;;  game_mode_start
-;;  Description:
-;;    start button was hit
-;;
-;;-----------------------------------------------------------------------------*/
-int game_mode_start(void)
-{
     return 0;
 }
 
@@ -430,15 +394,15 @@ static const uint8 gctl_bonus_fightr_tiles[][4] =
 };
 
 /*=============================================================================
-;; While_Game_Running()
+;; gctl_game_runner()
 ;;  Description:
-;;   Everything runs out of this loop once the game is started.
+;;   background superloop following game-start
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-void While_Game_Running(void)
+void gctl_game_runner(void)
 {
     while (1) // jr   l_045E_while_play_game
     {
@@ -448,7 +412,9 @@ void While_Game_Running(void)
         // I don't remember what actually causes the game to recycle, but
         // here we  allow an escape from the superloop
         if (0 != _updatescreen(1)) // 1 == blocking wait for vblank
-            break; // goto getout;
+        {
+            break;
+        }
     }
 }
 
@@ -528,33 +494,13 @@ static const uint8 gctl_score_initd[] =
 };
 /*---------------------------------------------------------------------------*/
 
-/*=============================================================================
-;;  game_runner
-;;  Description:
-;;   NOT a legacy function, this is glue logic to help cleanup the spaghetti
-;;   mess of jp's in the original code.
-;;
-;;-----------------------------------------------------------------------------*/
-int game_runner(void)
-{
-    // jp   j_060F_new_stage   ; does not return, jp's to Game Loop
-    j_060F_new_stage();
-
-    gctl_plyr_startup();
-
-    gctl_fghtr_rdy();
-
-    While_Game_Running();
-
-    return 0;
-}
 
 /*=============================================================================
 ;;
-;; jp (ret) to jp_045E_While_Game_Running
+;; jp (ret) to jp_045E_gctl_game_runner
 ;; jp (ret) j_0632_gctl_fghtr_rdy
 ;;    j_0632_gctl_fghtr_rdy
-;;       jp_045E_While_Game_Running
+;;       jp_045E_gctl_game_runner
 ;;===========================================================================*/
 void gctl_stg_restart_hdlr(void)
 {
@@ -592,9 +538,9 @@ void gctl_stg_restart_hdlr(void)
     // end of stage ... "normal"
     c_new_stg_game_only();
 
-    // jp   j_0632_gctl_fghtr_rdy         ; jp   jp_045E_While_Game_Running
+    // jp   j_0632_gctl_fghtr_rdy         ; jp   jp_045E_gctl_game_runner
     gctl_fghtr_rdy();
-    // jp   jp_045E_While_Game_Running
+    // jp   jp_045E_gctl_game_runner
 }
 
 /*=============================================================================
@@ -611,13 +557,16 @@ void gctl_plyr_respawn_1P(void)
 }
 
 /*=============================================================================
-;;  j_060F_new_stage
+;;  gctl_plyr_start_stg_init
 ;;  Description:
-;;   New stage setup for player changeover, or at start of new game loop.
+;;   Player entry/changeover with new stage setup, e.g. beginning of game for
+;;   for P1 (or P2 on multiplayer game) ... multiplayer game introduces the
+;;   possibility of either player re-entering the game with 0 enemy count due
+;;   to termination of last enemy of a stage by destruction of the fighter.
 ;;   If on a new game, PLAYER 1 text has been erased.
 ;;
 ;;--------------------------------------------------------------------------- */
-static void j_060F_new_stage(void)
+void gctl_plyr_start_stg_init(void)
 {
     c_new_stg_game_only(); // shows "STAGE X" and does setup
 
@@ -632,13 +581,14 @@ static void j_060F_new_stage(void)
 ;;   Out of "new_stage" or "plyr_changeover"
 ;;
 ;;----------------------------------------------------------------------------*/
-static void gctl_plyr_startup(void)
+void gctl_plyr_startup(void)
 {
     // P1 text is index 4, P2 is index 5
     c_string_out(0x0260 + 0x0E, plyr_state_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
 
-    // jr   gctl_plyr_respawn
+    // respawn always followed by fghtr_rdy
     gctl_plyr_respawn();
+    gctl_fghtr_rdy();
 
     return;
 }
@@ -691,7 +641,7 @@ static void gctl_fghtr_rdy(void)
 
     c_string_out(0x03A0 + 0x0E, 0x0B); // erase "PLAYER 1"
 
-    // jp   jp_045E_While_Game_Running  ; return to Game Runner Loop
+    // jp   jp_045E_gctl_game_runner  ; return to Game Runner Loop
 }
 
 /*=============================================================================
