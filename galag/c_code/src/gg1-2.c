@@ -46,7 +46,7 @@ static const uint8 db_home_posn_ini[];
 static void c_build_token_1(uint8 *, uint16 *, uint8);
 static void c_build_token_2(uint8 *, uint16 *);
 static void draw_resv_ships(void);
-static void draw_resv_ship_tile(uint16 *, uint8 *, uint8);
+static void draw_resv_ship_tile(uint16, uint8 *, uint8);
 static void bmbr_setup_fltq(uint8, uint16, uint8);
 
 
@@ -110,15 +110,13 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     uint8 A, B, IX, Cy;
 
     // find an available data structure or quit
-    B = 0;
-    while (B < 0x0C)
+    for (B = 0; B < 0x0C; B++)
     {
         IX = B;
         if (0 == (ds_bug_motion_que[IX].b13 & 0x01)) // check for activated state
         {
             break; // jr   z,l_10A0_got_one
         }
-        B += 1;
     } // djnz l_1094
 
     // check for quit condition
@@ -416,13 +414,13 @@ void c_1230_init_taskman_structs(void)
     uint8 bc;
 
     // memcpy(task_en_actv, task_enable_tbl_def, 0x20)
-    for (bc = 0; bc < sizeof (task_enable_tbl_def); bc++)
+    for (bc = 0; bc < sizeof(task_enable_tbl_def); bc++)
     {
         task_actv_tbl_0[bc] = task_enable_tbl_def[bc];
     }
 
     // memcpy(task_resv_tbl_0, task_enable_tbl_def, 0x20);
-    for (bc = 0; bc < sizeof (task_enable_tbl_def); bc++)
+    for (bc = 0; bc < sizeof(task_enable_tbl_def); bc++)
     {
         task_resv_tbl_0[bc] = task_enable_tbl_def[bc];
     }
@@ -474,7 +472,7 @@ static const uint8 task_enable_tbl_def[32] =
     0x0A, //  f_0977 ... Handles coinage and changes in game-state
 };
 
-/*===================================sprite_code==========================================
+/*=============================================================================
 ;; c_game_or_demo_init()
 ;;  Description:
 ;;   For game or "demo-mode" (f_17B2) setup
@@ -578,16 +576,12 @@ void c_12C3(uint8 IXL)
 {
     uint8 A, B;
 
-    // dynamic screen coordinates populated from LUT
-    B = 0;
-
     // only 16 bytes are needed in each array, but by using even-bytes and allocating
     // 32 bytes, the indexing can be retained while still having separate elements for rel and abs
-    while (B < 32)
+    for (B = 0; B < 32; B += 2)
     {
         ds_home_posn_loc[B].rel = 0; // zero out the even bytes
         ds_home_posn_loc[B].abs = db_home_posn_ini[ B / 2 ];
-        B += 2;
     }
 
     // X coordinates at origin (10 bytes) to even offsets, adjusted for flip-screen.
@@ -665,7 +659,7 @@ void c_tdelay_3(void)
 }
 
 /*=============================================================================
-;; c_player_respawn()
+;; gctl_plyr_respawn_fghtr()
 ;;  Description:
 ;;    Single player, shows "player 1", then overwrite w/ "stage 1" and show "player 1" above
 ;;
@@ -695,7 +689,7 @@ void c_tdelay_3(void)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-void c_player_respawn(void)
+void gctl_plyr_respawn_fghtr(void)
 {
     task_actv_tbl_0[ 0x14 ] = 1; // f_1F85 ... control stick input
 
@@ -712,7 +706,7 @@ void c_player_respawn(void)
 /*=============================================================================
 ;; c_133A_show_ship()
 ;;  Description:
-;;   Continues c_player_respawn
+;;   Continues gctl_plyr_respawn_fghtr
 ;;   The call label is for demo mode (f_17B2)
 ;;   while (bug/bee flys home) ...ship hit, waiting for flying bug to re-nest
 ;; IN:
@@ -762,26 +756,24 @@ void c_133A_show_ship(void)
 static void draw_resv_ships(void)
 {
     uint16 HL;
-    uint8 A, E, D;
+    uint8 E, D;
 
-    A = ~plyr_state_actv.num_ships + 6; // cpl, add  a,#6 ... max nr of icons
-    E = A;
+    E = ~plyr_state_actv.num_ships + 6; // cpl, add  a,#6 ... max nr of icons
 
     D = 0x49; // starting tile number
 
     HL = 0x0000 + 0x1D; // offset into tile ram
-
-    draw_resv_ship_tile(&HL, &D, E);
+    draw_resv_ship_tile(HL, &D, E);
 
     HL--; // advance 1 column right
-    draw_resv_ship_tile(&HL, &D, E);
+    draw_resv_ship_tile(HL, &D, E);
 
     HL += 32; // down 1 row
-    HL++; // 1 column to the left
-    draw_resv_ship_tile(&HL, &D, E);
+    HL += 1; // 1 column to the left
+    draw_resv_ship_tile(HL, &D, E);
 
-    HL--; // advance 1 column right
-    draw_resv_ship_tile(&HL, &D, E);
+    HL -= 1; // advance 1 column right
+    draw_resv_ship_tile(HL, &D, E);
 
     return;
 }
@@ -802,12 +794,12 @@ static void draw_resv_ships(void)
 ;;     D: tile character (increment)
 ;;
 ;;---------------------------------------------------------------------------*/
-static void draw_resv_ship_tile(uint16 *offset, uint8 *tilechr, uint8 nbr)
+static void draw_resv_ship_tile(uint16 offset, uint8 *tilechr, uint8 nbr)
 {
     uint16 tmpHL;
     uint8 A, B;
 
-    tmpHL = *offset;
+    tmpHL = offset;
 
     (*tilechr)++; // inc D
 
@@ -816,10 +808,9 @@ static void draw_resv_ship_tile(uint16 *offset, uint8 *tilechr, uint8 nbr)
     A = 6 - 1;
 
     // l_138B
-    while (A != 0)
+    while (A > 0)
     {
-        if (nbr == A)
-            B = 0x24;
+        if (nbr == A)  B = 0x24;
 
         // l_1390
         m_tile_ram[tmpHL] = B;
@@ -827,7 +818,4 @@ static void draw_resv_ship_tile(uint16 *offset, uint8 *tilechr, uint8 nbr)
         tmpHL -= 2;
         A--;
     }
-
-    // *offset = pushHL;
-    return;
 }

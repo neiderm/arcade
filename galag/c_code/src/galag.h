@@ -386,7 +386,7 @@ void c_new_level_tokens(uint8);
 void c_1230_init_taskman_structs(void);
 void sprite_tiles_display(uint8 const *);
 void c_133A_show_ship(void);
-void c_player_respawn(void);
+void gctl_plyr_respawn_fghtr(void);
 void c_12C3(uint8);
 void c_game_or_demo_init(void);
 void c_tdelay_3(void);

@@ -67,7 +67,7 @@ static const uint8 gctl_bmbr_enbl_tmrdat[][4];
 static void gctl_plyr_init(void);
 static void gctl_score_init(uint8, uint16);
 static void gctl_bonus_info_line_disp(uint8, uint8, uint8);
-static void gctl_plyr_respawn(void);
+static void gctl_plyr_respawn_wait(void);
 static void gctl_1up2up_displ(uint8);
 static void gctl_fghtr_rdy(void);
 static void gctl_1up2up_blink(uint8 const *, uint16, uint8);
@@ -553,7 +553,7 @@ void gctl_plyr_respawn_1P(void)
 {
     if (0 == plyr_state_actv.b_nbugs ) gctl_stg_splash_scrn();
 
-    gctl_plyr_respawn();
+    gctl_plyr_respawn_wait();
 }
 
 /*=============================================================================
@@ -587,23 +587,24 @@ void gctl_plyr_startup(void)
     c_string_out(0x0260 + 0x0E, plyr_state_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
 
     // respawn always followed by fghtr_rdy
-    gctl_plyr_respawn();
+    gctl_plyr_respawn_wait();
     gctl_fghtr_rdy();
 
     return;
 }
 
 /*=============================================================================
-;;  gctl_plyr_respawn
+;;  gctl_plyr_respawn_wait
 ;;  Description:
+;;   Player respawn with timing
 ;;
 ;;----------------------------------------------------------------------------*/
-static void gctl_plyr_respawn(void)
+static void gctl_plyr_respawn_wait(void)
 {
     uint8 A;
 
     // "credit X" is wiped and reserve ships appear on lower left of screen
-    c_player_respawn(); // there is only one reference to this so it could be inlined.
+    gctl_plyr_respawn_fghtr(); // there is only one reference to this so it could be inlined.
 
     // ds4_game_tmrs[2] was set to 120 by new_stg_game_or_demo
 
