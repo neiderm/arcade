@@ -160,7 +160,7 @@ void gctl_runtime_init(void)
     c_sctrl_sprite_ram_clr();
 
     // display 1UP HIGH SCORE 20000 (1 time only after boot)
-    c_textout_1uphighscore_onetime();
+    gctl_1uphiscore_displ();
 
     c_1230_init_taskman_structs();
 
@@ -536,7 +536,7 @@ void gctl_stg_restart_hdlr(void)
     //j_04DC_new_stage_setup
 
     // end of stage ... "normal"
-    c_new_stg_game_only();
+    gctl_stg_splash_scrn();
 
     // jp   j_0632_gctl_fghtr_rdy         ; jp   jp_045E_gctl_game_runner
     gctl_fghtr_rdy();
@@ -551,7 +551,7 @@ void gctl_stg_restart_hdlr(void)
 ;;--------------------------------------------------------------------------- */
 void gctl_plyr_respawn_1P(void)
 {
-    if (0 == plyr_state_actv.b_nbugs ) c_new_stg_game_only();
+    if (0 == plyr_state_actv.b_nbugs ) gctl_stg_splash_scrn();
 
     gctl_plyr_respawn();
 }
@@ -568,7 +568,7 @@ void gctl_plyr_respawn_1P(void)
 ;;--------------------------------------------------------------------------- */
 void gctl_plyr_start_stg_init(void)
 {
-    c_new_stg_game_only(); // shows "STAGE X" and does setup
+    gctl_stg_splash_scrn(); // shows "STAGE X" and does setup
 
     // gctl_plyr_startup
 }

@@ -377,9 +377,9 @@ void c_sctrl_sprite_ram_clr(void);
 
 /* task_man.c */
 void cpu0_rst38(void); //
-void c_textout_1uphighscore_onetime(void);
+void gctl_1uphiscore_displ(void);
 void c_sctrl_playfld_clr(void);
-void c_new_stg_game_only(void);
+void gctl_stg_splash_scrn(void);
 
 /* gg1-2.c */
 void c_new_level_tokens(uint8);
@@ -405,7 +405,7 @@ void c_string_out(uint16, uint8);
 uint16 j_string_out_pe(uint8, uint16, uint8);
 
 /* new_stage.c */
-void c_2C00_new_stg_setup(void);
+void gctl_stg_bombr_setparms(void);
 
 enum {
     GAME_ENDED = 0,

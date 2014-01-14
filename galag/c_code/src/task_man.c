@@ -54,10 +54,10 @@ uint8 b_9200_obj_collsn_notif[0x60]; // only even-bytes used (uint16?)
 
 // variables
 static uint8 d_str20000[];
-static uint8 d_strScore[];
+static uint8 d_strSCORE[];
 
 // function prototypes
-static void c_01C5_new_stg_game_or_demo();
+static void gctl_stg_new_env_init();
 
 
 /**********************************************************************
@@ -110,37 +110,37 @@ void (* const d_cpu0_task_table[]) (void) =
 
 /*=============================================================================*/
 // string "1UP    HIGH SCORE"  (reversed)
-static const uint8 d_TxtScore[] =
+static const uint8 d_str1UPHIGHSCORE[] =
 {
     0x0E, 0x1B, 0x18, 0x0C, 0x1C, 0x24, 0x11, 0x10, 0x12, 0x11, 0x24, 0x24, 0x24, 0x24, 0x19, 0x1E, 0x01
 };
 
 /*=============================================================================
-;; c_textout_1uphighscore_onetime()
+;; gctl_1uphiscore_displ()
 ;;  Description:
-;;   display score text top of screen (1 time only after boot)
+;;   display score text top of screen (1 time only in runtime init)
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 -----------------------------------------------------------------------------*/
-void c_textout_1uphighscore_onetime(void)
+void gctl_1uphiscore_displ(void)
 {
     int bc;
 
-    bc = 6;//sizeof (d_str20000 - 1); //  6
+    bc = 6; //sizeof (d_str20000 - 1)
 
     while (bc > 0)
     {
-        m_tile_ram [ 0x03E0 + 0x0D + bc -1 ] = d_str20000[ bc - 1 ];
+        m_tile_ram [ 0x03E0 + 0x0D + bc - 1 ] = d_str20000[ bc - 1 ];
         bc--;
     }
 
-    bc = 17;//sizeof (d_TxtScore) - 1; // 17
+    bc = 17; //sizeof (d_str1UPHIGHSCORE) - 1
 
     while (bc > 0)
     {
-        m_tile_ram [ 0x03C0 + 0x0B + bc -1 ] = d_TxtScore[ bc - 1 ];
+        m_tile_ram [ 0x03C0 + 0x0B + bc - 1 ] = d_str1UPHIGHSCORE[ bc - 1 ];
         bc--;
     }
 }
@@ -202,18 +202,15 @@ void c_textout_1uphighscore_onetime(void)
 void c_sctrl_playfld_clr(void)
 {
     uint16 BC;
-    uint8 *HL;
 
-    HL = m_tile_ram;
     for (BC = 0; BC < 0x0380; BC++)
     {
-        HL[ 0x0040 + BC ] = 0x24;
+        m_tile_ram[ 0x0040 + BC ] = 0x24;
     }
 
-    HL = m_color_ram;
     for (BC = 0; BC < 0x0380; BC++)
     {
-        HL[ 0x0040 + BC ] = 0;
+        m_color_ram[ 0x0040 + BC ] = 0;
     }
 
     // HL==87bf
@@ -228,7 +225,7 @@ void c_sctrl_playfld_clr(void)
 }
 
 /*=============================================================================
-;; c_new_stg_game_only()
+;; gctl_stg_splash_scrn()
 ;;  Description:
 ;;   clears a stage (on two-player game, runs at the first turn of each player)
 ;;   Increments stage_ctr (and dedicated challenge stage %4 indicator)
@@ -237,7 +234,7 @@ void c_sctrl_playfld_clr(void)
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------*/
-void c_new_stg_game_only(void)
+void gctl_stg_splash_scrn(void)
 {
     int usres;
     uint8 Cy;
@@ -263,7 +260,7 @@ void c_new_stg_game_only(void)
         // l_01A2_set_challeng_stg:
         j_string_out_pe(1, -1, 7); // "CHALLENGING STAGE"
 
-        b_9AA0[0x0D] = 1 ; // sound-fx count/enable registers, start challenge stage
+        b_9AA0[0x0D] = 1; // sound-fx count/enable registers, start challenge stage
 
         // l_01AC: ; start value for wave_bonus_ctr (decremented by cpu-b when bug destroyed)
         w_bug_flying_hit_cnt = 8; // 8 for challenge stage (else 0 i.e. don't care)
@@ -288,28 +285,28 @@ void c_new_stg_game_only(void)
     // l_01BF:
     while (ds4_game_tmrs[2])
     {
+        // doesn't bother with allowing getout on ESC
         if (0 != (usres = _updatescreen(1))) // 1 == blocking wait for vblank
         {
             /* goto getout; */ // 1=blocking
         }
     }
 
-    c_01C5_new_stg_game_or_demo();
+    gctl_stg_new_env_init();
 }
 
 /*=============================================================================
-;; c_01C5_new_stg_game_or_demo()
+;; gctl_stg_new_env_init()
 ;;  Description:
-;;   Continue c_new_stg_game_only, or called in the demo to allow skipping
-;;   of the "STAGE X" text.
-;;   If Rack Advance set, continues looping back through c_new_stg_game_only
-;;   If Rack Advance not set, it does a normal return.
+;;   Initialize new stage environment and handle rack-advance if enabled.
+;;   Follows new stage splash screen in normal play mode (splash screen
+;;   skipped in demo).
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------*/
-static void c_01C5_new_stg_game_or_demo()
+static void gctl_stg_new_env_init(void)
 {
     uint8 *pHL;
     uint8 B;
@@ -350,7 +347,7 @@ static void c_01C5_new_stg_game_or_demo()
     task_actv_tbl_0[0x08] = 1; // f_2916 ... Launches the attack formations
     task_actv_tbl_0[0x0A] = 1; // f_2A90 ... left/right movement of collective while attack waves coming
 
-    c_2C00_new_stg_setup();
+    gctl_stg_bombr_setparms();
 
     pHL = plyr_state_susp.pbm;
     B = 0;
@@ -362,8 +359,15 @@ static void c_01C5_new_stg_game_or_demo()
 
     // if ( !RackAdvance )
     return;
-}
 
+//;  else handle rack advance operation
+//       ld   c,#0x0B
+//       ld   hl,#m_tile_ram + 0x03A0 + 0x10
+//       call c_string_out                          ; erase "stage X" text"
+//
+//       jp   gctl_stg_splash_scrn                   ; start over again
+
+}
 
 /*=============================================================================
 ;; jp_Task_man()
@@ -377,7 +381,7 @@ static void c_01C5_new_stg_game_or_demo()
 ;;   entry in the table. The increment value is actually obtained from the
 ;;   task_enable table entry itself, which is normally 1, but other values are
 ;;   also used, such as $20. The "while" logic exits at >$20, so this is used
-;;   to exit the task loop without iterating through all $20 entries. Tthe
+;;   to exit the task loop without iterating through all $20 entries. The
 ;;   possible enable values are:
 ;;     $00 - disables task
 ;;     $01 - enables task_man
@@ -415,7 +419,7 @@ static uint8 d_str20000[] =
     0x00, 0x00, 0x00, 0x00, 0x02, 0x24
 };
 //  "SCORE" (reversed)
-static uint8 d_strScore[] =
+static uint8 d_strSCORE[] =
 {
     0x17, 0x0A, 0x16, 0x0C, 0x18
 };
