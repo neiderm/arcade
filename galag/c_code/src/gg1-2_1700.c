@@ -45,7 +45,7 @@ static uint8 ship_dX_flag;
 // function prototypes
 static void c_1E43(uint8, uint8, uint8);
 static void c_1F92(uint8);
-static void c_1F0F(void);
+static void rckt_sprite_init(void);
 
 
 /*============================================================================
@@ -216,9 +216,9 @@ void f_1700(void)
         break;
     }
 
-        // appearance of first attack wave in GameOver Demo-Mode
+    // appearance of first attack wave in GameOver Demo-Mode
     case 0x05: // 172D:
-        c_1F0F(); //  init sprite objects for rockets
+        rckt_sprite_init(); //  init sprite objects for rockets
         // ld   de,(pdb_demo_fghtrvctrs) ... don't need it
 
         // 1734: drives the simulated inputs to the fighter in training mode
@@ -253,13 +253,19 @@ void f_1700(void)
         c_1F92(A); // input control bits
 
         // do nothing until frame count even multiple of 4
-        if (0 != (ds3_92A0_frame_cts[0] & 0x03)) return; // ret  nz
+        if (0 != (ds3_92A0_frame_cts[0] & 0x03))
+        {
+            return; // ret  nz
+        }
 
         glbls9200.demo_timer -= 1; // dec  (hl)
 
-        if (0 != glbls9200.demo_timer) return; // ret  nz
+        if (0 != glbls9200.demo_timer)
+        {
+            return; // ret  nz
+        }
 
-        c_1F0F(); //  init sprite objects for rockets ...training mode, ship about to shoot?
+        rckt_sprite_init(); //  init sprite objects for rockets ...training mode, ship about to shoot?
 
         case_1766();
 
@@ -834,7 +840,6 @@ void f_1DE6(void)
 
         // make it even multiple of 8
         A = glbls9200.bug_nest_direction_lr & 0x18; // ld   a,c ...
-
         A <<= 1; // HL += 2A ... table entries are $10 bytes long
 
         // ld   a,e  ; previous_nest_direction counter
@@ -871,48 +876,42 @@ void f_1DE6(void)
 ;;   Updates the row/col coordinate locations for the alien formation.
 ;;   The selected bitmap table determines whether any given coordinate
 ;;   dimension is incremented at this update.
-;;   Offset and counts used instead of pointers since the location structures
-;;   are not simple arrays
 ;; IN:
 ;;    B ==  +/- 1 increment.
-;;    offs: either 0 or 5
-;;    cnt: either 5 or 11
-;;    ds10_9920[]: working copy of selected bitmap table ($10 bytes)
-;;    ds_home_posn_loc[].rel:
+;;    offs: offset into bitmap table, i.e. either 0 or 5
+;;    cnt:
+;;        5 if negative increment i.e. left 5 columns
+;;        11 if positive increment i.e. right 5 columns and 6 rows
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
 void c_1E43(uint8 B, uint8 offs, uint8 cnt)
 {
-    uint8 Cy;
-    uint8 HL = offs;
     uint8 IXL = 0;
 
     // j_1E43
-    while (IXL < cnt)
+    for (IXL = 0; IXL < cnt; IXL++)
     {
+        uint8 Cy;
+
         // rrc  (hl)
-        Cy = ds10_9920[HL + IXL];
+        Cy = ds10_9920[offs + IXL];
         Cy &= 0x01;
-        ds10_9920[HL + IXL] >>= 1;
-        ds10_9920[HL + IXL] |= (Cy << 7);
+        ds10_9920[offs + IXL] >>= 1;
+        ds10_9920[offs + IXL] |= (Cy << 7);
 
         // jr   nc,l_1E5C_update_ptrs
         if (Cy)
         {
-            ds_home_posn_loc[(HL + IXL) * 2 ].rel += B;
+            ds_home_posn_loc[(offs + IXL) * 2 ].rel += B;
 
             // 10 column coordinates, 6 row coordinates, 16-bits per coordinate
-            ds_home_posn_org[ (HL + IXL) * 2 ].word += B;
-            ds_home_posn_org[ (HL + IXL) * 2 ].pair.b1 = 0; //for now, MSB not needed for non-inverted screen
+            ds_home_posn_org[ (offs + IXL) * 2 ].word += B;
+            ds_home_posn_org[ (offs + IXL) * 2 ].pair.b1 = 0; //for now, MSB not needed for non-inverted screen
         } // if
-
         // l_1E5C_update_ptrs
-        IXL++;
-
-    } // while
+    }
 }
-
 
 /*=============================================================================
 ;; fmtn_pulse_cinc_bits
@@ -920,7 +919,7 @@ void c_1E43(uint8 B, uint8 offs, uint8 cnt)
 ;;   bitmaps determine at which intervals the corresponding coordinate will
 ;;   be incremented... allows outmost and lowest coordinates to expand faster.
 ;;
-;;      |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
+;;   |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
 ;;
 ;;---------------------------------------------------------------------------*/
 static uint8 fmtn_pulse_cinc_bits[] =
@@ -964,13 +963,14 @@ void f_1EA4(void)
 void f_1F04(void)
 {
     if (0 != (io_input[0x01] & 0x10))
+    {
         return;
-
-    c_1F0F();
+    }
+    rckt_sprite_init();
 }
 
 /*=============================================================================
-;; c_1F0F()
+;; rckt_sprite_init()
 ;;  Description:
 ;;   Intialize sprite objects for rockets.
 ;;   rocket sprite.cclr[n].b0 is initialized by c_game_or_demo_init
@@ -980,9 +980,9 @@ void f_1F04(void)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void c_1F0F(void)
+static void rckt_sprite_init(void)
 {
-    uint8 *pushDE;
+    uint8 *pushDE; // pointer to rocket attribute fighter 1 or 2
     uint8 A, B, C, E;
 
     if (0 == mrw_sprite.posn[SPR_IDX_RCKT0].b0)
@@ -1152,8 +1152,9 @@ static void c_1F92(uint8 A)
         // jr   nz,l_1FC7_test_llmt
         // test left limit
         if (mrw_sprite.posn[SPR_IDX_SHIP].b0 < 0x12) // "main" ship (single) position
+        {
             return;
-
+        }
         else
         {
             mrw_sprite.posn[SPR_IDX_SHIP].b0 -= ship_dX;
@@ -1169,11 +1170,14 @@ static void c_1F92(uint8 A)
 
             // if double ship, return
             if (0 != plyr_state_actv.plyr_is_2ship)
+            {
                 return;
-
+            }
             // l_1FC0_test_rlmt_single:
             if (mrw_sprite.posn[SPR_IDX_SHIP].b0 >= 0xE1)
+            {
                 return;
+            }
         }
         // add dX for right direction
         mrw_sprite.posn[SPR_IDX_SHIP].b0 += ship_dX;
@@ -1181,8 +1185,11 @@ static void c_1F92(uint8 A)
 
     // l_1FD4_update_two_ship:
     if (0 == plyr_state_actv.plyr_is_2ship)
+    {
         return;
+    }
     else
+    {
         mrw_sprite.posn[SPR_IDX_SHIP].b0 += 0x0F;
-    return;
+    }
 }
