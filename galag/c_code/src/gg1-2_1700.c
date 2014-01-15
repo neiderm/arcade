@@ -36,7 +36,7 @@ uint8 b_92C0_A[0x10]; // machine cfg params?
 // variables
 static const uint8 d_fghtrvctrs_demolvl_ac[];
 static const uint8 d_fghtrvctrs_demolvl_bc[];
-static uint8 d_1E64_bitmap_tables[];
+static uint8 fmtn_pulse_cinc_bits[];
 static uint8 ds10_9920[16];
 static uint8 b8_demo_scrn_txt_indx;
 static uint8 const *pdb_demo_state_params;
@@ -87,15 +87,15 @@ static uint8 idx_attrmode_sptiles_3;
 // pdb_demo_state_params, fighter vectors demo level after boss capture
 static const uint8 d_fghtrvctrs_demolvl_ac[] = // d_181F:
 {
-    0x08,0x18,0x8A,0x08,0x88,0x06,0x81,0x28,0x81,0x05,0x54,0x1A,0x88,0x12,0x81,0x0F,
-    0xA2,0x16,0xAA,0x14,0x88,0x18,0x88,0x10,0x43,0x82,0x10,0x88,0x06,0xA2,0x20,0x56,0xC0
+    0x08, 0x18, 0x8A, 0x08, 0x88, 0x06, 0x81, 0x28, 0x81, 0x05, 0x54, 0x1A, 0x88, 0x12, 0x81, 0x0F,
+    0xA2, 0x16, 0xAA, 0x14, 0x88, 0x18, 0x88, 0x10, 0x43, 0x82, 0x10, 0x88, 0x06, 0xA2, 0x20, 0x56, 0xC0
 };
 // pdb_demo_state_params, fighter vectors demo level before boss capture
 static const uint8 d_fghtrvctrs_demolvl_bc[] = // d_1887:
 {
-    0x02,0x8A,0x04,0x82,0x07,0xAA,0x28,0x88,0x10,0xAA,0x38,0x82,0x12,0xAA,0x20,0x88,
-    0x14,0xAA,0x20,0x82,0x06,0xA8,0x0E,0xA2,0x17,0x88,0x12,0xA2,0x14,0x18,0x88,0x1B,
-    0x81,0x2A,0x5F,0x4C,0xC0
+    0x02, 0x8A, 0x04, 0x82, 0x07, 0xAA, 0x28, 0x88, 0x10, 0xAA, 0x38, 0x82, 0x12, 0xAA, 0x20, 0x88,
+    0x14, 0xAA, 0x20, 0x82, 0x06, 0xA8, 0x0E, 0xA2, 0x17, 0x88, 0x12, 0xA2, 0x14, 0x18, 0x88, 0x1B,
+    0x81, 0x2A, 0x5F, 0x4C, 0xC0
 };
 // fighter vectors training level
 static const uint8 d_demo_fghtrvctrs_trnglvl[] = // d_1928:
@@ -129,10 +129,10 @@ void case_1766(void)
     A = (*pdb_demo_state_params >> 5) & 0x07;
 
 // note: 1794, 17ae
-    switch(A)
+    switch (A)
     {
-    case 0:  // case_1794
-    case 1:  // case_1794
+    case 0: // case_1794
+    case 1: // case_1794
         // load object/index of targeted alien
         // rlca ... note, mask makes rlca into <:0> through Cy irrelevant
         A = *pdb_demo_state_params << 1; // rlca
@@ -140,27 +140,27 @@ void case_1766(void)
         break; // ret
 
         // done!
-    case 6:  // case_179C
+    case 6: // case_179C
         task_actv_tbl_0[0x03] = 0; // this task
         break; // ret
 
-    case 2:  // case_17A1 ... runs timer and doesn't come back for a while
+    case 2: // case_17A1 ... runs timer and doesn't come back for a while
         // A not needed but help makes it obvious
         A = *pdb_demo_state_params & 0x1F;
         //l_17A4:
         glbls9200.demo_timer = A;
         break; // ret
 
-    case 3:  // case_17A8 ... no idea when
+    case 3: // case_17A8 ... no idea when
         // A not needed but help makes it easy to understand for nooobz
         A = *pdb_demo_state_params & 0x1F;
-//       ld   c,a
-//       rst  0x30                                  ; string_out_pe
+        //       ld   c,a
+        //       rst  0x30                                  ; string_out_pe
         break; // ret
 
         // runs timer and doesn't come back for a while
-    case 4:  // case_17AE
-    case 5:  // case_17AE
+    case 4: // case_17AE
+    case 5: // case_17AE
         // A not needed but help makes it obvious
         A = *(pdb_demo_state_params + 1); // inc  de
 
@@ -193,13 +193,13 @@ void f_1700(void)
     // A not needed here, but it's easier to digest
     A = (*pdb_demo_state_params >> 5) & 0x07; // rlca * 3
 
-    switch(A)
+    switch (A)
     {
     case 0x02: // 171F: boss+wingmen nearly to fighter
-        if ( 0 == (ds3_92A0_frame_cts[0] & 0x0F))
+        if (0 == (ds3_92A0_frame_cts[0] & 0x0F))
         {
             glbls9200.demo_timer -= 1;
-            if ( 0 != glbls9200.demo_timer)
+            if (0 != glbls9200.demo_timer)
             {
                 return;
             }
@@ -216,7 +216,7 @@ void f_1700(void)
         break;
     }
 
-    // appearance of first attack wave in GameOver Demo-Mode
+        // appearance of first attack wave in GameOver Demo-Mode
     case 0x05: // 172D:
         c_1F0F(); //  init sprite objects for rockets
         // ld   de,(pdb_demo_fghtrvctrs) ... don't need it
@@ -227,7 +227,7 @@ void f_1700(void)
 
         A = *pdb_demo_state_params; // ld   a,(de)
 
-        if ( 0 == (A & 0x01)) // bit  0,a
+        if (0 == (A & 0x01)) // bit  0,a
         {
             // not till demo round
             A &= 0x0A; // 0x08 | 0x02
@@ -253,7 +253,7 @@ void f_1700(void)
         c_1F92(A); // input control bits
 
         // do nothing until frame count even multiple of 4
-        if (0 != (ds3_92A0_frame_cts[0] & 0x03))  return; // ret  nz
+        if (0 != (ds3_92A0_frame_cts[0] & 0x03)) return; // ret  nz
 
         glbls9200.demo_timer -= 1; // dec  (hl)
 
@@ -517,7 +517,7 @@ void f_1B65(void)
     reg16 pDE;
     uint8 A, B, L;
 
-    if ( 0 != glbls9200.flying_bug_attck_condtn
+    if (0 != glbls9200.flying_bug_attck_condtn
             &&
             (0 == task_actv_tbl_0[0x15]) // f_1F04 (fire button input)
             &&
@@ -531,7 +531,7 @@ void f_1B65(void)
     B = 0; // ld   b,#4
     L = 0; // ld   hl,#b_92C0 + 0x0A
     // l_1B7A:
-    while ( B < 4 )
+    while (B < 4)
     {
         A = b_92C0_A[L]; // valid object index if slot active, otherwise $FF
 #ifdef HELP_ME_DEBUG
@@ -584,11 +584,11 @@ if (1) // boss launcher not implemented yet
     // l_1BA8: check each bomber type for ready status i.e. boss, red, yellow, red
     L = 0; // ld   hl,#b_92C0 + 0x00 ... boss is slot 0
     B = 3; // ld   b,#3 ... boss is case 3-1=2
-    while ( B > 0)
+    while (B > 0)
     {
         b_92C0_0[L] -= 1; // dec  (hl)
 
-        if (0 == b_92C0_0[L])  break; // jr   z,l_1BB4
+        if (0 == b_92C0_0[L]) break; // jr   z,l_1BB4
 
         L += 1; // inc  l
         B -= 1; // djnz l_1BAD ... argument to "switch" to select type of alien launched?
@@ -597,7 +597,7 @@ if (1) // boss launcher not implemented yet
         return;
 
     // l_1BB4:
-    if ( b_bugs_flying_nbr >= ds_new_stage_parms[4] ) // max_flying_bugs_this_rnd
+    if (b_bugs_flying_nbr >= ds_new_stage_parms[4]) // max_flying_bugs_this_rnd
     {
         // maximum nbr of bugs already flying
         // set slot counter back to 1 since it can't be processed right now
@@ -606,12 +606,12 @@ if (1) // boss launcher not implemented yet
     }
 
     // l_1BC0: launch another bombing excursion
-    b_92C0_0[L] =  b_92C0_0[L + 4]; // set  2,l etc.
+    b_92C0_0[L] = b_92C0_0[L + 4]; // set  2,l etc.
 
     // B from loop l_1bad above decremented from 3
     A = B - 1; // dec  a
 
-    switch(A)
+    switch (A)
     {
     case 0:
     case 1:
@@ -634,13 +634,13 @@ if (1) // boss launcher not implemented yet
 
         // this section common to both bee and moth launcher, check for next one, skip if already active
         //l_1BDF:
-        while ( B > 0 )
+        while (B > 0)
         {
             // load bonus-bee parameter
 
             // test clone-attack parameter && object_status
             //jr   nz,l_1BEB_next
-            if ( 1 == b8800_obj_status[L].state /* && L != bonus_bee_index */ ) // disposition == resting
+            if (1 == b8800_obj_status[L].state /* && L != bonus_bee_index */) // disposition == resting
             {
                 // ld   a,c ; unstash A ... offset_to_bonus_bee
                 // l_1BF0_found_one:
@@ -703,7 +703,7 @@ void f_1D76(void)
 ;;
 ;;   Here's a diagram showing the memory structure of the evil orc army at 9200:
 ;;
-;;                         00 04 06 02            ; captured ships
+;;                         00 04 06 02         ; captured ships (00, 02, 04 fighter icons on push-start-btn screen)
 ;;                         30 34 36 32
 ;;                   40 48 50 58 5A 52 4A 42
 ;;                   44 4C 54 5C 5E 56 4E 46
@@ -773,8 +773,8 @@ void f_1DD2(void)
 /*=============================================================================
 ;; f_1DE6()
 ;;  Description:
-;;   Provides pulsating movement of the collective.
-;;   Enabled by f_2A90 once the initial formation waves have completed.
+;;   Provides pulsating movement of the formation.
+;;   Enabled by f_2A90 once the initial attack waves have completed.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -786,9 +786,11 @@ void f_1DE6(void)
 
     // only performed every 1/4th frame (15hz)
     if ((ds3_92A0_frame_cts[0] % 4) != 0)
+    {
         return;
+    }
 
-    E = A = glbls9200.bug_nest_direction_lr; // PREVIOUS_nest_direction counter
+    E = A = glbls9200.bug_nest_direction_lr; // prev formation direction counter
 
     D = -1;
 
@@ -796,55 +798,55 @@ void f_1DE6(void)
     {
         // expanding
         D += 2; // D==1
-        glbls9200.bug_nest_direction_lr++; // inc  (hl)
+        glbls9200.bug_nest_direction_lr += 1; // inc  (hl)
     }
     else
     {
         // l_1DFC_contracting:
         // D==-1
-        glbls9200.bug_nest_direction_lr--; // dec  (hl)
+        glbls9200.bug_nest_direction_lr -= 1; // dec  (hl)
     }
 
     // l_1DFD:
     if (A == 0x1F)
+    {
         // counting up from $00 to $1F
         glbls9200.bug_nest_direction_lr |= 0x80; // set  7,(hl) ... = $A0
-
+    }
     if (A == 0x81)
+    {
         // counting down from $A0 to $81 (-$60 to -$7F)
         glbls9200.bug_nest_direction_lr &= ~0x80; // res  7,(hl) ... = $00
+    }
 
     // Now we have updated the counter, and have D==1 if expanding, D==-1 if contracting.
     // Every 8*4 (32) frames, we change the bitmap which determines the positions that are
     // updated. This happens to correspond with the "flapping" animation... ~1/2 second per flap.
 
     // l_1E09:
+    glbls9200.formatn_mv_signage = D; // b_9200[0x11] .. current increment (+1 or -1)
 
-    glbls9200.formatn_mv_signage = D; // b_9200[0x11] .. current increment (1 or -1 )
-
-    // ld   a,e  ; previous_nest_direction counter (do it after if() )
+    // ld   a,e  ; reload previous_nest_direction counter
 
     if (0 == (A & 0x07))
     {
         uint8 B;
 
+        // make it even multiple of 8
         A = glbls9200.bug_nest_direction_lr & 0x18; // ld   a,c ...
 
-        // HL += 2A ... table entries are $10 bytes long
-        A <<= 1;
+        A <<= 1; // HL += 2A ... table entries are $10 bytes long
 
         // ld   a,e  ; previous_nest_direction counter
 
         //   ldir
-        B = 0;
-        while (B < 16)
+        for (B = 0; B < 16; B++)
         {
-            ds10_9920[B] = d_1E64_bitmap_tables[ A + B ];
-            B++;
+            ds10_9920[B] = fmtn_pulse_cinc_bits[A + B];
         }
     }
 
-    A = E; // ld   a,e ... previous_nest_direction counter (see above)
+    A = E; // ld   a,e ... reload previous_nest_direction counter
 
     // l_1E23: determines which parameter is taken. Bit-7 XOR'd with flip_screen-bit
     Cy = (0 != (A & 0x80)) ^ glbls9200.flip_screen;
@@ -872,7 +874,7 @@ void f_1DE6(void)
 ;;   Offset and counts used instead of pointers since the location structures
 ;;   are not simple arrays
 ;; IN:
-;;    B   == +/- 1 increment.
+;;    B ==  +/- 1 increment.
 ;;    offs: either 0 or 5
 ;;    cnt: either 5 or 11
 ;;    ds10_9920[]: working copy of selected bitmap table ($10 bytes)
@@ -913,7 +915,7 @@ void c_1E43(uint8 B, uint8 offs, uint8 cnt)
 
 
 /*=============================================================================
-;; d_1E64_bitmap_tables
+;; fmtn_pulse_cinc_bits
 ;;  Description:
 ;;   bitmaps determine at which intervals the corresponding coordinate will
 ;;   be incremented... allows outmost and lowest coordinates to expand faster.
@@ -921,7 +923,7 @@ void c_1E43(uint8 B, uint8 offs, uint8 cnt)
 ;;      |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
 ;;
 ;;---------------------------------------------------------------------------*/
-static uint8 d_1E64_bitmap_tables[] =
+static uint8 fmtn_pulse_cinc_bits[] =
 {
     0xFF, 0x77, 0x55, 0x14, 0x10, 0x10, 0x14, 0x55, 0x77, 0xFF, 0x00, 0x10, 0x14, 0x55, 0x77, 0xFF,
     0xFF, 0x77, 0x55, 0x51, 0x10, 0x10, 0x51, 0x55, 0x77, 0xFF, 0x00, 0x10, 0x51, 0x55, 0x77, 0xFF,
@@ -942,7 +944,6 @@ void f_1EA4(void)
 {
 
 }
-
 
 /*=============================================================================
 ;; f_1F04()
@@ -1057,13 +1058,12 @@ static void c_1F0F(void)
     // pointer to rocket attribute
     *pushDE = A | C; // bit7=orientation, bit6=flipY, bit5=flipX, 1:2=displacement
 
-    b8800_obj_status[E].state = 6; // active rocket object
+    b8800_obj_status[E].state = 6; // disposition: active rocket object
 
     b_9AA0[0x0F] = 1; // sound-fx count/enable, shot-sound
 
     // game shots fired count+=1 (2 bytes) ... ds_9820_actv_plyr_state[0x26]
 }
-
 
 /*=============================================================================
 ;; f_1F85()
@@ -1186,4 +1186,3 @@ static void c_1F92(uint8 A)
         mrw_sprite.posn[SPR_IDX_SHIP].b0 += 0x0F;
     return;
 }
-
