@@ -550,6 +550,12 @@ void cpu1_rst38(void)
     // flag = ( num_bugs < param07 ) & ds_cpu0_task_actv[0x15]
 
     // find the first ready task.. may run more than one.
+    // In general, any non-zero value in cpu1_task_en[] enables that task.
+    // The enable value is added to the offset (C) and may be other than 1, but
+    // only the task at [0] is ever associated with an enable value >0 ... i.e.
+    // the value 7 causes the scheduler to run only task[0] (empty task)
+    // followed by task[7] (mystery task!) during a the short time following the
+    // self-test while the checkerboard screen is shown.
     C = 0;
     while (C < 8)
     {
@@ -564,7 +570,6 @@ void cpu1_rst38(void)
             C += 1;
         }
     }
-
 
     irq_acknowledge_enable_cpu1 = 1; // sfr_6821
 }
@@ -1218,7 +1223,9 @@ void f_08D3(void)
                             L = ds_bug_motion_que[mctl_que_idx].b10;
 
                             // use byte-pointer as index of pairs:
-                            b8800_obj_status[ L ].state = 9; // disposition = 09: diving (or homing?)
+
+                            // already 9 if executing attack sortie
+                            b8800_obj_status[ L ].state = 9; // disposition 3 -> 9 (homing)
 
                             // should make this one .rowpos and .colpos
                             C = db_obj_home_posn_RC[ L ]; // row index
@@ -1409,7 +1416,7 @@ void f_08D3(void)
                             if ( 0 != glbls9200.flip_screen ) // bit  0,c
                             {
                                 tmpA.word += 0x0E;
-                                tmpA.word = -A; // neg
+                                tmpA.word = -tmpA.word; // neg
                             }
 
                             // l_0A1E:  9.7 fixed-point math
@@ -1423,7 +1430,7 @@ void f_08D3(void)
                             // typically .b13 if set then negate data to (ix)0x0C
                             if ( 0 != (ds_bug_motion_que[mctl_que_idx].b13 & 0x80)) // bit  7,0x13(ix)
                             {
-                                tmpA.word = -tmpA.word; // neg
+                                tmpA.pair.b0 = -tmpA.pair.b0; // neg
                             }
 
                             // l_0A2C_:
