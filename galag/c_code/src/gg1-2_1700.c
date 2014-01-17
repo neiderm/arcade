@@ -36,7 +36,9 @@ uint8 b_92C0_A[0x10]; // machine cfg params?
 // variables
 static const uint8 d_fghtrvctrs_demolvl_ac[];
 static const uint8 d_fghtrvctrs_demolvl_bc[];
-static uint8 fmtn_pulse_cinc_bits[];
+
+static uint8 fmtn_pulse_cinc_bits[][16];
+
 static uint8 ds10_9920[16];
 static uint8 b8_demo_scrn_txt_indx;
 static uint8 const *pdb_demo_state_params;
@@ -788,7 +790,7 @@ void f_1DD2(void)
 ;;---------------------------------------------------------------------------*/
 void f_1DE6(void)
 {
-    uint8 A, D, E, Cy;
+    uint8 A, D, Cy;
 
     // only performed every 1/4th frame (15hz)
     if ((ds3_92A0_frame_cts[0] % 4) != 0)
@@ -796,20 +798,18 @@ void f_1DE6(void)
         return;
     }
 
-    E = A = glbls9200.bug_nest_direction_lr; // prev formation direction counter
-
-    D = -1;
+    A = glbls9200.bug_nest_direction_lr; // prev formation direction counter
 
     if (0 == (glbls9200.bug_nest_direction_lr & 0x80)) // bit  7,a
     {
         // expanding
-        D += 2; // D==1
+        D = 1;
         glbls9200.bug_nest_direction_lr += 1; // inc  (hl)
     }
     else
     {
         // l_1DFC_contracting:
-        // D==-1
+        D = -1;
         glbls9200.bug_nest_direction_lr -= 1; // dec  (hl)
     }
 
@@ -834,24 +834,24 @@ void f_1DE6(void)
 
     // ld   a,e  ; reload previous_nest_direction counter
 
-    if (0 == (A & 0x07))
+    if (0 == (A & 0x07)) // and  #0x07
     {
-        uint8 B;
+        uint8 B, iA;
 
-        // make it even multiple of 8
-        A = glbls9200.bug_nest_direction_lr & 0x18; // ld   a,c ...
-        A <<= 1; // HL += 2A ... table entries are $10 bytes long
+        // divide by 8 to provide an index of 0:3 to the 2D table
+
+        iA = (glbls9200.bug_nest_direction_lr & 0x18) / 8; // ld   a,c ...
 
         // ld   a,e  ; previous_nest_direction counter
 
         //   ldir
         for (B = 0; B < 16; B++)
         {
-            ds10_9920[B] = fmtn_pulse_cinc_bits[A + B];
+            ds10_9920[B] = fmtn_pulse_cinc_bits[iA][B];
         }
     }
 
-    A = E; // ld   a,e ... reload previous_nest_direction counter
+    // ld   a,e ... reload previous_nest_direction counter
 
     // l_1E23: determines which parameter is taken. Bit-7 XOR'd with flip_screen-bit
     Cy = (0 != (A & 0x80)) ^ glbls9200.flip_screen;
@@ -922,12 +922,20 @@ void c_1E43(uint8 B, uint8 offs, uint8 cnt)
 ;;   |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
 ;;
 ;;---------------------------------------------------------------------------*/
-static uint8 fmtn_pulse_cinc_bits[] =
+static uint8 fmtn_pulse_cinc_bits[][16] =
 {
-    0xFF, 0x77, 0x55, 0x14, 0x10, 0x10, 0x14, 0x55, 0x77, 0xFF, 0x00, 0x10, 0x14, 0x55, 0x77, 0xFF,
-    0xFF, 0x77, 0x55, 0x51, 0x10, 0x10, 0x51, 0x55, 0x77, 0xFF, 0x00, 0x10, 0x51, 0x55, 0x77, 0xFF,
-    0xFF, 0x77, 0x57, 0x15, 0x10, 0x10, 0x15, 0x57, 0x77, 0xFF, 0x00, 0x10, 0x15, 0x57, 0x77, 0xFF,
-    0xFF, 0xF7, 0xD5, 0x91, 0x10, 0x10, 0x91, 0xD5, 0xF7, 0xFF, 0x00, 0x10, 0x91, 0xD5, 0xF7, 0xFF
+    {
+        0xFF, 0x77, 0x55, 0x14, 0x10, 0x10, 0x14, 0x55, 0x77, 0xFF, 0x00, 0x10, 0x14, 0x55, 0x77, 0xFF
+    },
+    {
+        0xFF, 0x77, 0x55, 0x51, 0x10, 0x10, 0x51, 0x55, 0x77, 0xFF, 0x00, 0x10, 0x51, 0x55, 0x77, 0xFF
+    },
+    {
+        0xFF, 0x77, 0x57, 0x15, 0x10, 0x10, 0x15, 0x57, 0x77, 0xFF, 0x00, 0x10, 0x15, 0x57, 0x77, 0xFF
+    },
+    {
+        0xFF, 0xF7, 0xD5, 0x91, 0x10, 0x10, 0x91, 0xD5, 0xF7, 0xFF, 0x00, 0x10, 0x91, 0xD5, 0xF7, 0xFF
+    }
 };
 
 /*=============================================================================
