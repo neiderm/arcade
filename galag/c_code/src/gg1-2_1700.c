@@ -790,7 +790,7 @@ void f_1DD2(void)
 ;;---------------------------------------------------------------------------*/
 void f_1DE6(void)
 {
-    uint8 A, D, Cy;
+    uint8 A, Cy;
 
     // only performed every 1/4th frame (15hz)
     if ((ds3_92A0_frame_cts[0] % 4) != 0)
@@ -802,16 +802,14 @@ void f_1DE6(void)
 
     if (0 == (glbls9200.bug_nest_direction_lr & 0x80)) // bit  7,a
     {
-        // expanding
-        D = 1;
-        glbls9200.bug_nest_direction_lr += 1; // inc  (hl)
+        glbls9200.formatn_mv_signage = 1; // expanding
     }
     else
     {
-        // l_1DFC_contracting:
-        D = -1;
-        glbls9200.bug_nest_direction_lr -= 1; // dec  (hl)
+        glbls9200.formatn_mv_signage = -1; // contracting
     }
+
+    glbls9200.bug_nest_direction_lr += glbls9200.formatn_mv_signage;
 
     // l_1DFD:
     if (A == 0x1F)
@@ -825,14 +823,8 @@ void f_1DE6(void)
         glbls9200.bug_nest_direction_lr &= ~0x80; // res  7,(hl) ... = $00
     }
 
-    // Now we have updated the counter, and have D==1 if expanding, D==-1 if contracting.
-    // Every 8*4 (32) frames, we change the bitmap which determines the positions that are
-    // updated. This happens to correspond with the "flapping" animation... ~1/2 second per flap.
-
-    // l_1E09:
-    glbls9200.formatn_mv_signage = D; // b_9200[0x11] .. current increment (+1 or -1)
-
-    // ld   a,e  ; reload previous_nest_direction counter
+    // Every 8*4 (32) frames, select the bitmap to determines positions to be
+    // updated ... corresponds with "flapping" animation... ~1/2 second per flap.
 
     if (0 == (A & 0x07)) // and  #0x07
     {
@@ -842,16 +834,12 @@ void f_1DE6(void)
 
         iA = (glbls9200.bug_nest_direction_lr & 0x18) / 8; // ld   a,c ...
 
-        // ld   a,e  ; previous_nest_direction counter
-
         //   ldir
         for (B = 0; B < 16; B++)
         {
             ds10_9920[B] = fmtn_pulse_cinc_bits[iA][B];
         }
     }
-
-    // ld   a,e ... reload previous_nest_direction counter
 
     // l_1E23: determines which parameter is taken. Bit-7 XOR'd with flip_screen-bit
     Cy = (0 != (A & 0x80)) ^ glbls9200.flip_screen;
