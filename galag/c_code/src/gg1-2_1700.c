@@ -37,16 +37,16 @@ uint8 b_92C0_A[0x10]; // machine cfg params?
 static const uint8 d_fghtrvctrs_demolvl_ac[];
 static const uint8 d_fghtrvctrs_demolvl_bc[];
 
-static uint8 fmtn_pulse_cinc_bits[][16];
+static uint8 fmtn_expcon_cinc_bits[][16];
 
 static uint8 ds10_9920[16];
 static uint8 b8_demo_scrn_txt_indx;
 static uint8 const *pdb_demo_state_params;
-static uint8 ship_dX_flag;
+static uint8 fghtr_ctrl_dxflag;
 
 // function prototypes
-static void c_1E43(uint8, uint8, uint8);
-static void c_1F92(uint8);
+static void fmtn_expcon_comp(uint8, uint8, uint8);
+static void fghtr_ctrl_inp(uint8);
 static void rckt_sprite_init(void);
 
 
@@ -225,7 +225,7 @@ void f_1700(void)
 
         // 1734: drives the simulated inputs to the fighter in training mode
     case 0x04:
-        // ld   e,(hl) ... double ship flag referenced directly in c_1F92
+        // ld   e,(hl) ... double ship flag referenced directly in fghtr_ctrl_inp
 
         A = *pdb_demo_state_params; // ld   a,(de)
 
@@ -252,7 +252,7 @@ void f_1700(void)
             }
         }
         // l_1755:
-        c_1F92(A); // input control bits
+        fghtr_ctrl_inp(A); // input control bits
 
         // do nothing until frame count even multiple of 4
         if (0 != (ds3_92A0_frame_cts[0] & 0x03))
@@ -837,7 +837,7 @@ void f_1DE6(void)
         //   ldir
         for (B = 0; B < 16; B++)
         {
-            ds10_9920[B] = fmtn_pulse_cinc_bits[iA][B];
+            ds10_9920[B] = fmtn_expcon_cinc_bits[iA][B];
         }
     }
 
@@ -847,21 +847,21 @@ void f_1DE6(void)
     if (0 != Cy)
     {
         // BC = 0x01FF, contracting
-        c_1E43(1, 0, 0x05); // left-most 5 columns
-        c_1E43(-1, 5, 0x0B); // rightmost 5 columns and the 6 row coordinates
+        fmtn_expcon_comp(1, 0, 0x05); // left-most 5 columns
+        fmtn_expcon_comp(-1, 5, 0x0B); // rightmost 5 columns and the 6 row coordinates
     }
     else // l_1E36
     {
         // BC = 0xFF01, expanding
-        c_1E43(-1, 0, 0x05); // left-most 5 columns
-        c_1E43(1, 5, 0x0B); // rightmost 5 columns and the 6 row coordinates
+        fmtn_expcon_comp(-1, 0, 0x05); // left-most 5 columns
+        fmtn_expcon_comp(1, 5, 0x0B); // rightmost 5 columns and the 6 row coordinates
     }
 }
 
 /*=============================================================================
-;; c_1E43()
+;; fmtn_expcon_comp()
 ;;  Description:
-;;   Updates the row/col coordinate locations for the alien formation.
+;;   Compute row/col coordinates of formation in expand/contract movement.
 ;;   The selected bitmap table determines whether any given coordinate
 ;;   dimension is incremented at this update.
 ;; IN:
@@ -873,7 +873,7 @@ void f_1DE6(void)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-void c_1E43(uint8 B, uint8 offs, uint8 cnt)
+void fmtn_expcon_comp(uint8 B, uint8 offs, uint8 cnt)
 {
     uint8 IXL = 0;
 
@@ -896,13 +896,12 @@ void c_1E43(uint8 B, uint8 offs, uint8 cnt)
             // 10 column coordinates, 6 row coordinates, 16-bits per coordinate
             ds_home_posn_org[ (offs + IXL) * 2 ].word += B;
             ds_home_posn_org[ (offs + IXL) * 2 ].pair.b1 = 0; //for now, MSB not needed for non-inverted screen
-        } // if
-        // l_1E5C_update_ptrs
+        }
     }
 }
 
 /*=============================================================================
-;; fmtn_pulse_cinc_bits
+;; fmtn_expcon_cinc_bits
 ;;  Description:
 ;;   bitmaps determine at which intervals the corresponding coordinate will
 ;;   be incremented... allows outmost and lowest coordinates to expand faster.
@@ -910,7 +909,7 @@ void c_1E43(uint8 B, uint8 offs, uint8 cnt)
 ;;   |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
 ;;
 ;;---------------------------------------------------------------------------*/
-static uint8 fmtn_pulse_cinc_bits[][16] =
+static uint8 fmtn_expcon_cinc_bits[][16] =
 {
     {
         0xFF, 0x77, 0x55, 0x14, 0x10, 0x10, 0x14, 0x55, 0x77, 0xFF, 0x00, 0x10, 0x14, 0x55, 0x77, 0xFF
@@ -1089,12 +1088,13 @@ void f_1F85(void)
      */
     A = io_input[1];
 
-    c_1F92(A);
+    fghtr_ctrl_inp(A);
 }
 
 /*=============================================================================
-;; c_1F92()
+;; fghtr_ctrl_inp()
 ;;  Description:
+;;   fighter control input
 ;;   Skip real IO input in the demo.
 ;;
 ;;   The dX.flag determines the movement step (dX): when the ship movement
@@ -1106,23 +1106,22 @@ void f_1F85(void)
 ;;   left ship... the right limit gets special handling accordingly.
 ;;
 ;; IN:
-;;   A == IO input control bits
+;;   inbits == IO input control bits
 ;;        8 ---> R
 ;;        2 ---> L
-;;   E == actv_plyr_state[7]  .... double ship flag
+;;   E == actv_plyr_state[7]  ... double ship flag
 ;;
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void c_1F92(uint8 A)
+static void fghtr_ctrl_inp(uint8 inbits)
 {
-    uint8 ship_dX;
-    uint8 B;
+    uint8 dxinc; // move increment
 
-    if ((A & 0x0A) == 0x0A) // inputs are active low, neither left or right active
+    if ((inbits & 0x0A) == 0x0A) // inputs are active low, neither left or right active
     {
         // l_1FCF_no_input:
-        ship_dX_flag = 0;
+        fghtr_ctrl_dxflag = 0;
         return;
     }
 
@@ -1130,20 +1129,17 @@ static void c_1F92(uint8 A)
 
     // set ship.dX (1 or 2)
     // l_1FA1_set_ship_dx:
-    ship_dX = 1;
+    dxinc = 1;
 
-    // toggle ship_dX_flag
-    ship_dX_flag ^= 1;
+    // toggle fghtr_ctrl_dxflag
+    fghtr_ctrl_dxflag ^= 1;
 
-    if (0 == ship_dX_flag) ship_dX++;
-
-    // stash the control input bits
-    B = A;
+    if (0 == fghtr_ctrl_dxflag) dxinc += 1;
 
     // l_1FAE_handle_input_bits:
     if (0 == mrw_sprite.posn[SPR_IDX_SHIP].b0) return;
 
-    if (B & 0x02) // if ! input.right (inverted)
+    if (inbits & 0x02) // if ! input.right (inverted)
     {
         // jr   nz,l_1FC7_test_llmt
         // test left limit
@@ -1153,7 +1149,7 @@ static void c_1F92(uint8 A)
         }
         else
         {
-            mrw_sprite.posn[SPR_IDX_SHIP].b0 -= ship_dX;
+            mrw_sprite.posn[SPR_IDX_SHIP].b0 -= dxinc;
 
             // jr   l_1FD4_update_two_ship
         }
@@ -1176,7 +1172,7 @@ static void c_1F92(uint8 A)
             }
         }
         // add dX for right direction
-        mrw_sprite.posn[SPR_IDX_SHIP].b0 += ship_dX;
+        mrw_sprite.posn[SPR_IDX_SHIP].b0 += dxinc;
     }
 
     // l_1FD4_update_two_ship:
