@@ -36,8 +36,8 @@ typedef struct
     uint8 game_state; //               01
     uint8 demo_idx; //                 03
     //uint8 b8_demo_scrn_txt_indx; //  05
-    uint8 demo_timer;            //    07
-    uint8 demo_idx_tgt_obj;      //    09
+    //uint8 demo_timer;            //  07
+    //uint8 demo_idx_tgt_obj;      //  09
     uint8 flying_bug_attck_condtn; //  0B
     uint8 bug_nest_direction_lr; //    0F: 1:left, 0:right
     uint8 formatn_mv_signage; //       11: sign of formation pulse movement for snd mgr
@@ -154,25 +154,25 @@ extern unsigned char *galaga_starcontrol;
 #define SPR_IDX_RCKT1 (SPR_IDX_RCKT + sizeof(t_bpair))
 
 
-
 // Object status structure... 2 bytes per element.
 // Order is common to sprite buffer and register banks.
-
 typedef struct object_status
 {
-    uint8 state; //   [ 0 + n ] : object state
-    uint8 obj_idx; // [ 1 + n ] : offset into 9100[] .. see 2980... 0x10(ix),a links back to the object offset in 8800
+    uint8 state;     // [ 0 + n ] : object state/disposition
+    uint8 obj_idx;   // [ 1 + n ] : index of slot in mctrl_que (see f_2916)
+                     //              ... obj_idx copied to mctrl_que.b10
+
 } struct_obj_status;
 
 
-// array of object movement structures, also temp variables and such.
+// struct type for motion control queue
 //  00-07 writes to 92E0, see _2636
 //  08-09 ptr to data in cpu-sub-1:4B
 //  0D + *(ds_9820_actv_plyr_state + 0x09)
 //  10 index/offset of object .... i.e. 8800 etc.
 //  11 + offset
 //  13 + offset
-
+//
 typedef struct struct_bug_flying_status
 {
     uint8 b00;
@@ -267,7 +267,6 @@ typedef enum
 } t_flv_offs;
 
 
-
 /*
  * extern declarations
  */
@@ -285,7 +284,6 @@ extern uint8 _sfr_dsw5; //  $$6804
 extern uint8 _sfr_dsw6; //  $$6805
 extern uint8 _sfr_dsw7; //  $$6806
 extern uint8 _sfr_dsw8; //  $$6807
-
 
 extern uint8 _sfr_6820; //  $$6820  ; maincpu IRQ acknowledge/enable
 extern uint8 _sfr_6821; //  $$6821  ; CPU-sub1 IRQ acknowledge/enable)
@@ -329,7 +327,6 @@ extern uint8 b_9A70[];
 // combined structure for home position locations
 // only 16 bytes are needed in each array, but by using even-bytes and allocating
 // 32 bytes, the indexing can be retained while still having separate elements for rel and abs
-
 typedef struct {
     uint8 rel;
     uint8 abs;
