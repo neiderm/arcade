@@ -36,7 +36,9 @@ uint8 b_92C0_A[0x10]; // machine cfg params?
 // variables
 
 static uint8 fmtn_expcon_cinc_curr[16]; // current set of working bitmaps for expand/contract motion
-static uint8 demo_txt_idx;              // index of text string displayed in demo
+static uint8 demo_txt_idx;              // index of text string displayed in demo (z80 addr. $9205)
+static uint8 demo_state_tmr;            // timer of demo states (z80 addr. $9207)
+static uint8 demo_idx_tgt_obj;          // position/index of targetted alien from data (z80 addr. $9209)
 static uint8 const *demo_p_fghtr_mvecs; // pointer to current set of movement vectors for fighter in demo
 static uint8 fghtr_ctrl_dxflag;         // selection flag for dx increment of fighter movement
 
@@ -136,10 +138,10 @@ void case_1766(void)
     {
     case 0: // case_1794
     case 1: // case_1794
-        // load object/index of targeted alien
+        // load index/position of target alien
         // rlca ... note, mask makes rlca into <:0> through Cy irrelevant
-        A = *demo_p_fghtr_mvecs << 1; // rlca
-        glbls9200.demo_idx_tgt_obj = A & 0x7E; // :0 and :7 not significant
+        A = *demo_p_fghtr_mvecs << 1; // rlca ... rotate bits<6:1> into place
+        demo_idx_tgt_obj = A & 0x7E; // mask out Cy rlca'd into <:0>
         break; // ret
 
         // done!
@@ -151,7 +153,7 @@ void case_1766(void)
         // A not needed but help makes it obvious
         A = *demo_p_fghtr_mvecs & 0x1F;
         //l_17A4:
-        glbls9200.demo_timer = A;
+        demo_state_tmr = A;
         break; // ret
 
     case 3: // case_17A8 ... no idea when
@@ -169,7 +171,7 @@ void case_1766(void)
 
         //jr   l_17A4
         //l_17A4:
-        glbls9200.demo_timer = A;
+        demo_state_tmr = A;
         break; // ret
 
     default:
@@ -201,8 +203,8 @@ void f_1700(void)
     case 0x02: // 171F: boss+wingmen nearly to fighter
         if (0 == (ds3_92A0_frame_cts[0] & 0x0F))
         {
-            glbls9200.demo_timer -= 1;
-            if (0 != glbls9200.demo_timer)
+            demo_state_tmr -= 1;
+            if (0 != demo_state_tmr)
             {
                 return;
             }
@@ -240,7 +242,7 @@ void f_1700(void)
         {
             // move fighter in direction of targeted alien?
             uint8 L;
-            L = glbls9200.demo_idx_tgt_obj; // object/index of targeted alien
+            L = demo_idx_tgt_obj; // object/index of targeted alien
 
             A = 0x0A; // 0x08 | 0x02
             if (mrw_sprite.posn[L].b0 != mrw_sprite.posn[SPR_IDX_SHIP].b0) // sub  (hl)
@@ -261,9 +263,9 @@ void f_1700(void)
             return; // ret  nz
         }
 
-        glbls9200.demo_timer -= 1; // dec  (hl)
+        demo_state_tmr -= 1; // dec  (hl)
 
-        if (0 != glbls9200.demo_timer)
+        if (0 != demo_state_tmr)
         {
             return; // ret  nz
         }
