@@ -34,18 +34,19 @@ uint8 b_92C0_A[0x10]; // machine cfg params?
  ** static external definitions in this file
  */
 // variables
-static const uint8 d_fghtrvctrs_demolvl_ac[];
-static const uint8 d_fghtrvctrs_demolvl_bc[];
 
-static uint8 fmtn_expcon_cinc_bits[][16];
+static uint8 fmtn_expcon_cinc_curr[16]; // current set of working bitmaps for expand/contract motion
+static uint8 demo_txt_idx;              // index of text string displayed in demo
+static uint8 const *demo_p_fghtr_mvecs; // pointer to current set of movement vectors for fighter in demo
+static uint8 fghtr_ctrl_dxflag;         // selection flag for dx increment of fighter movement
 
-static uint8 ds10_9920[16];
-static uint8 b8_demo_scrn_txt_indx;
-static uint8 const *pdb_demo_state_params;
-static uint8 fghtr_ctrl_dxflag;
+// declarations
+static const uint8 demo_fghtr_mvecs_ac[]; // fighter movement vectors, demo, after capture
+static const uint8 demo_fghtr_mvecs_bc[]; // fighter movement vectors, demo, before capture
+static uint8 fmtn_expcon_cinc_bits[][16]; // bitmap table for formation expand/contract movement
 
 // function prototypes
-static void fmtn_expcon_comp(uint8, uint8, uint8);
+static void fmtn_expcon_comp(uint8, uint8, uint8); // compute formation expand/contract movement
 static void fghtr_ctrl_inp(uint8);
 static void rckt_sprite_init(void);
 
@@ -86,21 +87,21 @@ static uint8 idx_attrmode_sptiles_3;
 
 /*----------------------------------------------------------------------------*/
 
-// pdb_demo_state_params, fighter vectors demo level after boss capture
-static const uint8 d_fghtrvctrs_demolvl_ac[] = // d_181F:
+// demo_p_fghtr_mvecs, fighter vectors demo level after boss capture
+static const uint8 demo_fghtr_mvecs_ac[] = // d_181F:
 {
     0x08, 0x18, 0x8A, 0x08, 0x88, 0x06, 0x81, 0x28, 0x81, 0x05, 0x54, 0x1A, 0x88, 0x12, 0x81, 0x0F,
     0xA2, 0x16, 0xAA, 0x14, 0x88, 0x18, 0x88, 0x10, 0x43, 0x82, 0x10, 0x88, 0x06, 0xA2, 0x20, 0x56, 0xC0
 };
-// pdb_demo_state_params, fighter vectors demo level before boss capture
-static const uint8 d_fghtrvctrs_demolvl_bc[] = // d_1887:
+// demo_p_fghtr_mvecs, fighter vectors demo level before boss capture
+static const uint8 demo_fghtr_mvecs_bc[] = // d_1887:
 {
     0x02, 0x8A, 0x04, 0x82, 0x07, 0xAA, 0x28, 0x88, 0x10, 0xAA, 0x38, 0x82, 0x12, 0xAA, 0x20, 0x88,
     0x14, 0xAA, 0x20, 0x82, 0x06, 0xA8, 0x0E, 0xA2, 0x17, 0x88, 0x12, 0xA2, 0x14, 0x18, 0x88, 0x1B,
     0x81, 0x2A, 0x5F, 0x4C, 0xC0
 };
 // fighter vectors training level
-static const uint8 d_demo_fghtrvctrs_trnglvl[] = // d_1928:
+static const uint8 demo_fghtr_mvecs_tl[] = // d_1928:
 {
     0x08, 0x1B, 0x81, 0x3D, 0x81, 0x0A, 0x42, 0x19, 0x81, 0x28, 0x81, 0x08,
     0x18, 0x81, 0x2E, 0x81, 0x03, 0x1A, 0x81, 0x11, 0x81, 0x05, 0x42, 0xC0
@@ -120,15 +121,15 @@ void case_1766(void)
     uint8 A;
 
     // 0x80 fires shot ... not sure why bit-6 not masked out
-    if (0x80 == (0xC0 & *pdb_demo_state_params))
+    if (0x80 == (0xC0 & *demo_p_fghtr_mvecs))
     {
-        pdb_demo_state_params += 1; // inc  de ... right-most boss+2wingmen dive
+        demo_p_fghtr_mvecs += 1; // inc  de ... right-most boss+2wingmen dive
     }
     //l_1772:
-    pdb_demo_state_params += 1; // inc  de
+    demo_p_fghtr_mvecs += 1; // inc  de
 
     // A not needed, but easier to chew that way
-    A = (*pdb_demo_state_params >> 5) & 0x07;
+    A = (*demo_p_fghtr_mvecs >> 5) & 0x07;
 
 // note: 1794, 17ae
     switch (A)
@@ -137,7 +138,7 @@ void case_1766(void)
     case 1: // case_1794
         // load object/index of targeted alien
         // rlca ... note, mask makes rlca into <:0> through Cy irrelevant
-        A = *pdb_demo_state_params << 1; // rlca
+        A = *demo_p_fghtr_mvecs << 1; // rlca
         glbls9200.demo_idx_tgt_obj = A & 0x7E; // :0 and :7 not significant
         break; // ret
 
@@ -148,14 +149,14 @@ void case_1766(void)
 
     case 2: // case_17A1 ... runs timer and doesn't come back for a while
         // A not needed but help makes it obvious
-        A = *pdb_demo_state_params & 0x1F;
+        A = *demo_p_fghtr_mvecs & 0x1F;
         //l_17A4:
         glbls9200.demo_timer = A;
         break; // ret
 
     case 3: // case_17A8 ... no idea when
         // A not needed but help makes it easy to understand for nooobz
-        A = *pdb_demo_state_params & 0x1F;
+        A = *demo_p_fghtr_mvecs & 0x1F;
         //       ld   c,a
         //       rst  0x30                                  ; string_out_pe
         break; // ret
@@ -164,7 +165,7 @@ void case_1766(void)
     case 4: // case_17AE
     case 5: // case_17AE
         // A not needed but help makes it obvious
-        A = *(pdb_demo_state_params + 1); // inc  de
+        A = *(demo_p_fghtr_mvecs + 1); // inc  de
 
         //jr   l_17A4
         //l_17A4:
@@ -193,7 +194,7 @@ void f_1700(void)
     uint8 A;
 
     // A not needed here, but it's easier to digest
-    A = (*pdb_demo_state_params >> 5) & 0x07; // rlca * 3
+    A = (*demo_p_fghtr_mvecs >> 5) & 0x07; // rlca * 3
 
     switch (A)
     {
@@ -227,7 +228,7 @@ void f_1700(void)
     case 0x04:
         // ld   e,(hl) ... double ship flag referenced directly in fghtr_ctrl_inp
 
-        A = *pdb_demo_state_params; // ld   a,(de)
+        A = *demo_p_fghtr_mvecs; // ld   a,(de)
 
         if (0 == (A & 0x01)) // bit  0,a
         {
@@ -324,7 +325,7 @@ void f_17B2()
             // boss with captured-ship has just rejoined fleet in demo
             // load fighter vectors for demo level (after capture)
             // call c_133A
-            pdb_demo_state_params = d_fghtrvctrs_demolvl_ac; // d_181F
+            demo_p_fghtr_mvecs = demo_fghtr_mvecs_ac; // d_181F
             break;
 
         case 0x0C: // l_1840
@@ -334,7 +335,7 @@ void f_17B2()
 
         case 0x08: // l_1852
             // load fighter vectors for demo level (before capture)
-            pdb_demo_state_params = d_fghtrvctrs_demolvl_bc;
+            demo_p_fghtr_mvecs = demo_fghtr_mvecs_bc;
             break;
 
             // in demo, as the last boss shot second time
@@ -374,7 +375,7 @@ void f_17B2()
             break;
 
         case 0x03: // l_18D9
-            // main (one time init) for training mode ... 7 bugs etc.
+            // one time init for training mode ... 7 bugs etc.
             B = 0;
             while (B < 7)
             {
@@ -391,7 +392,7 @@ void f_17B2()
             b_92C0_0[0x01] = 0xFF; // idfk
             b_92C0_0[0x00] = 0x0D; // idfk
 
-            pdb_demo_state_params = d_demo_fghtrvctrs_trnglvl; // fighter vectors for training level
+            demo_p_fghtr_mvecs = demo_fghtr_mvecs_tl; // fighter vectors for training level
 
             memset(b_92C0_A, 0, 0x10);
 
@@ -420,7 +421,7 @@ void f_17B2()
             // init demo
         case 0x01: // l_1948
             idx_attrmode_sptiles_3 = 0; // setup index into sprite data table
-            b8_demo_scrn_txt_indx = 0;
+            demo_txt_idx = 0;
             w_bug_flying_hit_cnt = 0;
             ds4_game_tmrs[2] = 2; // 1 second
             break; // jr   l_19A7_end_switch
@@ -430,15 +431,15 @@ void f_17B2()
             {
                 ds4_game_tmrs[2] = 2; // 1 second
 
-                if (5 != b8_demo_scrn_txt_indx)
+                if (5 != demo_txt_idx)
                 {
-                    b8_demo_scrn_txt_indx += 1; // _glbls[0x05]
+                    demo_txt_idx += 1; // _glbls[0x05]
 
                     // "GALAGA", "--SCORE--", etc
-                    j_string_out_pe(1, -1, b8_demo_scrn_txt_indx + 0x0D);
+                    j_string_out_pe(1, -1, demo_txt_idx + 0x0D);
 
                     // checks for a sprite to display with the text
-                    if (b8_demo_scrn_txt_indx >= 3)
+                    if (demo_txt_idx >= 3)
                     {
                         sprite_tiles_display(d_attrmode_sptiles_3 + 4 * idx_attrmode_sptiles_3);
 
@@ -601,8 +602,8 @@ if (1) // boss launcher not implemented yet
         L += 1; // inc  l
         B -= 1; // djnz l_1BAD ... argument to "switch" to select type of alien launched?
     }
-    if (0 == B)
-        return;
+
+    if (0 == B) return;
 
     // l_1BB4:
     if (b_bugs_flying_nbr >= ds_new_stage_parms[4]) // max_flying_bugs_this_rnd
@@ -705,11 +706,11 @@ void f_1D76(void)
 ;;   When orcs are destroyed, their flag at 9200[i] is set by cpu1:c_076A to
 ;;   $81. Here we detect and reset bit-7.
 ;;
-;;   The only time this one is disabled is when the default task config is
+;;   this task is disabled only when the default task config is
 ;;   re-loaded from ROM (c_1230_init_taskman_structs) just prior to the Top5
 ;;   screen shown in attract-mode.
 ;;
-;;   Here's a diagram showing the memory structure of the evil orc army at 9200:
+;;   memory structure of the formation in standy positions:
 ;;
 ;;                         00 04 06 02         ; captured ships (00, 02, 04 fighter icons on push-start-btn screen)
 ;;                         30 34 36 32
@@ -718,15 +719,15 @@ void f_1D76(void)
 ;;                08 10 18 20 28 2A 22 1A 12 0A
 ;;                0C 14 1C 24 2C 2E 26 1E 16 0E
 ;;
-;;
 ;; for 9200 evens, $81 is hit notification by cpu1:c_076A , and $01 is hit
 ;;  acknowledge by f_1DB3.
 ;;
 ;; at 8800, same structure, however data values are different.
-;; Evens: "activity" byte (see d_23FF_jp_tbl for codes)
-;; Odds: ? (40...45 if exploding)
+;;  Evens: state/disposition (see d_23FF_jp_tbl for codes)
+;;  Odds: index of mctl queue, also used for explosion counter
 ;;
 ;; for sprite code/color 8B00, evens are sprite code and odds are sprite color
+;;
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -736,7 +737,7 @@ void f_1DB3(void)
 {
     uint8 L = 0;
 
-    while (L < 0x60)
+    for(L = 0; L < 0x60; L += 2)
     {
         // bit  7,(hl) ... bit-7 set by cpu1:c_076A if the orc has been hit
         if (0 != (0x80 & b_9200_obj_collsn_notif[ L ]))
@@ -754,7 +755,6 @@ void f_1DB3(void)
             // update color for inactive/dead sprite
             mrw_sprite.cclr[ L ].b1 = 0x0A; // "glowing" prior to explosion
         } // jr   l_1DBD
-        L += 2;
     }
 }
 
@@ -772,10 +772,10 @@ void f_1DD2(void)
     // divides the 4 Hz timer by 2 ... why not just use frame_cts[1]?
     if (0 != (ds3_92A0_frame_cts[2] & 0x01)) return;
 
-    if (ds4_game_tmrs[0] > 0) ds4_game_tmrs[0]--;
-    if (ds4_game_tmrs[1] > 0) ds4_game_tmrs[1]--;
-    if (ds4_game_tmrs[2] > 0) ds4_game_tmrs[2]--;
-    if (ds4_game_tmrs[3] > 0) ds4_game_tmrs[3]--;
+    if (ds4_game_tmrs[0] > 0) ds4_game_tmrs[0] -= 1;
+    if (ds4_game_tmrs[1] > 0) ds4_game_tmrs[1] -= 1;
+    if (ds4_game_tmrs[2] > 0) ds4_game_tmrs[2] -= 1;
+    if (ds4_game_tmrs[3] > 0) ds4_game_tmrs[3] -= 1;
 }
 
 /*=============================================================================
@@ -831,13 +831,12 @@ void f_1DE6(void)
         uint8 B, iA;
 
         // divide by 8 to provide an index of 0:3 to the 2D table
-
         iA = (glbls9200.bug_nest_direction_lr & 0x18) / 8; // ld   a,c ...
 
         //   ldir
         for (B = 0; B < 16; B++)
         {
-            ds10_9920[B] = fmtn_expcon_cinc_bits[iA][B];
+            fmtn_expcon_cinc_curr[B] = fmtn_expcon_cinc_bits[iA][B];
         }
     }
 
@@ -883,10 +882,10 @@ void fmtn_expcon_comp(uint8 B, uint8 offs, uint8 cnt)
         uint8 Cy;
 
         // rrc  (hl)
-        Cy = ds10_9920[offs + IXL];
+        Cy = fmtn_expcon_cinc_curr[offs + IXL];
         Cy &= 0x01;
-        ds10_9920[offs + IXL] >>= 1;
-        ds10_9920[offs + IXL] |= (Cy << 7);
+        fmtn_expcon_cinc_curr[offs + IXL] >>= 1;
+        fmtn_expcon_cinc_curr[offs + IXL] |= (Cy << 7);
 
         // jr   nc,l_1E5C_update_ptrs
         if (Cy)
