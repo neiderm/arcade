@@ -66,8 +66,8 @@ static uint8 mctl_que_idx; // tracks consecutive iterations of f_08D3
 // function prototypes
 static void rckt_hitd(uint8, uint8, uint8);
 static void rckt_man(uint8);
-static void mctl_path_update(void);
-static void mctl_rotn_incr(void);
+static void mctl_path_update(uint8);
+static void mctl_rotn_incr(uint8);
 static void mctl_coord_incr(uint8, uint8, uint8, uint8);
 static void mctl_posn_set(uint8);
 static uint16 mctl_rotn_hp(uint16, uint8, uint8);
@@ -1544,7 +1544,7 @@ void f_08D3(void)
 l_0BFF:
                 ds_bug_motion_que[mctl_que_idx].p08.word = pHLdata;
             }
-            mctl_path_update();
+            mctl_path_update(mctl_que_idx);
 
         } // else ... shot a non-flying capture boss
 
@@ -1565,39 +1565,39 @@ l_0DFB_next_superloop:
 ;; PRESERVES:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void mctl_path_update(void)
+static void mctl_path_update(uint8 mpidx)
 {
     // flag is set by case_0AA0 when cylon disposition -> 9
-    if (0x40 & ds_bug_motion_que[mctl_que_idx].b13) // bit  6
+    if (0x40 & ds_bug_motion_que[mpidx].b13) // bit  6
     {
         // transitions to the next segment of the flight pattern
-        if (ds_bug_motion_que[mctl_que_idx].b01 ==
-                ds_bug_motion_que[mctl_que_idx].b06
+        if (ds_bug_motion_que[mpidx].b01 ==
+                ds_bug_motion_que[mpidx].b06
                 ||
-                (ds_bug_motion_que[mctl_que_idx].b01 -
-                 ds_bug_motion_que[mctl_que_idx].b06) == 1
+                (ds_bug_motion_que[mpidx].b01 -
+                 ds_bug_motion_que[mpidx].b06) == 1
                 ||
-                (ds_bug_motion_que[mctl_que_idx].b06 -
-                 ds_bug_motion_que[mctl_que_idx].b01) == 1)
+                (ds_bug_motion_que[mpidx].b06 -
+                 ds_bug_motion_que[mpidx].b01) == 1)
         {
-            if (ds_bug_motion_que[mctl_que_idx].b03 ==
-                    ds_bug_motion_que[mctl_que_idx].b07
+            if (ds_bug_motion_que[mpidx].b03 ==
+                    ds_bug_motion_que[mpidx].b07
                     ||
-                    (ds_bug_motion_que[mctl_que_idx].b03 -
-                     ds_bug_motion_que[mctl_que_idx].b07) == 1
+                    (ds_bug_motion_que[mpidx].b03 -
+                     ds_bug_motion_que[mpidx].b07) == 1
                     ||
-                    (ds_bug_motion_que[mctl_que_idx].b07 -
-                     ds_bug_motion_que[mctl_que_idx].b03) == 1)
+                    (ds_bug_motion_que[mpidx].b07 -
+                     ds_bug_motion_que[mpidx].b03) == 1)
             {
                 uint8 A, L;
 
                 // jp l_0E08 ... creature gets to home-spot
-                ds_bug_motion_que[mctl_que_idx].b13 &= ~0x01; // res  0,0x13(ix) ... mark the flying structure as inactive
+                ds_bug_motion_que[mpidx].b13 &= ~0x01; // res  0,0x13(ix) ... mark the flying structure as inactive
 
-                ds_bug_motion_que[mctl_que_idx].b00 = 0;
-                ds_bug_motion_que[mctl_que_idx].b02 = 0;
+                ds_bug_motion_que[mpidx].b00 = 0;
+                ds_bug_motion_que[mpidx].b02 = 0;
 
-                L = ds_bug_motion_que[mctl_que_idx].b10;
+                L = ds_bug_motion_que[mpidx].b10;
                 sprt_mctl_objs[ L ].state = 2; // disposition = 02: rotating back into position in the collective
 
                 A = mrw_sprite.cclr[L].b1; // sprite color code
@@ -1610,11 +1610,11 @@ static void mctl_path_update(void)
 
                 // l_0E3A
                 // these could be off by one if not already equal
-                ds_bug_motion_que[mctl_que_idx].b01 =
-                    ds_bug_motion_que[mctl_que_idx].b06;
+                ds_bug_motion_que[mpidx].b01 =
+                    ds_bug_motion_que[mpidx].b06;
 
-                ds_bug_motion_que[mctl_que_idx].b03 =
-                    ds_bug_motion_que[mctl_que_idx].b07;
+                ds_bug_motion_que[mpidx].b03 =
+                    ds_bug_motion_que[mpidx].b07;
 
                 //almost done ... update the sprite x/y positions
                 mctl_posn_set(L); // jp   z,l_0D03
@@ -1624,11 +1624,10 @@ static void mctl_path_update(void)
         }
     }
 
-    mctl_rotn_incr(); //jp l_0C2D
+    mctl_rotn_incr(mpidx); //jp l_0C2D
 
     //almost done ... update the sprite x/y positions
     // mctl_posn_set(L); // jp   z,l_0D03
-
 }
 
 /*=============================================================================
@@ -1636,44 +1635,44 @@ static void mctl_path_update(void)
 ;;  Description:
 ;;    Advance the rotation increment and select tile.
 ;; IN:
-;;
+;;  mpidx - mctl pool index
 ;; OUT:
 ;;
 ;; PRESERVES:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void mctl_rotn_incr(void)
+static void mctl_rotn_incr(uint8 mpidx)
 {
     reg16 temp16;
     uint8 A, B, C, L;
     uint8 E_save_b04, D_save_b05;
 
 
-    if (0x20 & ds_bug_motion_que[mctl_que_idx].b13) // bit  5
+    if (0x20 & ds_bug_motion_que[mpidx].b13) // bit  5
     {
-        if ((ds_bug_motion_que[mctl_que_idx].b01 ==
-                ds_bug_motion_que[mctl_que_idx].b06)
+        if ((ds_bug_motion_que[mpidx].b01 ==
+                ds_bug_motion_que[mpidx].b06)
                 ||
-                (ds_bug_motion_que[mctl_que_idx].b01 -
-                 ds_bug_motion_que[mctl_que_idx].b06) == 1
+                (ds_bug_motion_que[mpidx].b01 -
+                 ds_bug_motion_que[mpidx].b06) == 1
                 ||
-                (ds_bug_motion_que[mctl_que_idx].b06 -
-                 ds_bug_motion_que[mctl_que_idx].b01) == 1)
+                (ds_bug_motion_que[mpidx].b06 -
+                 ds_bug_motion_que[mpidx].b01) == 1)
         {
             // set it up to expire on next step
-            ds_bug_motion_que[mctl_que_idx].b0D = 1;
-            ds_bug_motion_que[mctl_que_idx].b13 &= ~0x20; // res  5,0x13(ix)
+            ds_bug_motion_que[mpidx].b0D = 1;
+            ds_bug_motion_que[mpidx].b13 &= ~0x20; // res  5,0x13(ix)
         }
     }
 
     // l_0C46
-    E_save_b04 = ds_bug_motion_que[mctl_que_idx].b04;
-    D_save_b05 = ds_bug_motion_que[mctl_que_idx].b05; // need this later ...
+    E_save_b04 = ds_bug_motion_que[mpidx].b04;
+    D_save_b05 = ds_bug_motion_que[mpidx].b05; // need this later ...
     temp16.word = E_save_b04;
     temp16.pair.b1 = D_save_b05;
-    temp16.word += (sint8) ds_bug_motion_que[mctl_que_idx].b0C;
-    ds_bug_motion_que[mctl_que_idx].b04 = temp16.pair.b0;
-    ds_bug_motion_que[mctl_que_idx].b05 = temp16.pair.b1;
+    temp16.word += (sint8) ds_bug_motion_que[mpidx].b0C;
+    ds_bug_motion_que[mpidx].b04 = temp16.pair.b0;
+    ds_bug_motion_que[mpidx].b05 = temp16.pair.b1;
 
     /*
      * determine_sprite_code
@@ -1705,7 +1704,7 @@ static void mctl_rotn_incr(void)
 
     // l_0C81
     // ld   h,#>_mrw_sprite_code_base
-    L = ds_bug_motion_que[mctl_que_idx].b10;
+    L = ds_bug_motion_que[mpidx].b10;
 
     A = mrw_sprite.cclr[L].b0 & 0xF8; // base sprite code (multiple of 8)
     mrw_sprite.cclr[L].b0 = A | B;
@@ -1719,17 +1718,17 @@ static void mctl_rotn_incr(void)
 
     if (0x01 & ds3_92A0_frame_cts[0])
     {
-        A = ds_bug_motion_que[mctl_que_idx].b0A;
+        A = ds_bug_motion_que[mpidx].b0A;
     }
     else
     {
-        A = ds_bug_motion_que[mctl_que_idx].b0B;
+        A = ds_bug_motion_que[mpidx].b0B;
     }
 
 
     // l_0CA7
     if (A)
-        mctl_coord_incr(A, D_save_b05, E_save_b04, mctl_que_idx);
+        mctl_coord_incr(A, D_save_b05, E_save_b04, mpidx);
 
     //almost done ... update the sprite x/y positions
     mctl_posn_set(L); // jp   z,l_0D03
@@ -1742,25 +1741,25 @@ static void mctl_rotn_incr(void)
 ;;  Description:
 ;;    Calculate next increment of X and Y coords from rotion angle.
 ;; IN:
-;;
+;;  _A_,  _D_,  _E_,
+;;  mpidx - mctl pool index
 ;; OUT:
 ;;
 ;; PRESERVES:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 _mctl_que_idx)
+static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
 {
     uint8 * pBx[4]; // only need 2, but use size 4 for indexing
     uint8 *pHL;
     reg16 pushDE, popHL, tmp16, tmpAC, tmpHL;
-    uint8 A, B, D, L, Cy;
+    uint8 A, B, D;
+    uint8 Cy;
     uint8 pBidx;
 
-    L = _mctl_que_idx; // push ix ... pop  hl
-
     // setup pointers to b0 and b2
-    pBx[0] = &ds_bug_motion_que[L].b00;
-    pBx[2] = &ds_bug_motion_que[L].b02;
+    pBx[0] = &ds_bug_motion_que[mpidx].b00;
+    pBx[2] = &ds_bug_motion_que[mpidx].b02;
     pBidx = 0;
     pHL = pBx[pBidx]; // pop hl
 
