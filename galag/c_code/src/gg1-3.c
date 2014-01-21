@@ -35,7 +35,7 @@ typedef struct
 //  10 index/offset of object .... i.e. 8800 etc.
 //  11 + offset
 //  13 + offset
-t_bug_flying_status ds_bug_motion_que[ 0x0C ];
+mctl_pool_t mctl_mpool[ 0x0C ];
 
 uint8 stg_chllg_rnd_attrib[2];
 uint8 b_92E2_stg_parm[2]; // bomb-drop control and counter ... TODO: in gg1-5.c
@@ -321,8 +321,8 @@ void objs_dispatcher(uint8 frame_ct)
                 A = ds_home_posn_loc[L].rel; // X coordinate offset
                 C = ds_home_posn_loc[C].rel; // Y coordinate offset
 
-                ds_bug_motion_que[ sprt_mctl_objs[ E ].mctl_idx ].b11 = A;
-                ds_bug_motion_que[ sprt_mctl_objs[ E ].mctl_idx ].b12 = C;
+                mctl_mpool[ sprt_mctl_objs[ E ].mctl_idx ].b11 = A;
+                mctl_mpool[ sprt_mctl_objs[ E ].mctl_idx ].b12 = C;
 
                 // jp   l_2413 ... reset index to .b0 and continue
                 objs_dspch_ccnt += 1; // 2414
@@ -470,7 +470,7 @@ void objs_dispatcher(uint8 frame_ct)
                     // l_2582_kill_bug_q_slot:
                     uint8 A;
                     A = sprt_mctl_objs[ E ].mctl_idx;
-                    ds_bug_motion_que[A].b13 = 0;
+                    mctl_mpool[A].b13 = 0;
                 }
                 // l_2578_mk_obj_inactive:
                 sprt_mctl_objs[ E ].state = 0x80;
@@ -982,7 +982,7 @@ void f_2916(void)
         IX = 0;
         while (IX < 0x0C)
         {
-            if (0 == (ds_bug_motion_que[IX].b13 & 0x01))
+            if (0 == (mctl_mpool[IX].b13 & 0x01))
                 break;
 
             IX++;
@@ -1003,7 +1003,7 @@ void f_2916(void)
             A &= ~40; // res  6,a .. what object is > $78?
 
         // l_2980
-        ds_bug_motion_que[IX].b10 = A; // ld   0x10(ix),a ... object index
+        mctl_mpool[IX].b10 = A; // ld   0x10(ix),a ... object index
 
         // advance to next token-pair e.g. HL:=8923
         plyr_state_actv.p_atkwav_tbl++; // inc  hl
@@ -1036,12 +1036,12 @@ void f_2916(void)
 
             if (0 == (D & 0x80)) // bit  7,d
             {
-                ds_bug_motion_que[IX].b0F = 0;
+                mctl_mpool[IX].b0F = 0;
             }
             else
             {
                 // l_29AE: bomb drop enable flags
-                ds_bug_motion_que[IX].b0F = b_92E2_stg_parm[1];
+                mctl_mpool[IX].b0F = b_92E2_stg_parm[1];
             }
             // jr   l_29D1_finalize_object_setup
         }
@@ -1062,10 +1062,10 @@ void f_2916(void)
         if (C & 0x02) // bit  1,c
             B = 0x44;
 
-        ds_bug_motion_que[IX].b0E = B;
+        mctl_mpool[IX].b0E = B;
 
         // have to re-adjust C since the lut is implemented as a table of structs, not bytes.
-        ds_bug_motion_que[IX].p08.word = atkw_mctl_fptn_d[ C / 2 ].p_tbl;
+        mctl_mpool[IX].p08.word = atkw_mctl_fptn_d[ C / 2 ].p_tbl;
 
         // In z80, these bits were in <7:5> of atkw_mctl_fptn_d[].b1, but here they are already shifted into <2:0>
         A = atkw_mctl_fptn_d[ C / 2 ].idx; // have to re-adjust C to use as an index into table of structs.
@@ -1082,17 +1082,17 @@ void f_2916(void)
             HL += 3;
         }
 
-        ds_bug_motion_que[IX].b01 = atkw_mctl_cinits[HL + 0];
-        ds_bug_motion_que[IX].b03 = atkw_mctl_cinits[HL + 1];
-        ds_bug_motion_que[IX].b05 = atkw_mctl_cinits[HL + 2];
+        mctl_mpool[IX].b01 = atkw_mctl_cinits[HL + 0];
+        mctl_mpool[IX].b03 = atkw_mctl_cinits[HL + 1];
+        mctl_mpool[IX].b05 = atkw_mctl_cinits[HL + 2];
 
-        ds_bug_motion_que[IX].b00 = 0;
-        ds_bug_motion_que[IX].b02 = 0;
-        ds_bug_motion_que[IX].b04 = 0;
+        mctl_mpool[IX].b00 = 0;
+        mctl_mpool[IX].b02 = 0;
+        mctl_mpool[IX].b04 = 0;
 
-        ds_bug_motion_que[IX].b0D = 1;
+        mctl_mpool[IX].b0D = 1;
         A = token_b0 | 1;
-        ds_bug_motion_que[IX].b13 = A & 0x81;
+        mctl_mpool[IX].b13 = A & 0x81;
     }
     // l_2A29_attack_waves_complete: ... (above)
 }

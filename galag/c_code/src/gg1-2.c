@@ -110,7 +110,7 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     for (B = 0; B < 0x0C; B++)
     {
         IX = B;
-        if (0 == (ds_bug_motion_que[IX].b13 & 0x01)) // check for activated state
+        if (0 == (mctl_mpool[IX].b13 & 0x01)) // check for activated state
         {
             break; // jr   z,l_10A0_got_one
         }
@@ -121,12 +121,12 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
 
     // l_10A0_got_one:
 
-    ds_bug_motion_que[IX].p08.word = p_dat;
-    ds_bug_motion_que[IX].b0D = 1;
-    ds_bug_motion_que[IX].b04 = (0x0100 & 0xFF); // 0x0100<7:0>
-    ds_bug_motion_que[IX].b05 = 0x0100 >> 8;     // 0x0100<15:8>
+    mctl_mpool[IX].p08.word = p_dat;
+    mctl_mpool[IX].b0D = 1;
+    mctl_mpool[IX].b04 = (0x0100 & 0xFF); // 0x0100<7:0>
+    mctl_mpool[IX].b05 = 0x0100 >> 8;     // 0x0100<15:8>
 
-    ds_bug_motion_que[IX].b10 = obj_idx; // index of object, sprite etc.
+    mctl_mpool[IX].b10 = obj_idx; // index of object, sprite etc.
 
     //  ex   af,af'     function parameter from A'
     //  ld   d,a        to 0x13(ix)
@@ -148,8 +148,8 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
 
     // l_10DC:
     // resacale sY<8:0> to fixed-point 9.7
-    ds_bug_motion_que[IX].b01 = tmpA.pair.b0; // B ... sY<8:1>
-    ds_bug_motion_que[IX].b00 = (Cy << 7) & 0x80 ; // sY<0> ... rra etc.
+    mctl_mpool[IX].b01 = tmpA.pair.b0; // B ... sY<8:1>
+    mctl_mpool[IX].b00 = (Cy << 7) & 0x80 ; // sY<0> ... rra etc.
 
     A = mrw_sprite.posn[obj_idx].b0; // ld   a,c ... sprite_x
 
@@ -159,18 +159,18 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     }
     tmpA.pair.b1 = A;
     tmpA.word >>= 1; // srl  a
-    ds_bug_motion_que[IX].b03 = tmpA.pair.b1; // sX<8:1>
-    ds_bug_motion_que[IX].b02 = tmpA.pair.b0 & 0x80; // sX<:0> ... now scaled fixed point 9.7
+    mctl_mpool[IX].b03 = tmpA.pair.b1; // sX<8:1>
+    mctl_mpool[IX].b02 = tmpA.pair.b0 & 0x80; // sX<:0> ... now scaled fixed point 9.7
 
-    ds_bug_motion_que[IX].b13 = rotn_flag | 0x01; // d
-    ds_bug_motion_que[IX].b0E = 0x1E; // bomb drop counter
+    mctl_mpool[IX].b13 = rotn_flag | 0x01; // d
+    mctl_mpool[IX].b0E = 0x1E; // bomb drop counter
 
     A = 0;
     if (0 != glbls9200.flying_bug_attck_condtn)
     {
         A = b_92C0_0[0x08]; // bomb_drop_enbl_flags
     }
-    ds_bug_motion_que[IX].b0F = A;
+    mctl_mpool[IX].b0F = A;
 }
 
 

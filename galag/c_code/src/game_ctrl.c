@@ -87,7 +87,7 @@ void c_sctrl_sprite_ram_clr(void)
     memset((uint8 *) mrw_sprite.posn, 0, 0x80 * sizeof (t_bpair));
     memset((uint8 *) mrw_sprite.ctrl, 0, 0x80 * sizeof (t_bpair));
 
-    memset((uint8 *) sprt_mctl_objs, 0x80, sizeof (sprt_object) * 0x80);
+    memset((uint8 *) sprt_mctl_objs, 0x80, sizeof (sprt_object_t) * 0x80);
 }
 
 /*=============================================================================
@@ -157,7 +157,7 @@ void gctl_runtime_init(void)
     c_1230_init_taskman_structs();
 
     // data structures for 12 objects
-    memset(ds_bug_motion_que, 0, sizeof (t_bug_flying_status) * 0x0C);
+    memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C);
 
     /*
     ; Not sure here...
@@ -209,7 +209,7 @@ int gctl_main(void)
     ds_99B9_star_ctrl[5] = 6; // ?
 
     // array of object movement structures, also temp variables and such.
-    memset(ds_bug_motion_que, 0, sizeof (t_bug_flying_status) * 0x0C /* 0xF0 */);
+    memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C /* 0xF0 */);
 
     c_sctrl_sprite_ram_clr();
     c_1230_init_taskman_structs();
@@ -235,7 +235,7 @@ int gctl_main(void)
         // GameState == Ready ... reinitialize everything
         c_1230_init_taskman_structs();
         c_sctrl_playfld_clr();
-        memset(ds_bug_motion_que, 0, sizeof (t_bug_flying_status) * 0x0C /* 0xF0 */);
+        memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C /* 0xF0 */);
         c_sctrl_sprite_ram_clr();
 
         // game_state == READY

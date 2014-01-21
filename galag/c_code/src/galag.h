@@ -162,7 +162,7 @@ typedef struct
     uint8 state;     // [ 0 + n ] : object state/disposition
     uint8 mctl_idx;  // [ 1 + n ] : index of slot in motion control (see f_2916)
                      //              ... object index copied to mctrl_que.b10
-} sprt_object;
+} sprt_object_t;
 
 
 // struct type for motion control queue
@@ -173,7 +173,7 @@ typedef struct
 //  11 + offset
 //  13 + offset
 //
-typedef struct struct_bug_flying_status
+typedef struct
 {
     uint8 b00;
     uint8 b01;
@@ -195,7 +195,7 @@ typedef struct struct_bug_flying_status
     uint8 b11;
     uint8 b12;
     uint8 b13;
-} t_bug_flying_status;
+} mctl_pool_t;
 
 /*
  * 16-bit offsets for flite vector data, used for _flite_ptn_cfg:p_tble
@@ -338,7 +338,7 @@ extern reg16 ds_home_posn_org[];
 
 
 // object status structure... 2 bytes per element.
-extern sprt_object sprt_mctl_objs[];
+extern sprt_object_t sprt_mctl_objs[];
 
 
 /* gg1-2_1700.c */
@@ -347,7 +347,7 @@ extern uint8 b_92C0_0[]; // idfk ...  (size <= 10)
 extern uint8 b_92C0_A[]; // machine cfg params?
 
 /* gg1-3.c */
-extern t_bug_flying_status ds_bug_motion_que[];
+extern mctl_pool_t mctl_mpool[];
 extern uint8 b_92E2_stg_parm[];
 extern uint8 b_bugs_actv_nbr;
 extern uint8 stg_chllg_rnd_attrib[];

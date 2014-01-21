@@ -40,7 +40,7 @@ uint16 dbg_step_cnt;
                 0C 14 1C 24 2C 2E 26 1E 16 0E
 */
 // uses only even-indexed elements to keep indexing consistent with z80 code
-sprt_object sprt_mctl_objs[0x40 * 2]; // array of byte-pairs
+sprt_object_t sprt_mctl_objs[0x40 * 2]; // array of byte-pairs
 
 // rocket-hit notification to f_1DB3 from c_076A, requires 1-byte per object,
 // so only even-bytes are used to keep indexing consistent with z80
@@ -1024,7 +1024,7 @@ static uint8 hit_detect(uint8 AF, uint8 E, uint8 HL)
     {
         // l_081E:
         A = sprt_mctl_objs[ HL ].mctl_idx;
-        ds_bug_motion_que[A].b13 = 0;
+        mctl_mpool[A].b13 = 0;
 
         b_bug_flyng_hits_p_round += 1;
 
@@ -1163,14 +1163,14 @@ void f_08D3(void)
     {
         uint8 L;
 
-        if (0 == (ds_bug_motion_que[mctl_que_idx].b13 & 0x01)) // check for activated state
+        if (0 == (mctl_mpool[mctl_que_idx].b13 & 0x01)) // check for activated state
         {
             goto l_0DFB_next_superloop;
         }
 
         mctl_actv_cnt++;
 
-        L = ds_bug_motion_que[mctl_que_idx].b10; // object identifier (index)...8800[L]
+        L = mctl_mpool[mctl_que_idx].b10; // object identifier (index)...8800[L]
 
 
         // 9 is diving, 7 is spawning, 3 (and 6) idfk
@@ -1179,11 +1179,11 @@ void f_08D3(void)
                 sprt_mctl_objs[ L ].state == 9))
         {
             // l_0902_9_or_3_or_7:
-            ds_bug_motion_que[mctl_que_idx].b0D--;
+            mctl_mpool[mctl_que_idx].b0D--;
 
             // check for expiration of this token
             // if token not expired, go directly to flite path handler
-            if (0 == ds_bug_motion_que[mctl_que_idx].b0D)
+            if (0 == mctl_mpool[mctl_que_idx].b0D)
             {
                 uint16 pHLdata;
                 uint8 get_token, A_token;
@@ -1191,7 +1191,7 @@ void f_08D3(void)
                 // flight-path vector has expired... setup HL as pointer to next data token
                 // ld   l,0x08(ix)
                 // ld   h,0x09(ix)
-                pHLdata = ds_bug_motion_que[mctl_que_idx].p08.word;
+                pHLdata = mctl_mpool[mctl_que_idx].p08.word;
 
                 // j_090E_flite_path_init ...
                 // this do-block allows reading the next token after doing state-selection
@@ -1234,17 +1234,17 @@ void f_08D3(void)
 
                         case 0x03: // _0B4E: bee dive and starting loopback, or boss left position and starting dive down
                             pHLdata += 1; // inc  hl
-                            ds_bug_motion_que[mctl_que_idx].b06 = flv_get_data(pHLdata);
+                            mctl_mpool[mctl_que_idx].b06 = flv_get_data(pHLdata);
                             pHLdata += 1; // inc  hl
-                            ds_bug_motion_que[mctl_que_idx].b07 = 0;
-                            ds_bug_motion_que[mctl_que_idx].b13 |= 0x20; // set  5,0x13(ix)
+                            mctl_mpool[mctl_que_idx].b07 = 0;
+                            mctl_mpool[mctl_que_idx].b13 |= 0x20; // set  5,0x13(ix)
                             //jp   l_0BFF
                             goto l_0BFF; // gotta get out somehow
                             break;
 
                         case 0x04: // _0AA0: attack wave element hits turning point and heads to home
 
-                            L = ds_bug_motion_que[mctl_que_idx].b10;
+                            L = mctl_mpool[mctl_que_idx].b10;
 
                             // use byte-pointer as index of pairs:
 
@@ -1265,8 +1265,8 @@ void f_08D3(void)
                             pushDE.pair.b0 = E >> 1; // srl ... x coordinate (bits 1:7)
                             pushDE.pair.b1 = D; // y coordinate (already bits 1:7)
 
-                            ds_bug_motion_que[mctl_que_idx].b11 = B; // step x coord, x offset
-                            ds_bug_motion_que[mctl_que_idx].b12 = C; // step y coord, y offset
+                            mctl_mpool[mctl_que_idx].b11 = B; // step x coord, x offset
+                            mctl_mpool[mctl_que_idx].b12 = C; // step y coord, y offset
 
                             if (glbls9200.flip_screen)
                             {
@@ -1278,27 +1278,27 @@ void f_08D3(void)
                             // l_0ACD:
 
                             // add y-offset to .b00/.b01 (sra/rr -> 9.7 fixed-point scaling)
-                            rHL.pair.b0 = ds_bug_motion_que[mctl_que_idx].b00; // ld   l
-                            rHL.pair.b1 = ds_bug_motion_que[mctl_que_idx].b01; // ld   h
+                            rHL.pair.b0 = mctl_mpool[mctl_que_idx].b00; // ld   l
+                            rHL.pair.b1 = mctl_mpool[mctl_que_idx].b01; // ld   h
                             rDE.pair.b1 = C; // ld   d,c
                             rDE.pair.b0 = 0; // ld   e,#0
                             rDE.word >>= 1; // sra  d ... rr  e
                             rHL.word += rDE.word;
-                            ds_bug_motion_que[mctl_que_idx].b00 = rHL.pair.b0; // ld   0x00(ix),l
-                            ds_bug_motion_que[mctl_que_idx].b01 = rHL.pair.b1; // ld   0x01(ix),h
+                            mctl_mpool[mctl_que_idx].b00 = rHL.pair.b0; // ld   0x00(ix),l
+                            mctl_mpool[mctl_que_idx].b01 = rHL.pair.b1; // ld   0x01(ix),h
 
                             E = rHL.pair.b1; // ld   e,h ... y, .b01 (bits<1:8> of integer portion)
 
                             // add x-offset to .b02/.b03 (sra/rr -> 9.7 fixed-point scaling
-                            rHL.pair.b0 = ds_bug_motion_que[mctl_que_idx].b02; // ld   l
-                            rHL.pair.b1 = ds_bug_motion_que[mctl_que_idx].b03; // ld   h
+                            rHL.pair.b0 = mctl_mpool[mctl_que_idx].b02; // ld   l
+                            rHL.pair.b1 = mctl_mpool[mctl_que_idx].b03; // ld   h
                             rBC.pair.b0 = 0; // ld   c,#0
                             rBC.pair.b1 = B;
                             rBC.word >>= 1; // sra  b ... rr  c
                             rBC.pair.b1 |= (B & 0x80); // gets the sign extension of sra b
                             rHL.word -= rBC.word; // sbc  hl,bc
-                            ds_bug_motion_que[mctl_que_idx].b02 = rHL.pair.b0; // l
-                            ds_bug_motion_que[mctl_que_idx].b03 = rHL.pair.b1; // h
+                            mctl_mpool[mctl_que_idx].b02 = rHL.pair.b0; // l
+                            mctl_mpool[mctl_que_idx].b03 = rHL.pair.b1; // h
 
                             // grab integer portion (bits<1:8>)
                             L = rHL.pair.b1; // ld   l,h ... x, .b01
@@ -1308,14 +1308,14 @@ void f_08D3(void)
                             rHL.word = mctl_rotn_hp(pushDE.word, H, L); // preserves DE & BC
                             rHL.word >>= 1; // srl  h ... rr   l
 
-                            ds_bug_motion_que[mctl_que_idx].b04 = rHL.pair.b0;
-                            ds_bug_motion_que[mctl_que_idx].b05 = rHL.pair.b1;
+                            mctl_mpool[mctl_que_idx].b04 = rHL.pair.b0;
+                            mctl_mpool[mctl_que_idx].b05 = rHL.pair.b1;
 
-                            ds_bug_motion_que[mctl_que_idx].b06 = pushDE.pair.b1;
-                            ds_bug_motion_que[mctl_que_idx].b07 = pushDE.pair.b0;
+                            mctl_mpool[mctl_que_idx].b06 = pushDE.pair.b1;
+                            mctl_mpool[mctl_que_idx].b07 = pushDE.pair.b0;
 
                             // if set, flite path handler checks for home
-                            ds_bug_motion_que[mctl_que_idx].b13 |= 0x40; // set  6,0x13(ix)
+                            mctl_mpool[mctl_que_idx].b13 |= 0x40; // set  6,0x13(ix)
 
                             pHLdata += 1; // inc  hl
 
@@ -1347,7 +1347,7 @@ void f_08D3(void)
                             // red alien flew through bottom of screen to top, heading for home
                             // yellow alien flew under bottom of screen and now turns for home
                         case 0x06: // _0B5F:
-                            E = ds_bug_motion_que[mctl_que_idx].b10;
+                            E = mctl_mpool[mctl_que_idx].b10;
                             E = db_obj_home_posn_RC[ E + 1 ]; // column index
                             A = ds_home_posn_org[ E ].pair.b0; // even-bytes: relative offset from absolute coordinate
 
@@ -1358,7 +1358,7 @@ void f_08D3(void)
                             }
 
                             //l_0B76
-                            ds_bug_motion_que[mctl_que_idx].b03 =  A >> 1; // srl  a
+                            mctl_mpool[mctl_que_idx].b03 =  A >> 1; // srl  a
                             if (0 /* 0 != b_92A0_0A[0]*/) // jp   z,l_0B8B
                             {
                                 b_9AA0[0x13] = 1; // non-zero value
@@ -1368,8 +1368,8 @@ void f_08D3(void)
                             pHLdata += 1; // inc  hl
 
                             // l_0B8C:
-                            ds_bug_motion_que[mctl_que_idx].p08.word = pHLdata;
-                            ds_bug_motion_que[mctl_que_idx].b0D++; // inc  0x0D(ix)
+                            mctl_mpool[mctl_que_idx].p08.word = pHLdata;
+                            mctl_mpool[mctl_que_idx].b0D++; // inc  0x0D(ix)
 
                             // jp   l_0DFB_next_superloop
                             goto l_0DFB_next_superloop;
@@ -1378,14 +1378,14 @@ void f_08D3(void)
                             // red alien flew through bottom of screen to top, heading for home
                             // yellow alien flew under bottom of screen and now turns for home
                         case 0x07: // _0B87:
-                            ds_bug_motion_que[mctl_que_idx].b01 = 0x9C; // ld   0x01(ix),#$9C
+                            mctl_mpool[mctl_que_idx].b01 = 0x9C; // ld   0x01(ix),#$9C
 
                             //l_0B8B
                             pHLdata += 1; // inc  hl
 
                             // l_0B8C:
-                            ds_bug_motion_que[mctl_que_idx].p08.word = pHLdata;
-                            ds_bug_motion_que[mctl_que_idx].b0D++; // inc  0x0D(ix)
+                            mctl_mpool[mctl_que_idx].p08.word = pHLdata;
+                            mctl_mpool[mctl_que_idx].b0D++; // inc  0x0D(ix)
 
                             // jp   l_0DFB_next_superloop
                             goto l_0DFB_next_superloop;
@@ -1393,7 +1393,7 @@ void f_08D3(void)
 
                         case 0x08: // _0B98: attack wave
                             // "transient"? ($38, $3A, $3C, $3E)
-                            if (0x38 != (0x38 & ds_bug_motion_que[mctl_que_idx].b10))
+                            if (0x38 != (0x38 & mctl_mpool[mctl_que_idx].b10))
                             {
                                 pHLdata += 3; // 2 incs to skip address in table
                                 // jp   j_090E_flite_path_init
@@ -1446,13 +1446,13 @@ void f_08D3(void)
                             // l_0A1E:  9.7 fixed-point math
                             tmpA.word >>= 1; // srl  a ... sX<8:1> in tmpA
 
-                            A = ds_bug_motion_que[mctl_que_idx].b03;
+                            A = mctl_mpool[mctl_que_idx].b03;
                             tmpA.word -= A;
                             tmpA.word >>= 1; // rra  a ... Cy into <7>
                             tmpA.pair.b1 = 0; // clear it so the overflow condition can be tested
 
                             // typically .b13 if set then negate data to (ix)0x0C
-                            if ( 0 != (ds_bug_motion_que[mctl_que_idx].b13 & 0x80)) // bit  7,0x13(ix)
+                            if ( 0 != (mctl_mpool[mctl_que_idx].b13 & 0x80)) // bit  7,0x13(ix)
                             {
                                 tmpA.pair.b0 = -tmpA.pair.b0; // neg
                             }
@@ -1474,7 +1474,7 @@ void f_08D3(void)
                             A = mctl_div_16_8(6, A); // HL = HL / A
                             A += 1;
                             A = flv_get_data(pHLdata + A);
-                            ds_bug_motion_que[mctl_que_idx].b0D = A; // expiration of this data-set
+                            mctl_mpool[mctl_que_idx].b0D = A; // expiration of this data-set
                             pHLdata += 9;
                             // jp   l_0BFF
                             goto l_0BFF; // gotta get out somehow
@@ -1505,8 +1505,8 @@ void f_08D3(void)
                                 pHLdata += 1; // inc  hl
                             }
                             // l_0B8C:
-                            ds_bug_motion_que[mctl_que_idx].p08.word = pHLdata;
-                            ds_bug_motion_que[mctl_que_idx].b0D++; // inc  0x0D(ix)
+                            mctl_mpool[mctl_que_idx].p08.word = pHLdata;
+                            mctl_mpool[mctl_que_idx].b0D++; // inc  0x0D(ix)
 
                             // jp   l_0DFB_next_superloop
                             goto l_0DFB_next_superloop;
@@ -1523,26 +1523,26 @@ void f_08D3(void)
                 while (0 != get_token);
 
                 // l_0BDC_flite_pth_load
-                ds_bug_motion_que[mctl_que_idx].b0A = A_token & 0x0F;
-                ds_bug_motion_que[mctl_que_idx].b0B = (A_token >> 4) & 0x0F; // rlca * 4
+                mctl_mpool[mctl_que_idx].b0A = A_token & 0x0F;
+                mctl_mpool[mctl_que_idx].b0B = (A_token >> 4) & 0x0F; // rlca * 4
 
                 pHLdata += 1;
 
-                if (0x80 & ds_bug_motion_que[mctl_que_idx].b13) // bit  7,0x13(ix)
+                if (0x80 & mctl_mpool[mctl_que_idx].b13) // bit  7,0x13(ix)
                 {
                     uint8 A = flv_get_data(pHLdata);
-                    ds_bug_motion_que[mctl_que_idx].b0C = -A; // -(*pHLdata); // neg
+                    mctl_mpool[mctl_que_idx].b0C = -A; // -(*pHLdata); // neg
                 }
                 else
                 {
                     //l_0BF7
-                    ds_bug_motion_que[mctl_que_idx].b0C = flv_get_data(pHLdata);
+                    mctl_mpool[mctl_que_idx].b0C = flv_get_data(pHLdata);
                 }
                 pHLdata += 1;
-                ds_bug_motion_que[mctl_que_idx].b0D = flv_get_data(pHLdata);
+                mctl_mpool[mctl_que_idx].b0D = flv_get_data(pHLdata);
                 pHLdata += 1;
 l_0BFF:
-                ds_bug_motion_que[mctl_que_idx].p08.word = pHLdata;
+                mctl_mpool[mctl_que_idx].p08.word = pHLdata;
             }
             mctl_path_update(mctl_que_idx);
 
@@ -1568,36 +1568,36 @@ l_0DFB_next_superloop:
 static void mctl_path_update(uint8 mpidx)
 {
     // flag is set by case_0AA0 when cylon disposition -> 9
-    if (0x40 & ds_bug_motion_que[mpidx].b13) // bit  6
+    if (0x40 & mctl_mpool[mpidx].b13) // bit  6
     {
         // transitions to the next segment of the flight pattern
-        if (ds_bug_motion_que[mpidx].b01 ==
-                ds_bug_motion_que[mpidx].b06
+        if (mctl_mpool[mpidx].b01 ==
+                mctl_mpool[mpidx].b06
                 ||
-                (ds_bug_motion_que[mpidx].b01 -
-                 ds_bug_motion_que[mpidx].b06) == 1
+                (mctl_mpool[mpidx].b01 -
+                 mctl_mpool[mpidx].b06) == 1
                 ||
-                (ds_bug_motion_que[mpidx].b06 -
-                 ds_bug_motion_que[mpidx].b01) == 1)
+                (mctl_mpool[mpidx].b06 -
+                 mctl_mpool[mpidx].b01) == 1)
         {
-            if (ds_bug_motion_que[mpidx].b03 ==
-                    ds_bug_motion_que[mpidx].b07
+            if (mctl_mpool[mpidx].b03 ==
+                    mctl_mpool[mpidx].b07
                     ||
-                    (ds_bug_motion_que[mpidx].b03 -
-                     ds_bug_motion_que[mpidx].b07) == 1
+                    (mctl_mpool[mpidx].b03 -
+                     mctl_mpool[mpidx].b07) == 1
                     ||
-                    (ds_bug_motion_que[mpidx].b07 -
-                     ds_bug_motion_que[mpidx].b03) == 1)
+                    (mctl_mpool[mpidx].b07 -
+                     mctl_mpool[mpidx].b03) == 1)
             {
                 uint8 A, L;
 
                 // jp l_0E08 ... creature gets to home-spot
-                ds_bug_motion_que[mpidx].b13 &= ~0x01; // res  0,0x13(ix) ... mark the flying structure as inactive
+                mctl_mpool[mpidx].b13 &= ~0x01; // res  0,0x13(ix) ... mark the flying structure as inactive
 
-                ds_bug_motion_que[mpidx].b00 = 0;
-                ds_bug_motion_que[mpidx].b02 = 0;
+                mctl_mpool[mpidx].b00 = 0;
+                mctl_mpool[mpidx].b02 = 0;
 
-                L = ds_bug_motion_que[mpidx].b10;
+                L = mctl_mpool[mpidx].b10;
                 sprt_mctl_objs[ L ].state = 2; // disposition = 02: rotating back into position in the collective
 
                 A = mrw_sprite.cclr[L].b1; // sprite color code
@@ -1610,11 +1610,11 @@ static void mctl_path_update(uint8 mpidx)
 
                 // l_0E3A
                 // these could be off by one if not already equal
-                ds_bug_motion_que[mpidx].b01 =
-                    ds_bug_motion_que[mpidx].b06;
+                mctl_mpool[mpidx].b01 =
+                    mctl_mpool[mpidx].b06;
 
-                ds_bug_motion_que[mpidx].b03 =
-                    ds_bug_motion_que[mpidx].b07;
+                mctl_mpool[mpidx].b03 =
+                    mctl_mpool[mpidx].b07;
 
                 //almost done ... update the sprite x/y positions
                 mctl_posn_set(L); // jp   z,l_0D03
@@ -1648,31 +1648,31 @@ static void mctl_rotn_incr(uint8 mpidx)
     uint8 E_save_b04, D_save_b05;
 
 
-    if (0x20 & ds_bug_motion_que[mpidx].b13) // bit  5
+    if (0x20 & mctl_mpool[mpidx].b13) // bit  5
     {
-        if ((ds_bug_motion_que[mpidx].b01 ==
-                ds_bug_motion_que[mpidx].b06)
+        if ((mctl_mpool[mpidx].b01 ==
+                mctl_mpool[mpidx].b06)
                 ||
-                (ds_bug_motion_que[mpidx].b01 -
-                 ds_bug_motion_que[mpidx].b06) == 1
+                (mctl_mpool[mpidx].b01 -
+                 mctl_mpool[mpidx].b06) == 1
                 ||
-                (ds_bug_motion_que[mpidx].b06 -
-                 ds_bug_motion_que[mpidx].b01) == 1)
+                (mctl_mpool[mpidx].b06 -
+                 mctl_mpool[mpidx].b01) == 1)
         {
             // set it up to expire on next step
-            ds_bug_motion_que[mpidx].b0D = 1;
-            ds_bug_motion_que[mpidx].b13 &= ~0x20; // res  5,0x13(ix)
+            mctl_mpool[mpidx].b0D = 1;
+            mctl_mpool[mpidx].b13 &= ~0x20; // res  5,0x13(ix)
         }
     }
 
     // l_0C46
-    E_save_b04 = ds_bug_motion_que[mpidx].b04;
-    D_save_b05 = ds_bug_motion_que[mpidx].b05; // need this later ...
+    E_save_b04 = mctl_mpool[mpidx].b04;
+    D_save_b05 = mctl_mpool[mpidx].b05; // need this later ...
     temp16.word = E_save_b04;
     temp16.pair.b1 = D_save_b05;
-    temp16.word += (sint8) ds_bug_motion_que[mpidx].b0C;
-    ds_bug_motion_que[mpidx].b04 = temp16.pair.b0;
-    ds_bug_motion_que[mpidx].b05 = temp16.pair.b1;
+    temp16.word += (sint8) mctl_mpool[mpidx].b0C;
+    mctl_mpool[mpidx].b04 = temp16.pair.b0;
+    mctl_mpool[mpidx].b05 = temp16.pair.b1;
 
     /*
      * determine_sprite_code
@@ -1704,7 +1704,7 @@ static void mctl_rotn_incr(uint8 mpidx)
 
     // l_0C81
     // ld   h,#>_mrw_sprite_code_base
-    L = ds_bug_motion_que[mpidx].b10;
+    L = mctl_mpool[mpidx].b10;
 
     A = mrw_sprite.cclr[L].b0 & 0xF8; // base sprite code (multiple of 8)
     mrw_sprite.cclr[L].b0 = A | B;
@@ -1718,11 +1718,11 @@ static void mctl_rotn_incr(uint8 mpidx)
 
     if (0x01 & ds3_92A0_frame_cts[0])
     {
-        A = ds_bug_motion_que[mpidx].b0A;
+        A = mctl_mpool[mpidx].b0A;
     }
     else
     {
-        A = ds_bug_motion_que[mpidx].b0B;
+        A = mctl_mpool[mpidx].b0B;
     }
 
 
@@ -1758,8 +1758,8 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
     uint8 pBidx;
 
     // setup pointers to b0 and b2
-    pBx[0] = &ds_bug_motion_que[mpidx].b00;
-    pBx[2] = &ds_bug_motion_que[mpidx].b02;
+    pBx[0] = &mctl_mpool[mpidx].b00;
+    pBx[2] = &mctl_mpool[mpidx].b02;
     pBidx = 0;
     pHL = pBx[pBidx]; // pop hl
 
@@ -1865,8 +1865,8 @@ static void mctl_posn_set(uint8 _L_)
 
     // fixed point 9.7 in .b02.b03 - left shift integer portion into A ... carry
     // in to <0> from .b02<7>
-    A = ds_bug_motion_que[mctl_que_idx].b03 << 1; // rla
-    A |= (0 != (0x80 & ds_bug_motion_que[mctl_que_idx].b02)); // shift in .b02<7>
+    A = mctl_mpool[mctl_que_idx].b03 << 1; // rla
+    A |= (0 != (0x80 & mctl_mpool[mctl_que_idx].b02)); // shift in .b02<7>
 
     if (0 != glbls9200.flip_screen) // bit  0,c
     {
@@ -1874,9 +1874,9 @@ static void mctl_posn_set(uint8 _L_)
     }
 
     // l_0D1A
-    if (0 != (0x40 & ds_bug_motion_que[mctl_que_idx].b13)) // bit  6,0x13(ix)
+    if (0 != (0x40 & mctl_mpool[mctl_que_idx].b13)) // bit  6,0x13(ix)
     {
-        A += ds_bug_motion_que[mctl_que_idx].b11; // heading home (step x coord)
+        A += mctl_mpool[mctl_que_idx].b11; // heading home (step x coord)
     }
 
     // l_0D23
@@ -1885,9 +1885,9 @@ static void mctl_posn_set(uint8 _L_)
     // inc l
 
     // set carry-in from .b00<7>
-    E = (0 != (0x80 & ds_bug_motion_que[mctl_que_idx].b00)); // rl   e
+    E = (0 != (0x80 & mctl_mpool[mctl_que_idx].b00)); // rl   e
 
-    A = ds_bug_motion_que[mctl_que_idx].b01; // ld   a,b
+    A = mctl_mpool[mctl_que_idx].b01; // ld   a,b
 
     if (0 == glbls9200.flip_screen) // bit  0,c
     {
@@ -1905,15 +1905,15 @@ static void mctl_posn_set(uint8 _L_)
 
     E = r16.pair.b1 & 0x01; // rl   e ... carry-in from rla, bit-8 of sprite_y into e<0>
 
-    if (0 != (0x40 & ds_bug_motion_que[mctl_que_idx].b13)) // bit  6,0x13(ix)
+    if (0 != (0x40 & mctl_mpool[mctl_que_idx].b13)) // bit  6,0x13(ix)
     {
         // heading home (step y coord)
-        r16.word = A + ds_bug_motion_que[mctl_que_idx].b12; // add  a,0x12(ix)
+        r16.word = A + mctl_mpool[mctl_que_idx].b12; // add  a,0x12(ix)
 
         A = r16.pair.b0 >> 1;
         A |= (r16.pair.b1 & 0x01) << 7; // rra ... rotate in the Cy from add
 
-        A ^= ds_bug_motion_que[mctl_que_idx].b12;
+        A ^= mctl_mpool[mctl_que_idx].b12;
 
         if (0 != (A & 0x80)) // rlca (only need the Cy bit)
             E++;
@@ -1927,21 +1927,21 @@ static void mctl_posn_set(uint8 _L_)
 
     // Once the timer in $0E is reached, then check conditions to enable bomb drop.
     // If bomb is disabled for any reason, the timer is restarted.
-    ds_bug_motion_que[mctl_que_idx].b0E--;
+    mctl_mpool[mctl_que_idx].b0E--;
 
 
     // jp   nz,l_0DFB_next_superloop
-    if (0 != ds_bug_motion_que[mctl_que_idx].b0E)
+    if (0 != mctl_mpool[mctl_que_idx].b0E)
     {
         return; // jp   nz,l_0DFB_next_superloop
     }
 
-    Cy = ds_bug_motion_que[mctl_que_idx].b0F & 0x01;
-    ds_bug_motion_que[mctl_que_idx].b0F >>= 1; // srl  0x0F(ix)
+    Cy = mctl_mpool[mctl_que_idx].b0F & 0x01;
+    mctl_mpool[mctl_que_idx].b0F >>= 1; // srl  0x0F(ix)
 
     if (Cy
             &&
-            ds_bug_motion_que[mctl_que_idx].b01 >= 0x4C // cp   #0x4C
+            mctl_mpool[mctl_que_idx].b01 >= 0x4C // cp   #0x4C
             &&
             0 != task_actv_tbl_0[0x15]
             &&
@@ -1952,7 +1952,7 @@ static void mctl_posn_set(uint8 _L_)
     }
 
     // l_0DF5_next_superloop_and_reload_0E
-    ds_bug_motion_que[mctl_que_idx].b0E = b_92E2_stg_parm[0]; // bomb drop counter
+    mctl_mpool[mctl_que_idx].b0E = b_92E2_stg_parm[0]; // bomb drop counter
 
 
     // jp   l_08E4_superloop
