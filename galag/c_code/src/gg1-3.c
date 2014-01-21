@@ -147,12 +147,12 @@ static void objs_dispatcher_rckt_hit(uint8 E)
     // inc  e  (.b1)
 
     // explosion count, see f_1DB3
-    A = b8800_obj_status[ E ].obj_idx;
+    A = b8800_obj_status[ E ].mctl_idx;
 
     if (0x45 != A) // jr   z,l_24E6_i_am_at_45
     {
         A++; // inc  a
-        b8800_obj_status[ E ].obj_idx = A; // ld   (de),a
+        b8800_obj_status[ E ].mctl_idx = A; // ld   (de),a
 
         // dec  e
 
@@ -254,7 +254,7 @@ static void objs_dispatcher_rckt_hit(uint8 E)
     // l_2529:
     mrw_sprite.ctrl[ L ].b0 = C;
     b8800_obj_status[ L ].state = 5; // disposition ... showing score bitmap
-    b8800_obj_status[ L ].obj_idx = 0x13; // counter for score bitmap
+    b8800_obj_status[ L ].mctl_idx = 0x13; // counter for score bitmap
 
     //jp   case_2416
     return; // break
@@ -321,8 +321,8 @@ void objs_dispatcher(uint8 frame_ct)
                 A = ds_home_posn_loc[L].rel; // X coordinate offset
                 C = ds_home_posn_loc[C].rel; // Y coordinate offset
 
-                ds_bug_motion_que[ b8800_obj_status[ E ].obj_idx ].b11 = A;
-                ds_bug_motion_que[ b8800_obj_status[ E ].obj_idx ].b12 = C;
+                ds_bug_motion_que[ b8800_obj_status[ E ].mctl_idx ].b11 = A;
+                ds_bug_motion_que[ b8800_obj_status[ E ].mctl_idx ].b12 = C;
 
                 // jp   l_2413 ... reset index to .b0 and continue
                 objs_dspch_ccnt += 1; // 2414
@@ -427,9 +427,9 @@ void objs_dispatcher(uint8 frame_ct)
 
                 // _2535: showing a score bitmap for a bonus hit
             case 0x05:
-                b8800_obj_status[ E ].obj_idx -= 1;
+                b8800_obj_status[ E ].mctl_idx -= 1;
                 // nz,case_2416
-                if (0 == b8800_obj_status[ E ].obj_idx)
+                if (0 == b8800_obj_status[ E ].mctl_idx)
                 {
                     b8800_obj_status[ E ].state = 0x80;
                     mrw_sprite.posn[ E ].b0 = 0;
@@ -469,7 +469,7 @@ void objs_dispatcher(uint8 frame_ct)
                 {
                     // l_2582_kill_bug_q_slot:
                     uint8 A;
-                    A = b8800_obj_status[ E ].obj_idx;
+                    A = b8800_obj_status[ E ].mctl_idx;
                     ds_bug_motion_que[A].b13 = 0;
                 }
                 // l_2578_mk_obj_inactive:
@@ -1017,7 +1017,7 @@ void f_2916(void)
         //       inc  l
         //       ld   e,ixl
         //       ld   (hl),e            ; 8800[L].h ... offset of slot (n*$14)
-        b8800_obj_status[ L ].obj_idx = IX;
+        b8800_obj_status[ L ].mctl_idx = IX;
 
 
         if (0x38 != (A & 0x38)) //  if ( object >= $38 && object < $40 ) then goto _setup_transients

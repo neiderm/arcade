@@ -160,8 +160,8 @@ extern unsigned char *galaga_starcontrol;
 typedef struct object_status
 {
     uint8 state;     // [ 0 + n ] : object state/disposition
-    uint8 obj_idx;   // [ 1 + n ] : index of slot in mctrl_que (see f_2916)
-                     //              ... obj_idx copied to mctrl_que.b10
+    uint8 mctl_idx;  // [ 1 + n ] : index of slot in motion control (see f_2916)
+                     //              ... object index copied to mctrl_que.b10
 } struct_obj_status;
 
 

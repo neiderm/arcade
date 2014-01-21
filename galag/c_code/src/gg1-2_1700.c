@@ -731,7 +731,7 @@ void f_1DB3(void)
             b8800_obj_status[ L ].state = 4; // disposition = dying
 
             // explosion count
-            b8800_obj_status[ L ].obj_idx = 0x40; // ld   (hl),#0x40
+            b8800_obj_status[ L ].mctl_idx = 0x40; // ld   (hl),#0x40
 
             // update color for inactive/dead sprite
             mrw_sprite.cclr[ L ].b1 = 0x0A; // "glowing" prior to explosion

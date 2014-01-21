@@ -132,7 +132,7 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     //  ld   d,a        to 0x13(ix)
 
     b8800_obj_status[obj_idx].state = 9; // disposition diving attack
-    b8800_obj_status[obj_idx].obj_idx = IX;
+    b8800_obj_status[obj_idx].mctl_idx = IX;
 
     tmpA.word = mrw_sprite.posn[obj_idx].b1; // sprite_y<7:0>
     tmpA.pair.b1 = mrw_sprite.ctrl[obj_idx].b1; // sprite_y<8>

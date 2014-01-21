@@ -1023,7 +1023,7 @@ static uint8 hit_detect(uint8 AF, uint8 E, uint8 HL)
     else
     {
         // l_081E:
-        A = b8800_obj_status[ HL ].obj_idx;
+        A = b8800_obj_status[ HL ].mctl_idx;
         ds_bug_motion_que[A].b13 = 0;
 
         b_bug_flyng_hits_p_round += 1;
