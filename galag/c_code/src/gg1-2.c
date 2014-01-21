@@ -31,9 +31,6 @@ reg16 ds_home_posn_org[0x20];
 // combined structure for home position locations
 struct_home_posn ds_home_posn_loc[0x20];
 
-// uses only even-indexed elements to keep indexing consistent with z80 code
-struct_obj_status b8800_obj_status[0x80]; // array of byte-pairs
-
 
 /*
  ** static external definitions in this file

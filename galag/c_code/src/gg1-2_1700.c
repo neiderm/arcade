@@ -358,7 +358,7 @@ void f_17B2()
             }
             else // jr   z,l_18BB
             {
-                b_9200_obj_collsn_notif[0x34] = 0x34;
+                sprt_hit_notif[0x34] = 0x34;
                 ds4_game_tmrs[2] = 9;
                 return;
             }
@@ -704,31 +704,12 @@ void f_1D76(void)
 /*=============================================================================
 ;; f_1DB3() ... 0x0B
 ;;  Description:
-;;   Update enemy status.
-;;   When orcs are destroyed, their flag at 9200[i] is set by cpu1:c_076A to
-;;   $81. Here we detect and reset bit-7.
+;;   monitor sprite object hit-notification registers
+;;   collision detection is flagged in c_076A by setting the value to $81
 ;;
 ;;   this task is disabled only when the default task config is
 ;;   re-loaded from ROM (c_1230_init_taskman_structs) just prior to the Top5
 ;;   screen shown in attract-mode.
-;;
-;;   memory structure of the formation in standy positions:
-;;
-;;                         00 04 06 02         ; captured ships (00, 02, 04 fighter icons on push-start-btn screen)
-;;                         30 34 36 32
-;;                   40 48 50 58 5A 52 4A 42
-;;                   44 4C 54 5C 5E 56 4E 46
-;;                08 10 18 20 28 2A 22 1A 12 0A
-;;                0C 14 1C 24 2C 2E 26 1E 16 0E
-;;
-;; for 9200 evens, $81 is hit notification by cpu1:c_076A , and $01 is hit
-;;  acknowledge by f_1DB3.
-;;
-;; at 8800, same structure, however data values are different.
-;;  Evens: state/disposition (see d_23FF_jp_tbl for codes)
-;;  Odds: index of mctl queue, also used for explosion counter
-;;
-;; for sprite code/color 8B00, evens are sprite code and odds are sprite color
 ;;
 ;; IN:
 ;;  ...
@@ -739,15 +720,13 @@ void f_1DB3(void)
 {
     uint8 L = 0;
 
+    // L*2 to maintain z80 indexing in array
     for(L = 0; L < 0x60; L += 2)
     {
         // bit  7,(hl) ... bit-7 set by cpu1:c_076A if the orc has been hit
-        if (0 != (0x80 & b_9200_obj_collsn_notif[ L ]))
+        if (0 != (0x80 & sprt_hit_notif[ L ]))
         {
-            // jr   nz,l_1DC1_make_him_dead
-            b_9200_obj_collsn_notif[ L ] &= ~0x80; // res  7,(hl)
-
-            // L*2 to maintain z80 indexing in array
+            sprt_hit_notif[ L ] &= ~0x80; // res  7,(hl)
 
             b8800_obj_status[ L ].state = 4; // disposition = dying
 

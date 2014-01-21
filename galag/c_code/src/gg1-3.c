@@ -201,7 +201,7 @@ static void objs_dispatcher_rckt_hit(uint8 E)
     // l_24E6_i_am_at_45:
     // dec  e
 
-    A = b_9200_obj_collsn_notif[ L ];
+    A = sprt_hit_notif[ L ];
 
     if (1 == A) // jr   nz,l_24FD
     {
@@ -892,7 +892,7 @@ static const uint8 atkw_chlg_spcclr[] =
 ;;   Inserts creature objects from the attack wave table into the movement
 ;;   queue. The table of attack wave structures is built in c_25A2.
 ;;   Each struct starts with $7E, and the end of table marker is $7F.
-;;   This task will be enabled by c_01C5_new_stg_game_or_demo... after the
+;;   This task will be enabled by gctl_stg_new_env_init... after the
 ;;   creature classes and formation tables are initialized.
 ;; IN:
 ;;  ...

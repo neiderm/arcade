@@ -44,8 +44,6 @@ uint8 task_actv_tbl_0[32]; // active plyr task tbl cpu0
 uint8 task_resv_tbl_0[32]; // suspended plyr task tbl cpu0
 uint8 ds4_game_tmrs[4];
 uint16 w_bug_flying_hit_cnt;
-// object-collision notification to f_1DB3 from cpu1:c_076A
-uint8 b_9200_obj_collsn_notif[0x60]; // only even-bytes used (uint16?)
 
 
 /*
@@ -322,9 +320,8 @@ static void gctl_stg_new_env_init(void)
 
     for (B = 0; B < 0x60; B += 2)
     {
-        b_9200_obj_collsn_notif[B] = 0;
+        sprt_hit_notif[B] = 0;
     }
-
 
     task_actv_tbl_0[0x09] = 0; // f_1DE6 ... collective bug movement
     task_actv_tbl_0[0x10] = 0; // f_1B65 ... manage flying-bug-attack

@@ -23,6 +23,30 @@
 #ifdef HELP_ME_DEBUG
 uint16 dbg_step_cnt;
 #endif
+
+/*
+ sprite-object states and index to motion control pool.
+ The index of the galag in the array corresponds also to the associated
+ location in sprite registers, however only the first $30 elements of
+ the alien ships are tracked in the rocket-hit notification.
+
+   memory structure of the formation in standby positions:
+
+                         00 04 06 02         ; captured fighters (00, 02, 04 fighter icons on push-start-btn screen)
+                         30 34 36 32
+                   40 48 50 58 5A 52 4A 42
+                   44 4C 54 5C 5E 56 4E 46
+                08 10 18 20 28 2A 22 1A 12 0A
+                0C 14 1C 24 2C 2E 26 1E 16 0E
+*/
+// uses only even-indexed elements to keep indexing consistent with z80 code
+struct_obj_status b8800_obj_status[0x40 * 2]; // array of byte-pairs
+
+// rocket-hit notification to f_1DB3 from c_076A, requires 1-byte per object,
+// so only even-bytes are used to keep indexing consistent with z80
+uint8 sprt_hit_notif[0x30 * 2];
+
+
 uint8 ds3_92A0_frame_cts[3];
 uint8 cpu1_task_en[8];
 uint8 b_bugs_flying_nbr;
@@ -799,7 +823,7 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
         // b_9200[L].b0 ... $81 = hit notification already in progress
 
         if (0x80 != (b8800_obj_status[hl].state |
-                     b_9200_obj_collsn_notif[hl])) // else  jr   c,l_07B4_next_object
+                     sprt_hit_notif[hl])) // else  jr   c,l_07B4_next_object
         {
             // check if object status 04 (already exploding) or 05 (bonus bitmap)
 
@@ -992,7 +1016,7 @@ static uint8 hit_detect(uint8 AF, uint8 E, uint8 HL)
         // ex   af,af'
 
         // l_07DB:
-        b_9200_obj_collsn_notif[HL] = 0x81;
+        sprt_hit_notif[HL] = 0x81;
 
         // l_07DF:
     }
@@ -1011,7 +1035,7 @@ static uint8 hit_detect(uint8 AF, uint8 E, uint8 HL)
         if ( 0 == w_bug_flying_hit_cnt )
         {
             // splashed all elements of challenge stage convoy
-            b_9200_obj_collsn_notif[HL] = stg_chllg_rnd_attrib[1];
+            sprt_hit_notif[HL] = stg_chllg_rnd_attrib[1];
             ds_bug_collsn[0x0F] += stg_chllg_rnd_attrib[0];
             // jr   l_07DF
             // l_07DF:
@@ -1035,7 +1059,7 @@ static uint8 hit_detect(uint8 AF, uint8 E, uint8 HL)
                 // jp   nz,l_07DB
 
                 // l_07DB:
-                b_9200_obj_collsn_notif[HL] = 0x81;
+                sprt_hit_notif[HL] = 0x81;
 
                 // l_07DF:
             }
@@ -1058,7 +1082,7 @@ static uint8 hit_detect(uint8 AF, uint8 E, uint8 HL)
 
                 // jp here if shot the flying captured ship
                 // l_08B0:
-                b_9200_obj_collsn_notif[HL] = 0xB5;
+                sprt_hit_notif[HL] = 0xB5;
 
                 // jp   l_07DF
             }

@@ -154,14 +154,14 @@ extern unsigned char *galaga_starcontrol;
 #define SPR_IDX_RCKT1 (SPR_IDX_RCKT + sizeof(t_bpair))
 
 
-// Object status structure... 2 bytes per element.
+// Object status structure... 2 bytes per element are paired together in order
+// to align the data for reference to z80.
 // Order is common to sprite buffer and register banks.
 typedef struct object_status
 {
     uint8 state;     // [ 0 + n ] : object state/disposition
     uint8 obj_idx;   // [ 1 + n ] : index of slot in mctrl_que (see f_2916)
                      //              ... obj_idx copied to mctrl_que.b10
-
 } struct_obj_status;
 
 
@@ -316,7 +316,7 @@ extern uint8 ds3_92A0_frame_cts[];
 extern uint8 cpu1_task_en[];
 extern uint8 b_bugs_flying_nbr;
 extern const uint8 db_obj_home_posn_RC[];
-extern uint8 b_9200_obj_collsn_notif[]; // only even-bytes used (uint16?)
+extern uint8 sprt_hit_notif[];
 
 /* gg1-7.c */
 extern uint8 b_9AA0[];
