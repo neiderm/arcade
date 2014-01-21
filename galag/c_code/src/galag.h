@@ -157,12 +157,12 @@ extern unsigned char *galaga_starcontrol;
 // Object status structure... 2 bytes per element are paired together in order
 // to align the data for reference to z80.
 // Order is common to sprite buffer and register banks.
-typedef struct object_status
+typedef struct
 {
     uint8 state;     // [ 0 + n ] : object state/disposition
     uint8 mctl_idx;  // [ 1 + n ] : index of slot in motion control (see f_2916)
                      //              ... object index copied to mctrl_que.b10
-} struct_obj_status;
+} sprt_object;
 
 
 // struct type for motion control queue
@@ -338,7 +338,7 @@ extern reg16 ds_home_posn_org[];
 
 
 // object status structure... 2 bytes per element.
-extern struct_obj_status b8800_obj_status[];
+extern sprt_object sprt_mctl_objs[];
 
 
 /* gg1-2_1700.c */

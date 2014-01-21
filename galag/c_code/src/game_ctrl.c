@@ -30,16 +30,8 @@ uint8 ds_99B9_star_ctrl[6]; // 1 when ship on screen
 
 uint8 io_input[3]; // TODO: owned by galag.c
 
-// 9200, 00-5F: even-bytes, used for object-collision notification to f_1DB3 from cpu1:c_076A
-// odd-bytes are ... whatever, so a separate structure is created to try to
-// clear things up. is there a compelling reason to pull them together into a
-// struct? I don't know. $80 bytes are 0'd at game start, but it wouldn't be
-// absolutely necessary to 0 the object-collsn-structs as they are 0'd at each
-// start of round or demo. but $80 is way overkill...?
 tstruct_b9200 glbls9200;
 
-// Another motley set of globals at 9280. question of whether or not
-// they should be collected into a struct.
 
 
 /*
@@ -95,7 +87,7 @@ void c_sctrl_sprite_ram_clr(void)
     memset((uint8 *) mrw_sprite.posn, 0, 0x80 * sizeof (t_bpair));
     memset((uint8 *) mrw_sprite.ctrl, 0, 0x80 * sizeof (t_bpair));
 
-    memset((uint8 *) b8800_obj_status, 0x80, sizeof (struct_obj_status) * 0x80);
+    memset((uint8 *) sprt_mctl_objs, 0x80, sizeof (sprt_object) * 0x80);
 }
 
 /*=============================================================================

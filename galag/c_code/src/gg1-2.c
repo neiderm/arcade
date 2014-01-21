@@ -131,8 +131,8 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     //  ex   af,af'     function parameter from A'
     //  ld   d,a        to 0x13(ix)
 
-    b8800_obj_status[obj_idx].state = 9; // disposition diving attack
-    b8800_obj_status[obj_idx].mctl_idx = IX;
+    sprt_mctl_objs[obj_idx].state = 9; // disposition diving attack
+    sprt_mctl_objs[obj_idx].mctl_idx = IX;
 
     tmpA.word = mrw_sprite.posn[obj_idx].b1; // sprite_y<7:0>
     tmpA.pair.b1 = mrw_sprite.ctrl[obj_idx].b1; // sprite_y<8>
@@ -541,7 +541,7 @@ void sprite_tiles_display(uint8 const *p_sptiles_displ)
     // l_12A6:
     mrw_sprite.cclr[ L ].b1 = A;
 
-    b8800_obj_status[ L ].state = 1; // disposition = ACTIVE
+    sprt_mctl_objs[ L ].state = 1; // disposition = ACTIVE
 
     mrw_sprite.posn[ L ].b0 = p_sptiles_displ[2]; // posn.X
 

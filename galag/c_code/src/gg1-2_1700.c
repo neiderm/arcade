@@ -558,9 +558,9 @@ if (1) // boss launcher not implemented yet
         {
             // l_1B8B: launching element of boss+wing mission
             b_92C0_A[L] = 0xFF; // $FF disables the slot
-            b8800_obj_status[A].state &= ~0x80; // res  7,e
+            sprt_mctl_objs[A].state &= ~0x80; // res  7,e
 
-            if (1 != b8800_obj_status[A].state) // disposition resting/inactive
+            if (1 != sprt_mctl_objs[A].state) // disposition resting/inactive
             {
                 return; // ret  nz
             }
@@ -651,7 +651,7 @@ if (1) // boss launcher not implemented yet
 
             // test clone-attack parameter && object_status
             //jr   nz,l_1BEB_next
-            if (1 == b8800_obj_status[L].state /* && L != bonus_bee_index */) // disposition == resting
+            if (1 == sprt_mctl_objs[L].state /* && L != bonus_bee_index */) // disposition == resting
             {
                 // ld   a,c ; unstash A ... offset_to_bonus_bee
                 // l_1BF0_found_one:
@@ -728,10 +728,10 @@ void f_1DB3(void)
         {
             sprt_hit_notif[ L ] &= ~0x80; // res  7,(hl)
 
-            b8800_obj_status[ L ].state = 4; // disposition = dying
+            sprt_mctl_objs[ L ].state = 4; // disposition = dying
 
             // explosion count
-            b8800_obj_status[ L ].mctl_idx = 0x40; // ld   (hl),#0x40
+            sprt_mctl_objs[ L ].mctl_idx = 0x40; // ld   (hl),#0x40
 
             // update color for inactive/dead sprite
             mrw_sprite.cclr[ L ].b1 = 0x0A; // "glowing" prior to explosion
@@ -1033,7 +1033,7 @@ static void rckt_sprite_init(void)
     // pointer to rocket attribute
     *pushDE = A | C; // bit7=orientation, bit6=flipY, bit5=flipX, 1:2=displacement
 
-    b8800_obj_status[E].state = 6; // disposition: active rocket object
+    sprt_mctl_objs[E].state = 6; // disposition: active rocket object
 
     b_9AA0[0x0F] = 1; // sound-fx count/enable, shot-sound
 

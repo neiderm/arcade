@@ -27,8 +27,8 @@ uint16 dbg_step_cnt;
 /*
  sprite-object states and index to motion control pool.
  The index of the galag in the array corresponds also to the associated
- location in sprite registers, however only the first $30 elements of
- the alien ships are tracked in the rocket-hit notification.
+ location in sprite registers, however only the first $30 elements are
+ tracked in the rocket-hit notification array.
 
    memory structure of the formation in standby positions:
 
@@ -40,7 +40,7 @@ uint16 dbg_step_cnt;
                 0C 14 1C 24 2C 2E 26 1E 16 0E
 */
 // uses only even-indexed elements to keep indexing consistent with z80 code
-struct_obj_status b8800_obj_status[0x40 * 2]; // array of byte-pairs
+sprt_object sprt_mctl_objs[0x40 * 2]; // array of byte-pairs
 
 // rocket-hit notification to f_1DB3 from c_076A, requires 1-byte per object,
 // so only even-bytes are used to keep indexing consistent with z80
@@ -822,14 +822,14 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
         // obj_status[L].state<7> ... $80==inactive object
         // b_9200[L].b0 ... $81 = hit notification already in progress
 
-        if (0x80 != (b8800_obj_status[hl].state |
+        if (0x80 != (sprt_mctl_objs[hl].state |
                      sprt_hit_notif[hl])) // else  jr   c,l_07B4_next_object
         {
             // check if object status 04 (already exploding) or 05 (bonus bitmap)
 
             // cp   #4 ... else ... jr   z,l_07B4_next_object
-            if (0x04 != b8800_obj_status[hl].state &&
-                    0x05 != b8800_obj_status[hl].state)
+            if (0x04 != sprt_mctl_objs[hl].state &&
+                    0x05 != sprt_mctl_objs[hl].state)
             {
                 reg16 tmpA;
 
@@ -857,7 +857,7 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
                     // check X coordinate
 
                     // ld   a,c ... dec  a ... and  #0xFE ... ex   af,af
-                    AF = (b8800_obj_status[hl].state - 1) & 0xFE; // object status to j_07C2
+                    AF = (sprt_mctl_objs[hl].state - 1) & 0xFE; // object status to j_07C2
 
                     if (1 /* ! ds_plyr_actv._b_2ship */) // ... else ... jr   nz,l_07A4
                     {
@@ -956,7 +956,7 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
 ;;  Description:
 ;;   handle sprite collisions
 ;; IN:
-;;   AF == (b8800_obj_status[hl].state  - 1) & 0xFE
+;;   AF == (sprt_mctl_objs[hl].state  - 1) & 0xFE
 ;;   L == object key, e.g. usually a bug was hit, but could be a bomb
 ;;   E == offset/index of rocket sprite + 1
 ;;   E == object key + 0, e.g. 9B62 (the ship?)
@@ -1023,7 +1023,7 @@ static uint8 hit_detect(uint8 AF, uint8 E, uint8 HL)
     else
     {
         // l_081E:
-        A = b8800_obj_status[ HL ].mctl_idx;
+        A = sprt_mctl_objs[ HL ].mctl_idx;
         ds_bug_motion_que[A].b13 = 0;
 
         b_bug_flyng_hits_p_round += 1;
@@ -1174,9 +1174,9 @@ void f_08D3(void)
 
 
         // 9 is diving, 7 is spawning, 3 (and 6) idfk
-        if ((b8800_obj_status[ L ].state == 3 ||
-                b8800_obj_status[ L ].state == 7 ||
-                b8800_obj_status[ L ].state == 9))
+        if ((sprt_mctl_objs[ L ].state == 3 ||
+                sprt_mctl_objs[ L ].state == 7 ||
+                sprt_mctl_objs[ L ].state == 9))
         {
             // l_0902_9_or_3_or_7:
             ds_bug_motion_que[mctl_que_idx].b0D--;
@@ -1249,7 +1249,7 @@ void f_08D3(void)
                             // use byte-pointer as index of pairs:
 
                             // already 9 if executing attack sortie
-                            b8800_obj_status[ L ].state = 9; // disposition 3 -> 9 (homing)
+                            sprt_mctl_objs[ L ].state = 9; // disposition 3 -> 9 (homing)
 
                             // should make this one .rowpos and .colpos
                             C = db_obj_home_posn_RC[ L ]; // row index
@@ -1598,7 +1598,7 @@ static void mctl_path_update(void)
                 ds_bug_motion_que[mctl_que_idx].b02 = 0;
 
                 L = ds_bug_motion_que[mctl_que_idx].b10;
-                b8800_obj_status[ L ].state = 2; // disposition = 02: rotating back into position in the collective
+                sprt_mctl_objs[ L ].state = 2; // disposition = 02: rotating back into position in the collective
 
                 A = mrw_sprite.cclr[L].b1; // sprite color code
                 A += 1; // inc  a
