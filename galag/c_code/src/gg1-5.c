@@ -1617,7 +1617,7 @@ static void mctl_path_update(uint8 mpidx)
                     mctl_mpool[mpidx].b07;
 
                 //almost done ... update the sprite x/y positions
-                mctl_posn_set(L); // jp   z,l_0D03
+                mctl_posn_set(L, mpidx); // jp   z,l_0D03
 
                 return;
             }
@@ -1731,7 +1731,7 @@ static void mctl_rotn_incr(uint8 mpidx)
         mctl_coord_incr(A, D_save_b05, E_save_b04, mpidx);
 
     //almost done ... update the sprite x/y positions
-    mctl_posn_set(L); // jp   z,l_0D03
+    mctl_posn_set(L, mpidx); // jp   z,l_0D03
 
     return;
 }
@@ -1856,7 +1856,7 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
 ;; PRESERVES:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void mctl_posn_set(uint8 _L_)
+static void mctl_posn_set(uint8 _L_, uint8 mpidx)
 {
     reg16 r16;
     uint16 tmp16;
@@ -1865,8 +1865,8 @@ static void mctl_posn_set(uint8 _L_)
 
     // fixed point 9.7 in .b02.b03 - left shift integer portion into A ... carry
     // in to <0> from .b02<7>
-    A = mctl_mpool[mctl_que_idx].b03 << 1; // rla
-    A |= (0 != (0x80 & mctl_mpool[mctl_que_idx].b02)); // shift in .b02<7>
+    A = mctl_mpool[mpidx].b03 << 1; // rla
+    A |= (0 != (0x80 & mctl_mpool[mpidx].b02)); // shift in .b02<7>
 
     if (0 != glbls9200.flip_screen) // bit  0,c
     {
@@ -1874,9 +1874,9 @@ static void mctl_posn_set(uint8 _L_)
     }
 
     // l_0D1A
-    if (0 != (0x40 & mctl_mpool[mctl_que_idx].b13)) // bit  6,0x13(ix)
+    if (0 != (0x40 & mctl_mpool[mpidx].b13)) // bit  6,0x13(ix)
     {
-        A += mctl_mpool[mctl_que_idx].b11; // heading home (step x coord)
+        A += mctl_mpool[mpidx].b11; // heading home (step x coord)
     }
 
     // l_0D23
@@ -1885,9 +1885,9 @@ static void mctl_posn_set(uint8 _L_)
     // inc l
 
     // set carry-in from .b00<7>
-    E = (0 != (0x80 & mctl_mpool[mctl_que_idx].b00)); // rl   e
+    E = (0 != (0x80 & mctl_mpool[mpidx].b00)); // rl   e
 
-    A = mctl_mpool[mctl_que_idx].b01; // ld   a,b
+    A = mctl_mpool[mpidx].b01; // ld   a,b
 
     if (0 == glbls9200.flip_screen) // bit  0,c
     {
@@ -1905,15 +1905,15 @@ static void mctl_posn_set(uint8 _L_)
 
     E = r16.pair.b1 & 0x01; // rl   e ... carry-in from rla, bit-8 of sprite_y into e<0>
 
-    if (0 != (0x40 & mctl_mpool[mctl_que_idx].b13)) // bit  6,0x13(ix)
+    if (0 != (0x40 & mctl_mpool[mpidx].b13)) // bit  6,0x13(ix)
     {
         // heading home (step y coord)
-        r16.word = A + mctl_mpool[mctl_que_idx].b12; // add  a,0x12(ix)
+        r16.word = A + mctl_mpool[mpidx].b12; // add  a,0x12(ix)
 
         A = r16.pair.b0 >> 1;
         A |= (r16.pair.b1 & 0x01) << 7; // rra ... rotate in the Cy from add
 
-        A ^= mctl_mpool[mctl_que_idx].b12;
+        A ^= mctl_mpool[mpidx].b12;
 
         if (0 != (A & 0x80)) // rlca (only need the Cy bit)
             E++;
@@ -1927,21 +1927,21 @@ static void mctl_posn_set(uint8 _L_)
 
     // Once the timer in $0E is reached, then check conditions to enable bomb drop.
     // If bomb is disabled for any reason, the timer is restarted.
-    mctl_mpool[mctl_que_idx].b0E--;
+    mctl_mpool[mpidx].b0E--;
 
 
     // jp   nz,l_0DFB_next_superloop
-    if (0 != mctl_mpool[mctl_que_idx].b0E)
+    if (0 != mctl_mpool[mpidx].b0E)
     {
         return; // jp   nz,l_0DFB_next_superloop
     }
 
-    Cy = mctl_mpool[mctl_que_idx].b0F & 0x01;
-    mctl_mpool[mctl_que_idx].b0F >>= 1; // srl  0x0F(ix)
+    Cy = mctl_mpool[mpidx].b0F & 0x01;
+    mctl_mpool[mpidx].b0F >>= 1; // srl  0x0F(ix)
 
     if (Cy
             &&
-            mctl_mpool[mctl_que_idx].b01 >= 0x4C // cp   #0x4C
+            mctl_mpool[mpidx].b01 >= 0x4C // cp   #0x4C
             &&
             0 != task_actv_tbl_0[0x15]
             &&
@@ -1952,7 +1952,7 @@ static void mctl_posn_set(uint8 _L_)
     }
 
     // l_0DF5_next_superloop_and_reload_0E
-    mctl_mpool[mctl_que_idx].b0E = b_92E2_stg_parm[0]; // bomb drop counter
+    mctl_mpool[mpidx].b0E = b_92E2_stg_parm[0]; // bomb drop counter
 
 
     // jp   l_08E4_superloop
