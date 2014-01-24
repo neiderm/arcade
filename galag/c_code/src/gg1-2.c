@@ -26,7 +26,7 @@
 // positions at home locations ... 10 column coordinates, 6 row coordinates,
 // 16-bits per coordinate. Array size and index adjusted to keep consistent
 // with z80.
-reg16 ds_home_posn_org[0x20];
+r16_t ds_home_posn_org[0x20];
 
 // combined structure for home position locations
 home_posn_t ds_home_posn_loc[0x20];
@@ -103,7 +103,7 @@ void bmbr_setup_fltq_drone(uint8 obj_idx, uint16 pDE)
 ;;---------------------------------------------------------------------------*/
 static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
 {
-    reg16 tmpA;
+    r16_t tmpA;
     uint8 A, B, IX, Cy;
 
     // find an available data structure or quit

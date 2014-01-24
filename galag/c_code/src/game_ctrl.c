@@ -84,8 +84,8 @@ void c_sctrl_sprite_ram_clr(void)
     // arrays use only even indexed elements in order to keep the indexing
     // consistent with z80.
 
-    memset((uint8 *) mrw_sprite.posn, 0, 0x80 * sizeof (t_bpair));
-    memset((uint8 *) mrw_sprite.ctrl, 0, 0x80 * sizeof (t_bpair));
+    memset((uint8 *) mrw_sprite.posn, 0, 0x80 * sizeof (bpair_t));
+    memset((uint8 *) mrw_sprite.ctrl, 0, 0x80 * sizeof (bpair_t));
 
     memset((uint8 *) sprt_mctl_objs, 0x80, sizeof (sprt_mctl_obj_t) * 0x80);
 }
@@ -752,7 +752,7 @@ static void gctl_chllng_stg_end(void)
 ;;----------------------------------------------------------------------------*/
 static void gctl_score_upd(void)
 {
-    reg16 AF;
+    r16_t AF;
     uint8 A, B, C, E, L, IXL;
 
     IXL = 0xF9;

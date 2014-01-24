@@ -525,7 +525,7 @@ void f_1A80(void)
 ;;---------------------------------------------------------------------------*/
 void f_1B65(void)
 {
-    reg16 pDE;
+    r16_t pDE;
     uint8 A, B, L;
 
     if (0 != glbls9200.flying_bug_attck_condtn

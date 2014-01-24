@@ -140,7 +140,7 @@ void f_2222(void)
 ;;---------------------------------------------------------------------------*/
 static void objs_dispatcher_rckt_hit(uint8 E)
 {
-    reg16 AF;
+    r16_t AF;
     uint8 A, C, L;
     L = E;
 
@@ -164,7 +164,7 @@ static void objs_dispatcher_rckt_hit(uint8 E)
         // l_24C2:
         if (0x44 == A) // jr   nz,l_24E0
         {
-            reg16 tmpAA; // need A and Cy
+            r16_t tmpAA; // need A and Cy
 
             // ex   af,af'
             mrw_sprite.posn[ L ].b0 -= 8; // sX ... sub  #8
@@ -444,7 +444,7 @@ void objs_dispatcher(uint8 frame_ct)
             case 0x06: // release slot for bomb when out of range
                 if ( mrw_sprite.posn[ E ].b0 < 0xF4 )
                 {
-                    reg16 tmpA;
+                    r16_t tmpA;
                     tmpA.pair.b1 = mrw_sprite.ctrl[ E ].b1; // sy<8>
                     tmpA.pair.b0 = mrw_sprite.posn[ E ].b1; // sy<7:0>
 
@@ -833,7 +833,7 @@ void c_2896(void)
 ;;----------------------------------------------------------------------------*/
 void atkw_eclass_init(uint8 *pIXL, uint8 *pHL, uint8 B, uint8 IXH)
 {
-    static reg16 C; // make it 16 so we can shift out of bit-7
+    static r16_t C; // make it 16 so we can shift out of bit-7
     static uint8 IY; // tmp index into atkw_bdrp_enbl[]
     uint8 A;
 

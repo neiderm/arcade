@@ -103,7 +103,7 @@ void cpu2_NMI(void)
     // if ! sound-manager process disabled
     if (!b_9AA0[0x17])
     {
-        reg16 HL;
+        r16_t HL;
         uint8 tmpA;
 
         // credit-in sound is triggered for all credits counted

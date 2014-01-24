@@ -5,7 +5,7 @@
 #define _GALAG_H_
 
 /*
- * types
+ * basic types
  */
 typedef char sint8;
 typedef unsigned char uint8;
@@ -13,8 +13,9 @@ typedef unsigned short uint16;
 typedef signed short sint16;
 typedef unsigned int uint32;
 
-// mchn cfg dipswitches
-
+/*
+ * mchn cfg dipswitches
+ */
 typedef struct
 {
     uint8 bonus[2];
@@ -25,12 +26,9 @@ typedef struct
 } mchn_cfg_t;
 
 
-// 9200[0x80]
-// 00-5F:
-//   even-bytes, used for object-collision notification to f_1DB3 from cpu1:c_076A
-//   odd-bytes are used to implement various loosely related global flags and
-//   states... so a separate structure is created to try to clear things up.
-
+/*
+ * various globals ($9200[]} which probably don't make sense in a structure
+ */
 typedef struct
 {
     uint8 game_state; //               01
@@ -45,6 +43,9 @@ typedef struct
     uint8 flip_screen; //              15:  0 ...not_flipped
 } tstruct_b9200;
 
+/*
+ * player state
+ */
 typedef struct
 {
     uint8 num_ships; // mchn_cfg_nships
@@ -77,9 +78,7 @@ typedef struct
 } t_struct_plyr_state;
 
 /*
- * Use this in the reg16 definition below.
- * This one can be used on its own if word access is not required, which
- * would clean up the notation a little bit.
+ * generic type for byte-pairs where word access is not required
  */
 typedef struct
 {
@@ -90,30 +89,29 @@ typedef struct
     uint8 b1;
     uint8 b0;
 #endif
-} t_bpair;
+} bpair_t;
 
 /*
- * Use this for byte or word access to 16-bit registers.
+ * byte or word access to 16-bit registers
  */
 typedef union
 {
     uint16 word;
-    t_bpair pair;
-} reg16;
+    bpair_t pair;
+} r16_t;
 
 /*
- * sprite buffer sizes are doubled, which wastes a little memory but it means
- * that it is not necessary to convert from byte-indexing to t_bpair indexing.
+ * sprite registers organized as a struct of arrays to align data with z80
  */
 typedef struct
 {
     // offset[0]: tile code
     // offset[1]: color map code
-    t_bpair cclr[0x80];
+    bpair_t cclr[0x80];
 
     // offset[0]: sx
     // offset[1]: sy, bits 0:7 ... see sprite control offset[1]:0
-    t_bpair posn[0x80];
+    bpair_t posn[0x80];
 
     // offset[0]
     //  0: flipx - flip about the X axis, i.e. "up/down"
@@ -123,13 +121,12 @@ typedef struct
     // offset[1]
     //  0: sy, bit-8 ... i.e.  sx += offset[1] & 1 * 0x100
     //  1: enable
-    t_bpair ctrl[0x80];
+    bpair_t ctrl[0x80];
 
 } sprt_regs_t;
 
 /*
- * "hardware" registers that are implemented in memory that is mapped to
- * areas which are managed by memory and IO handlers in the MAME engine.
+ * "hardware" registers managed by memory and IO handlers in the MAME engine
  */
 extern unsigned char *spriteram;
 extern unsigned char *spriteram_2;
@@ -147,16 +144,17 @@ extern unsigned char *galaga_starcontrol;
 #define  sfr_A000_starctl galaga_starcontrol
 
 
-// indices for some sprite objects (using rw_sprite type)
+// indices for some sprite objects
 #define SPR_IDX_SHIP (0x62)
 #define SPR_IDX_RCKT (0x64)
 #define SPR_IDX_RCKT0 (SPR_IDX_RCKT)
-#define SPR_IDX_RCKT1 (SPR_IDX_RCKT + sizeof(t_bpair))
+#define SPR_IDX_RCKT1 (SPR_IDX_RCKT + sizeof(bpair_t))
 
 
-// Object status structure... 2 bytes per element are paired together in order
-// to align the data for reference to z80.
-// Order is common to sprite buffer and register banks.
+/*
+ * sprite object state and index to associated slot in mctl pool ... 2 bytes
+ * per element paired together in order to align data for reference to z80.
+ */
 typedef struct
 {
     uint8 state;     // [ 0 + n ] : object state/disposition
@@ -164,15 +162,15 @@ typedef struct
                      //              ... object index copied to mctrl_que.b10
 } sprt_mctl_obj_t;
 
-
-// struct type for motion control queue
-//  00-07 writes to 92E0, see _2636
-//  08-09 ptr to data in cpu-sub-1:4B
-//  0D + *(ds_9820_actv_plyr_state + 0x09)
-//  10 index/offset of object .... i.e. 8800 etc.
-//  11 + offset
-//  13 + offset
-//
+/*
+ * struct type for motion control pool
+ *  00-07 writes to 92E0, see _2636
+ *  08-09 ptr to data in cpu-sub-1:4B
+ *  0D + *(ds_9820_actv_plyr_state + 0x09)
+ *  10 index/offset of object .... i.e. 8800 etc.
+ *  11 + offset
+ *  13 + offset
+ */
 typedef struct
 {
     uint8 b00;
@@ -183,7 +181,7 @@ typedef struct
     uint8 b05;
     uint8 b06;
     uint8 b07;
-    reg16 p08; // flight pattern data table pointer ... treat as uint16
+    r16_t p08; // flight pattern data table pointer ... treat as uint16
     //uint8 b09
     uint8 b0A;
     uint8 b0B;
@@ -324,8 +322,8 @@ extern uint8 b_9A70[];
 
 /* gg1-2.c */
 
-// home position locations packed as pairs - to maintain consistency with z80
-// 32 bytes (16 pairs) are allocated
+// 32 bytes (16 pairs) are allocated to home position locations to maintain
+// alignment with z80
 typedef struct
 {
     uint8 rel;
@@ -334,7 +332,7 @@ typedef struct
 
 extern home_posn_t ds_home_posn_loc[];
 
-extern reg16 ds_home_posn_org[];
+extern r16_t ds_home_posn_org[];
 
 
 // object status structure... 2 bytes per element.
@@ -410,7 +408,6 @@ enum {
     READY_TO_PLAY_MODE = 2,
     IN_GAME_MODE = 3
 };
-
 
 #endif // _GALAG_H_
 

@@ -410,7 +410,7 @@ uint8 flv_get_data_uber(uint16 phl)
 // return the next two bytes as a 16-bit address/offset with which to reload the data pointer
 uint16  flv_0B46_set_ptr(uint16 u16hl)
 {
-    reg16 de;
+    r16_t de;
 
     u16hl += 1;
     de.pair.b0 = flv_get_data(u16hl);
@@ -804,7 +804,7 @@ static void rckt_man(uint8 de)
 static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
 {
     uint8 IXL, IXH;
-    reg16 tmp16;
+    r16_t tmp16;
 
     // setup rocket.sy<1:8> (scale factor 2 in order to get it in 8-bits)
     tmp16.pair.b0 = mrw_sprite.posn[E].b1;
@@ -831,7 +831,7 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
             if (0x04 != sprt_mctl_objs[hl].state &&
                     0x05 != sprt_mctl_objs[hl].state)
             {
-                reg16 tmpA;
+                r16_t tmpA;
 
                 // test dX and dY for within +/- 6 pixels, using the addition
                 // offset with "Cy" so only 1 test needed for ( d>-6 && d<+6 )
@@ -1203,7 +1203,7 @@ void f_08D3(void)
 
                     if (A_token >= 0xEF) // ... else ...  jp   c,l_0BDC_flite_pth_load
                     {
-                        reg16 pushDE, rBC, rHL, rDE;
+                        r16_t pushDE, rBC, rHL, rDE;
                         uint8 A, B, C, D, E, H;
 
                         // the flag forces repetition of the do-block so that the
@@ -1421,7 +1421,7 @@ void f_08D3(void)
 
                         case 0x0C: // _0A01: diving elements have left formation (set bomb target?)
                         {
-                            reg16 tmpA;
+                            r16_t tmpA;
 
                             // setup horizontal limits for targetting
                             A = mrw_sprite.posn[SPR_IDX_SHIP].b0;
@@ -1642,7 +1642,7 @@ static void mctl_path_update(uint8 mpidx)
 ;;---------------------------------------------------------------------------*/
 static void mctl_rotn_incr(uint8 mpidx)
 {
-    reg16 temp16;
+    r16_t temp16;
     uint8 A, B, C, L;
     uint8 E_save_b04, D_save_b05;
 
@@ -1751,7 +1751,7 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
 {
     uint8 * pBx[4]; // only need 2, but use size 4 for indexing
     uint8 *pHL;
-    reg16 pushDE, popHL, tmp16, tmpAC, tmpHL;
+    r16_t pushDE, popHL, tmp16, tmpAC, tmpHL;
     uint8 A, B, D;
     uint8 Cy;
     uint8 pBidx;
@@ -1857,7 +1857,7 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
 ;;---------------------------------------------------------------------------*/
 static void mctl_posn_set(uint8 _L_, uint8 mpidx)
 {
-    reg16 r16;
+    r16_t r16;
     uint16 tmp16;
     uint8 Cy, A, E;
     uint8 L = _L_; // object index
@@ -1973,7 +1973,7 @@ static void mctl_posn_set(uint8 _L_, uint8 mpidx)
 ;;---------------------------------------------------------------------------*/
 static uint16 mctl_rotn_hp(uint16 _DE_, uint8 _H_, uint8 _L_)
 {
-    reg16 rDE, rHL;
+    r16_t rDE, rHL;
     uint8 A, B, C, D, E, L, Cy, pushCy;
 
     rDE.word = _DE_;
@@ -2059,7 +2059,7 @@ static uint16 mctl_rotn_hp(uint16 _DE_, uint8 _H_, uint8 _L_)
 ;;---------------------------------------------------------------------------*/
 static uint16 mctl_mul8(uint8 _A_, uint8 _L_)
 {
-    reg16 HL, DE;
+    r16_t HL, DE;
     uint8 A;
 
     A = _A_;
@@ -2094,7 +2094,7 @@ static uint16 mctl_mul8(uint8 _A_, uint8 _L_)
 static uint16 mctl_div_16_8(uint8 _A_, uint16 _HL_)
 {
     uint32 Cy16; // carry out from adc hl
-    reg16 rA, rHL;
+    r16_t rA, rHL;
     uint8 B, C;
     uint8 Cy;
 
