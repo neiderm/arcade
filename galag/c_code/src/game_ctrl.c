@@ -87,7 +87,7 @@ void c_sctrl_sprite_ram_clr(void)
     memset((uint8 *) mrw_sprite.posn, 0, 0x80 * sizeof (t_bpair));
     memset((uint8 *) mrw_sprite.ctrl, 0, 0x80 * sizeof (t_bpair));
 
-    memset((uint8 *) sprt_mctl_objs, 0x80, sizeof (sprt_object_t) * 0x80);
+    memset((uint8 *) sprt_mctl_objs, 0x80, sizeof (sprt_mctl_obj_t) * 0x80);
 }
 
 /*=============================================================================

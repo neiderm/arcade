@@ -9,7 +9,7 @@
  *******************************************************************************/
 #include "galag.h"
 
-struct_mchn_cfg mchn_cfg;
+mchn_cfg_t mchn_cfg;
 
 /*
  *
@@ -20,8 +20,8 @@ void cpu0_init(void)
     mchn_cfg.bonus[0] = 0x02;
     mchn_cfg.bonus[1] = 0x06;
 
-    // enable f_05BE in CPU-sub1 (empty task) ... disabled in game_ctrl start (... why 7?)
-    cpu1_task_en [0] = 0x07;
+    // enable f_05BE in CPU-sub1 (empty task) ... disabled in game_ctrl start
+    cpu1_task_en[0] = 0x07; // skips to f_05BE in CPU-sub task-table
 }
 
 /*

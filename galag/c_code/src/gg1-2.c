@@ -29,7 +29,7 @@
 reg16 ds_home_posn_org[0x20];
 
 // combined structure for home position locations
-struct_home_posn ds_home_posn_loc[0x20];
+home_posn_t ds_home_posn_loc[0x20];
 
 
 /*

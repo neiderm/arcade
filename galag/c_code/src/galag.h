@@ -22,7 +22,7 @@ typedef struct
     uint8 cab_type;
     uint8 rank;
 
-} struct_mchn_cfg;
+} mchn_cfg_t;
 
 
 // 9200[0x80]
@@ -81,7 +81,7 @@ typedef struct
  * This one can be used on its own if word access is not required, which
  * would clean up the notation a little bit.
  */
-typedef struct struct_pair
+typedef struct
 {
 #ifdef LSB_FIRST
     uint8 b0;
@@ -105,7 +105,7 @@ typedef union
  * sprite buffer sizes are doubled, which wastes a little memory but it means
  * that it is not necessary to convert from byte-indexing to t_bpair indexing.
  */
-typedef struct struct_mrw_sprite
+typedef struct
 {
     // offset[0]: tile code
     // offset[1]: color map code
@@ -125,7 +125,7 @@ typedef struct struct_mrw_sprite
     //  1: enable
     t_bpair ctrl[0x80];
 
-} t_mrw_sprite;
+} sprt_regs_t;
 
 /*
  * "hardware" registers that are implemented in memory that is mapped to
@@ -141,7 +141,7 @@ extern unsigned char *colorram;
 #define  m_tile_ram  videoram
 #define  m_color_ram colorram
 
-extern t_mrw_sprite mrw_sprite;
+extern sprt_regs_t mrw_sprite;
 
 extern unsigned char *galaga_starcontrol;
 #define  sfr_A000_starctl galaga_starcontrol
@@ -162,7 +162,7 @@ typedef struct
     uint8 state;     // [ 0 + n ] : object state/disposition
     uint8 mctl_idx;  // [ 1 + n ] : index of slot in motion control (see f_2916)
                      //              ... object index copied to mctrl_que.b10
-} sprt_object_t;
+} sprt_mctl_obj_t;
 
 
 // struct type for motion control queue
@@ -309,7 +309,7 @@ extern uint8 ds4_game_tmrs[];
 extern uint16 w_bug_flying_hit_cnt;
 
 /* gg1-4.c */
-extern struct_mchn_cfg mchn_cfg;
+extern mchn_cfg_t mchn_cfg;
 
 /* gg1-5.c */
 extern uint8 ds3_92A0_frame_cts[];
@@ -324,21 +324,21 @@ extern uint8 b_9A70[];
 
 /* gg1-2.c */
 
-// combined structure for home position locations
-// only 16 bytes are needed in each array, but by using even-bytes and allocating
-// 32 bytes, the indexing can be retained while still having separate elements for rel and abs
-typedef struct {
+// home position locations packed as pairs - to maintain consistency with z80
+// 32 bytes (16 pairs) are allocated
+typedef struct
+{
     uint8 rel;
     uint8 abs;
-} struct_home_posn;
+} home_posn_t;
 
-extern struct_home_posn ds_home_posn_loc[];
+extern home_posn_t ds_home_posn_loc[];
 
 extern reg16 ds_home_posn_org[];
 
 
 // object status structure... 2 bytes per element.
-extern sprt_object_t sprt_mctl_objs[];
+extern sprt_mctl_obj_t sprt_mctl_objs[];
 
 
 /* gg1-2_1700.c */

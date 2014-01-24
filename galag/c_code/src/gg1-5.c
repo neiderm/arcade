@@ -40,7 +40,7 @@ uint16 dbg_step_cnt;
                 0C 14 1C 24 2C 2E 26 1E 16 0E
 */
 // uses only even-indexed elements to keep indexing consistent with z80 code
-sprt_object_t sprt_mctl_objs[0x40 * 2]; // array of byte-pairs
+sprt_mctl_obj_t sprt_mctl_objs[0x40 * 2]; // array of byte-pairs
 
 // rocket-hit notification to f_1DB3 from c_076A, requires 1-byte per object,
 // so only even-bytes are used to keep indexing consistent with z80
@@ -69,7 +69,7 @@ static void rckt_man(uint8);
 static void mctl_path_update(uint8);
 static void mctl_rotn_incr(uint8);
 static void mctl_coord_incr(uint8, uint8, uint8, uint8);
-static void mctl_posn_set(uint8);
+static void mctl_posn_set(uint8, uint8);
 static uint16 mctl_rotn_hp(uint16, uint8, uint8);
 static uint16 mctl_mul8(uint8, uint8);
 static uint16 mctl_div_16_8(uint8, uint16);
@@ -1152,8 +1152,7 @@ void f_08D3(void)
 {
     mctl_que_idx = 0;
 
-    // we always wait till next frame to report count from previous frame for
-    // some reason
+    // wait till next frame to report count from previous frame for some reason
     b_bugs_flying_nbr = mctl_actv_cnt;
     mctl_actv_cnt = 0;
 

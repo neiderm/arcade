@@ -23,7 +23,7 @@
  */
 // this has to be somewhere, so why not here but there are actually
 // more references to this in gg1-2.c than anywhere else
-t_mrw_sprite mrw_sprite;
+sprt_regs_t mrw_sprite;
 
 uint8 b_92A4_rockt_attribute[2]; // ref'd in gg1-5.c
 uint8 b_92C0_0[0x0A]; // idfk ...  (size <= 10)
