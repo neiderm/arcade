@@ -59,7 +59,7 @@ case_171F:  ; 0x02
        and  #0x0F
        ret  nz
 
-       ld   hl,#ds_9200_glbls + 0x07              ; training mode, far-right boss turned blue
+       ld   hl,#ds_9200_glbls + 0x07              ; timer, training mode, far-right boss turned blue
        dec  (hl)
        ret  nz
        jp   case_1766                             ; training mode, far-right boss exploding
@@ -79,7 +79,7 @@ case_1734:  ; 0x04
        and  #0x0A
        jr   l_1755
 l_1741:
-       ld   a,(ds_9200_glbls + 0x09)              ; position of attacking object
+       ld   a,(ds_9200_glbls + 0x09)              ; index/position of attacking object
        ld   l,a
        ld   h,#>ds_sprite_posn
        ld   a,(ds_sprite_posn + 0x62)             ; ship (1) position
@@ -94,7 +94,7 @@ l_1755:
        ld   a,(ds3_92A0_frame_cts + 0)
        and  #0x03
        ret  nz
-       ld   hl,#ds_9200_glbls + 0x07              ; training mode, far-right boss exploding
+       ld   hl,#ds_9200_glbls + 0x07              ; timer, training mode, far-right boss exploding
        dec  (hl)
        ret  nz
        call c_1F0F                                ; init sprite objects for rockets ...training mode, ship about to shoot?
@@ -138,9 +138,9 @@ d_1786:
 case_1794:
 ; ds_9200_glbls[0x09] = *_demo_fghtrvctrs << 1 & 0x7E
        ld   a,(de)
-       rlca                                       ; pack in sX:0
-       and  #0x7E                                 ; mask out Cy shifted from :7 into :0
-       ld   (ds_9200_glbls + 0x09),a              ; sX of attacking object
+       rlca                                       ; rotate bits<6:1> into place
+       and  #0x7E                                 ; mask out Cy rlca'd into <:0>
+       ld   (ds_9200_glbls + 0x09),a              ; index/position of of target alien
        ret
 
 ; shot-and-hit far-left boss in training mode (second hit)
@@ -154,7 +154,7 @@ case_17A1:
        ld   a,(de)
        and  #0x1F
 l_17A4:
-       ld   (ds_9200_glbls + 0x07),a
+       ld   (ds_9200_glbls + 0x07),a              ; demo timer
        ret
 
 ; when?
@@ -285,7 +285,7 @@ case_1852:
        ld   (ds_plyr_actv +_b_stgctr),a           ; 1
        ld   (ds_cpu0_task_actv + 0x03),a          ; 1  (f_1700... Ship-update in training/demo mode)
        ld   (ds_cpu0_task_actv + 0x15),a          ; 1  (f_1F04 ...fire button input))
-       ld   (ds_plyr_actv +_b_not_chllg_stg),a    ; 1  (0 if challenge stage...see c_new_stg_game_only)
+       ld   (ds_plyr_actv +_b_not_chllg_stg),a    ; 1  (0 if challenge stage...see new_stg_game_only)
 
        ld   hl,#d_1887
        ld   (pdb_demo_fghtrvctrs),hl              ; &d_1887[0]
@@ -639,11 +639,11 @@ l_1A6A_ship_in_position:
        ld   (b_9AA0 + 0x09),a                     ; 0 ... sound-fx count/enable registers
        ld   d,#>b_8800
        inc  a
-       ld   (de),a                                ; b_8800[n] = 1 ... resting status
+       ld   (de),a                                ; 1 ... b_8800[n] (stand-by position)
        ld   (ds_plyr_actv +_b_cboss_obj),a        ; 1  .... e.g. was $32  i.e. object locator of capturing boss
        ld   (ds_99B9_star_ctrl + 0x00),a          ; 1  (when ship on screen)
        inc  a
-       ld   (ds_9200_glbls + 0x13),a              ; 2 ...fighter captured, set restart-stage flag.
+       ld   (ds_9200_glbls + 0x13),a              ; 2 ... restart-stage flag (fighter captured)
        ret
 
 ;;=============================================================================
@@ -1445,6 +1445,7 @@ l_1DC1_make_him_dead:
        res  7,(hl)                                ; b_9200_obj_collsn_notif[n] for rckt_hit_hdlr
        ld   h,#>b_8800                            ; disposition = 4 (dying/exploding)
        ld   (hl),#4
+; use obj_status[].mctl_q_index for explosion counter (que object should already have been released at l_081E_hdl_flyng_bug
        inc  l
        ld   (hl),#0x40                            ; start value for the explosion (40...45)
        ld   h,#>ds_sprite_code
@@ -1502,19 +1503,17 @@ f_1DE6:
        ld   hl,#ds_9200_glbls + 0x0F              ; nest_direction counter for expand/contract motion.
        ld   a,(hl)
        ld   e,a                                   ; PREVIOUS_nest_direction counter
+
        ld   d,#-1
        bit  7,a
        jr   nz,l_1DFC_contracting
-
 ; expanding
        inc  d
-       inc  d                                     ; D==1
-       inc  (hl)                                  ; nest_direction++
+       inc  d
+       inc  (hl)                                  ; nest_direction = 1
        jr   l_1DFD
-
 l_1DFC_contracting:
-       ; D==-1
-       dec  (hl)                                  ; nest_direction--
+       dec  (hl)                                  ; nest_direction = -1
 
 l_1DFD:
        cp   #0x1F                                 ; counting up from $00 to $1F
@@ -1530,20 +1529,26 @@ l_1E03:
 ; updated. This happens to correspond with the "flapping" animation... ~1/2 second per flap.
 l_1E09:
        ld   c,(hl)                                ; grab nest_direction while we still have the pointer
-       and  #0x07                                 ; modulus 8 ... (A== PREVIOUS counter)
-       ld   a,d                                   ; current increment (1 or -1 )
+
+       and  #0x07                                 ; previous_cntr % 8
+
+       ld   a,d                                   ; direction counter increment (+1 or -1)
        ld   (ds_9200_glbls + 0x11),a              ; formatn_mv_signage, cpu2 cp with b_9A80 + 0x00
 
-       ld   a,e                                   ; previous_nest_direction counter
+       ld   a,e                                   ; reload previous_nest_direction counter
 
-; if ( previous_counter % 8 == 0 ) then update_bitmap
+; if ( previous_counter % 8 == 0 ) then update_bitmap i.e. even multiple of 8
        jr   nz,l_1E23
 
        ld   hl,#d_1E64_bitmap_tables
+
+; count * 2 i.e. count / 8 * 16 ... index into table row
        ld   a,c                                   ; A = updated_counter
-       and  #0x18                                 ; subtracts MOD 8, i.e.  0, 8, 16, 24
+       and  #0x18                                 ; make it even multiple of 8
        rst  0x08                                  ; HL += 2A   .... table entries are $10 bytes long
-       ld   a,e                                   ; A = previous_counter ... restored
+
+       ld   a,e                                   ; reload previous_nest_direction counter
+
        ld   de,#ds10_9920                         ; $10 bytes copied from 1E64+2*A
        ld   bc,#0x0010
        ldir
@@ -1585,7 +1590,7 @@ l_1E39:
 ;;=============================================================================
 ;; c_1E43()
 ;;  Description:
-;;   Updates the row/col coordinate locations for the alien formation.
+;;   Compute row/col coordinates of formation in expand/contract movement.
 ;;   The selected bitmap table determines whether any given coordinate
 ;;   dimension is incremented at this update.
 ;; IN:
@@ -1593,8 +1598,8 @@ l_1E39:
 ;;    DE == saved pointer into home_posn_loc[]
 ;;        ... object positioning (even: relative offsets .... odd: defaults/origin)
 ;;    B == +/- 1 increment.
-;;    IXL == $05  (repeat count for 5 leftmost columns)
-;;    IXL == $0B  (repeat count, for 5 rightmost columns + 6 rows which have the same sign)
+;;    IXL == 5  (repeat count for 5 leftmost columns)
+;;    IXL == 11 (repeat count, for 5 rightmost columns + 6 rows which have the same sign)
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------

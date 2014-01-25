@@ -741,9 +741,9 @@ l_064F:
        dec  l
        ld   (hl),#0x20
        ld   h,#>b_8800
-       ld   (hl),#8
+       ld   (hl),#8                               ; .state, change disposition from $80 to "exploding"
        inc  l
-       ld   (hl),#0x0F
+       ld   (hl),#0x0F                            ; mctrl_q index used for explosion counter
        dec  l
        ld   h,#>ds_sprite_ctrl
        ld   (hl),#0x0C
@@ -760,7 +760,7 @@ l_064F:
        ret  nz
 ; else
        inc  a
-       ld   (ds_9200_glbls + 0x13),a              ; 1  ...restart stage flag (because ship-input-movement flag not active )
+       ld   (ds_9200_glbls + 0x13),a              ; 1  ... restart stage flag (ship-input-movement flag not active )
        ret
 
 ;;=============================================================================
@@ -1242,7 +1242,7 @@ l_081E_hdl_flyng_bug:
        ex   af,af'                                ; re-stash parameter
        inc  l
        ld   a,(hl)
-       ld   h,#>ds_bug_motion_que                 ; bug_motion_que[A].b13
+       ld   h,#>ds_bug_motion_que                 ; bug_motion_que[A].b13 = 0 (release this slot)
        add  a,#0x13
        ld   l,a
        ld   (hl),#0
@@ -1743,12 +1743,12 @@ case_0AA0:  ; $04
        ld   h,#>ds_home_posn_loc
        ld   b,(hl)                                ; x offset
        inc  l
-       ld   e,(hl)                                ; x coordinate
+       ld   e,(hl)                                ; x coordinate (ds_home_posn_abs)
 
        ld   l,c                                   ; row position index
        ld   c,(hl)                                ; y offset
        inc  l
-       ld   d,(hl)                                ; y coordinate
+       ld   d,(hl)                                ; y coordinate (ds_home_posn_abs)
 
        srl  e                                     ; x coordinate
        push de                                    ; y coord, x coord >> 1

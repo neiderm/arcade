@@ -868,31 +868,33 @@ c_12C3:
        ld   a,(b_9215_flip_screen)
        ld   c,a
 
-; dynamic screen coordinates populated from LUT
-       ld   hl,#ds_home_posn_loc                  ; copy 16-bytes from LUT to odd-offsets
+; init formation location tracking structure: relative (offset) initialize to 0
+; and origin coordingate bits<8:1> from data (copy of origin coordinate from
+; CPU0 data as it would be outside of address space of CPU1)
+       ld   hl,#ds_home_posn_loc                  ; init home_posn_loc[]
        ld   de,#db_home_posn_ini
        ld   b,#16                                 ; table size.
 l_12D1:
-       ld   (hl),#0                               ; home_posn_rel ... zero out the even bytes
+       ld   (hl),#0                               ; home_posn[].rel ... pair.byte0
        inc  l
        ld   a,(de)
        inc  de
-       ld   (hl),a                                ; home_posn_abs
+       ld   (hl),a                                ; ds_home_posn_abs
        inc  l
        djnz l_12D1
 
 ; X coordinates at origin (10 bytes) to even offsets, adjusted for flip-screen.
-       ld   hl,#ds_home_posn_org
+       ld   hl,#ds_home_posn_org                  ; init origin x-coords (10 columns)
        ld   de,#db_home_posn_ini
-       ld   b,#10                                 ; 10 y-coordinates
+       ld   b,#10
 l_12E2:
-       ld   a,(de)                                ; db_home_posn_ini[B]
+       ld   a,(de)                                ; home_posn_ini[B]
        inc  de
        bit  0,c                                   ; test if flip_screen
-       jr   z,l_12EB_not_flip_screen
+       jr   z,l_12EB
        add  a,#0x0D                               ; flipped
        cpl
-l_12EB_not_flip_screen:
+l_12EB:
        ld   (hl),a                                ; store lsb
        inc  l
        inc  l                                     ; no msb to store
@@ -930,13 +932,13 @@ l_12FD:
 ;;=============================================================================
 ;; Initial pixel coordinates of cylon attackers are copied to odd-offsets of home_posn_loc[].
 ;;
-;; |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
+;;   |<-------------- COLUMNS ------------------------>|<---------- ROWS ----------->|
 ;;
-;; 00   02   04   06   08   0A   0C   0E   10   12   14   16   18   1A   1C   1E
+;;     00   02   04   06   08   0A   0C   0E   10   12   14   16   18   1A   1C   1E
 ;;
 ;;-----------------------------------------------------------------------------
 db_home_posn_ini:
-  .db 0x31,0x41,0x51,0x61,0x71,0x81,0x91,0xA1,0xB1,0xC1,0x92,0x8A,0x82,0x7C,0x76,0x70
+  .db 0x31,0x41,0x51,0x61,0x71,0x81,0x91,0xA1,0xB1,0xC1, 0x92,0x8A,0x82,0x7C,0x76,0x70
 
 ;;=============================================================================
 ;; c_tdelay_3()
@@ -1052,11 +1054,11 @@ l_135A:
        ld   (hl),c                                ; SPRCTRL.1[n]:0 ... sy<8>
        dec  l
        xor  a
-       ld   (hl),a                                ; SPRCTRL.0[n] :=0 ... no flip/double attribute
+       ld   (hl),a                                ; 0 ... SPRCTRL.0[n] (no flip/double attribute)
 
-       ld   (ds_9200_glbls + 0x13),a              ; 0 ...stage restart flag
+       ld   (ds_9200_glbls + 0x13),a              ; 0 ... stage restart flag
        inc  a
-       ld   (ds_99B9_star_ctrl + 0),a             ; 1 ...when ship on screen
+       ld   (ds_99B9_star_ctrl + 0),a             ; 1 ... when ship on screen
 
        ret
 
@@ -1098,9 +1100,9 @@ draw_resv_ships:
 ;;    D: tile character
 ;;    E: nr of reserve ships
 ;; OUT:
+;;    D: tile character (increment)
+;; PRESERVES:
 ;;    HL: current offset in tile ram
-;;     D: tile character (increment)
-;; SAVES:
 ;;
 ;;-----------------------------------------------------------------------------
 draw_resv_ship_tile:

@@ -404,7 +404,7 @@ d_attrmode_sptiles_ships:
 ;;=============================================================================
 ;; jp_045E_While_Game_Running()
 ;;  Description:
-;;   background super loop following game-start
+;;   background super-loop following game-start
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -574,7 +574,7 @@ j_04DC_new_stage_setup:
 
 ; end of stage ... "normal"
        call c_new_stg_game_only
-       jp   j_0632_round_start_or_restart         ; jp  _045E_While_Game_Running
+       jp   gctl_fghtr_rdy         ; jp  _045E_While_Game_Running
 ; }}
 
 ;;=============================================================================
@@ -794,7 +794,7 @@ l_05D1:
 ;  if ( active_plyr.bug_ct == 0 ) {{
        ld   a,(ds_plyr_actv +_b_nbugs)
        and  a
-       jr   z,j_060F_new_stage
+       jr   z,j_060F_new_stage                    ; ends up at _plyr_setup
 ;  }}
 ;  else {{
        ld   c,#3                                  ; C=string_out_pe_index
@@ -839,7 +839,7 @@ j_0604_plyr_respawn_1P:
 ;;=============================================================================
 ; New stage setup for player changeover, or at start of new game loop.
 ; If on a new game, PLAYER 1 text has been erased.
-
+; Only evident purpose for the label is to allow "jr   z,new_stage"
 j_060F_new_stage:
        call c_new_stg_game_only                 ; shows "STAGE X" and does setup
 
@@ -854,7 +854,6 @@ j_0612_plyr_setup:
        ld   c,a                                   ; index into string table
        ld   hl,#m_tile_ram + 0x0260 + 0x0E        ; not position encoded, this one is 1C left and 2R up
        call c_string_out                          ; puts PLAYER X ("1" or "2") .
-;       jr   j_061E_plyr_respawn
 
 ;;=============================================================================
 
@@ -878,7 +877,7 @@ l_062C:
 ;;=============================================================================
 ; new round starting or round re-starting after active player switch.
 
-j_0632_round_start_or_restart:
+gctl_fghtr_rdy:
 
        ld   a,#1
        ld   (ds_cpu0_task_actv + 0x15),a          ; 1 ... f_1F04 (fire button input)

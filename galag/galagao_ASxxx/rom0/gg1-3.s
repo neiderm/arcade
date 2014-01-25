@@ -817,6 +817,7 @@ l_2416:
        ld   a,#4
        add  a,e
        ld   e,a                                   ; index += 4
+
        djnz l_23EF
 
        ld  a,ixl                                  ; b_bugs_actv_cnt
@@ -853,7 +854,7 @@ case_243C:
        ld   h,#>ds_sprite_code
        ld   l,e
        inc  e
-       ld   a,(de)
+       ld   a,(de)                                ; obj_status[].mctl_q_index used for explosion counter
        dec  a
        jr   z,l_2451                              ; the counter (odd-byte) counts down to 0 (from $F) during explosion
        ld   (de),a
@@ -1051,7 +1052,7 @@ l_2529:
        dec  l
        ld   (hl),c
        ld   h,#>b_8800
-       ld   (hl),#5                               ; change state 05 showing score bitmap
+       ld   (hl),#5                               ; state 05 (showing score bitmap)
        inc  l
        ld   (hl),#0x13                            ; down counter for score bitmap
        jp   l_2416
@@ -1082,12 +1083,13 @@ case_2535:
 case_254D:
        ld   h,#>ds_sprite_posn
        ld   l,e                                   ; object offset
-       set  7,l                                   ; note that this is reading directly from the SFR
+       set  7,l                                   ; +=$80 ... set pointer to read directly from the SFR
        ld   a,(hl)
        cp   #0xF4
+; if (posn.x > $F4) ... skip check Y
        jr   nc,l_2571
-       inc  l                                     ; sprite_posn.y<0:7>
-       ld   c,(hl)
+       inc  l
+       ld   c,(hl)                                ; sprite_posn.y<0:7>
        ld   h,#>ds_sprite_ctrl
        ld   a,(hl)                                ; sprite_posn.y<8>
        dec  l
@@ -1099,7 +1101,7 @@ case_254D:
        cp   #0xA5
        jr   nc,l_2571
 
-; it's in range so let's move on ... if it's not a bomb then go increment the count
+; in range ... if not a bomb then go increment count
        ld   a,(de)                                ; b_8800[e].obj_status
        cp   #6
        jp   nz,l_2414_inc_active                  ; if not a bomb
