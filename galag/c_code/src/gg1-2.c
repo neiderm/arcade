@@ -21,23 +21,14 @@
 /*
  ** non-static external definitions this file or others
  */
-
-// Combined array of word structures for pixel coordinates of row and column
-// positions at home locations ... 10 column coordinates, 6 row coordinates,
-// 16-bits per coordinate. Array size and index adjusted to keep consistent
-// with z80.
-r16_t ds_home_posn_org[0x20];
-
-// combined structure for home position locations
-home_posn_t ds_home_posn_loc[0x20];
-
+fmtn_hpos_t fmtn_hpos; // formation standby positioning
+const uint8 fmtn_hpos_orig[];
 
 /*
  ** static external definitions in this file
  */
 // variables
 static const uint8 task_enable_tbl_def[32];
-static const uint8 db_home_posn_ini[];
 
 // function prototypes
 static void c_build_token_1(uint8 *, uint16 *, uint8);
@@ -560,74 +551,86 @@ void sprite_tiles_display(uint8 const *p_sptiles_displ)
 }
 
 /*=============================================================================
-;; c_12C3()
+;; gctl_fmtn_hpos_init()
 ;;  Description:
-;;   plyr_changeover or new_stg_setup, also for start of demo "stage"....after
-;;   the rank icons are shown and the text is shown i.e. "game over" or "stage x"
+;;   Initial values of row and column for formation home positions at player
+;;   start.
+;;   Note that z80 must make a const copy of init data in shared RAM (odd bytes
+;;   of ds_hpos_loc_t) since the data would not be accessible in CPU1 program
+;;   space. The C-code can access the data directly (case 0x04: // _0AA0) so
+;;   the RAM copy is not needed.
+;;
 ;; IN:
-;;   A == offset ... 0 on new-screen, $3F on player changeover
+;;   offset ... 0 on new-screen, $3F on player changeover
+;;   IXL: TODO
 ;; OUT:
 ;;  ...
 ;;----------------------------------------------------------------------------*/
 void c_12C3(uint8 IXL)
 {
-    uint8 A, B;
+    uint8 B;
 
-    // only 16 bytes are needed in each array, but by using even-bytes and allocating
-    // 32 bytes, the indexing can be retained while still having separate elements for rel and abs
-    for (B = 0; B < 32; B += 2)
+    // note: size/indices of fmtn_hpos arrays are doubled keep consistent with
+    // byte-indices in z80
+
+    for (B = 0; B < 16; B++)
     {
-        ds_home_posn_loc[B].rel = 0; // zero out the even bytes
-        ds_home_posn_loc[B].abs = db_home_posn_ini[ B / 2 ];
+        fmtn_hpos.offs[B * 2] = 0; // even-byte/msb
+
+        // don't bother loading const data to lsb ... see "case 0x04: // _0AA0"
     }
 
-    // X coordinates at origin (10 bytes) to even offsets, adjusted for flip-screen.
+    // X coordinates at origin (10 columns) 8-bits integer, adjusted for
+    // flip-screen
     B = 0;
     while (B < 10)
     {
-        A = db_home_posn_ini[B];
+        uint8 A = fmtn_hpos_orig[B];
         if (glbls9200.flip_screen & 0x01) // bit 0,C
         {
             A += 0x0D;
             A = ~A; // cpl
         }
-        // adjust to keep index consistent with z80
-        ds_home_posn_org[B * 2].word = A; //store lsb (no msb to store)
+
+        fmtn_hpos.spcoords[B * 2].word = A;
         B++;
     }
 
-    // Y coordinates at origin (6 bytes) to even offsets.
+    // Y coordinates at origin (6 columns), the byte-data provides bits <8:1>
     //B = 10; ... ASSERT(B==10)
     while (B < 16)
     {
-        A = db_home_posn_ini[B];
+        uint8 A = fmtn_hpos_orig[B];
         // TODO: add  a,ixl
         if (!(glbls9200.flip_screen & 0x01)) // bit 0,C
         {
+            // for some reason, data is stored for flipped-screen, so un-flip
             A += 0x4F;
             A = ~A; // cpl
         }
-        // adjust to keep index consistent with z80
-        ds_home_posn_org[B * 2].word = A << 1; // shift bits <8:1> into "normal" position
+
+        fmtn_hpos.spcoords[B * 2].word = A << 1; // make 9-bit integer
         B++;
     }
 
     glbls9200.bug_nest_direction_lr = glbls9200.flip_screen;
-
-    return;
 }
 
 
 /*=============================================================================
-;; Initial pixel coordinates of cylon attackers are copied to odd-offsets of ds_home_posn_loc.
+;; initial pixel coordinates for standby-positions of formation
+;; 8-bits integer for column data (x).
+;; 8-bits row data provides bits <8:1> of sprite-sY, which for some reason is
+;; stored in "flipped-screen" format.
 ;;
 ;; |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
 ;;
 ;; 00   02   04   06   08   0A   0C   0E   10   12   14   16   18   1A   1C   1E
 ;;
 ;;----------------------------------------------------------------------------*/
-static const uint8 db_home_posn_ini[] =
+const uint8 fmtn_hpos_orig[] =
 {
+    /*<-------------- COLUMNS -------------------------------->|<---------- ROWS --------------->*/
     0x31, 0x41, 0x51, 0x61, 0x71, 0x81, 0x91, 0xA1, 0xB1, 0xC1, 0x92, 0x8A, 0x82, 0x7C, 0x76, 0x70
 };
 

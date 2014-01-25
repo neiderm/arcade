@@ -5,6 +5,22 @@
 #define _GALAG_H_
 
 /*
+ * "hardware" registers managed by memory and IO handlers in the MAME engine
+ */
+extern unsigned char *spriteram;
+extern unsigned char *spriteram_2;
+extern unsigned char *spriteram_3;
+
+extern unsigned char *videoram;
+extern unsigned char *colorram;
+
+#define  m_tile_ram  videoram
+#define  m_color_ram colorram
+
+extern unsigned char *galaga_starcontrol;
+#define  sfr_A000_starctl galaga_starcontrol
+
+/*
  * basic types
  */
 typedef char sint8;
@@ -12,6 +28,29 @@ typedef unsigned char uint8;
 typedef unsigned short uint16;
 typedef signed short sint16;
 typedef unsigned int uint32;
+
+/*
+ * generic type for byte-pairs where word access is not required
+ */
+typedef struct
+{
+#ifdef LSB_FIRST
+    uint8 b0;
+    uint8 b1;
+#else
+    uint8 b1;
+    uint8 b0;
+#endif
+} bpair_t;
+
+/*
+ * byte or word access to 16-bit registers
+ */
+typedef union
+{
+    uint16 word;
+    bpair_t pair;
+} r16_t;
 
 /*
  * mchn cfg dipswitches
@@ -24,7 +63,6 @@ typedef struct
     uint8 rank;
 
 } mchn_cfg_t;
-
 
 /*
  * various globals ($9200[]} which probably don't make sense in a structure
@@ -78,29 +116,6 @@ typedef struct
 } t_struct_plyr_state;
 
 /*
- * generic type for byte-pairs where word access is not required
- */
-typedef struct
-{
-#ifdef LSB_FIRST
-    uint8 b0;
-    uint8 b1;
-#else
-    uint8 b1;
-    uint8 b0;
-#endif
-} bpair_t;
-
-/*
- * byte or word access to 16-bit registers
- */
-typedef union
-{
-    uint16 word;
-    bpair_t pair;
-} r16_t;
-
-/*
  * sprite registers organized as a struct of arrays to align data with z80
  */
 typedef struct
@@ -126,41 +141,48 @@ typedef struct
 } sprt_regs_t;
 
 /*
- * "hardware" registers managed by memory and IO handlers in the MAME engine
+ * Combined array of 2-byte structures for pix coordinates of sprites at home
+ * positions ... 10 column coordinates followed by 6 row coordinates, organized
+ * as structures of (double-sized) arrays to keep indexing consistent with z80.
  */
-extern unsigned char *spriteram;
-extern unsigned char *spriteram_2;
-extern unsigned char *spriteram_3;
+typedef struct
+{
+  // pixel coordinates (9-bit integer) which are copied directly to sprite regs
+  // for objects in stand-by positions.
+  r16_t spcoords[16 * 2];
+  uint8 offs[16 * 2]; // current pixel offset of each row and column
 
-extern unsigned char *videoram;
-extern unsigned char *colorram;
-
-#define  m_tile_ram  videoram
-#define  m_color_ram colorram
-
-extern sprt_regs_t mrw_sprite;
-
-extern unsigned char *galaga_starcontrol;
-#define  sfr_A000_starctl galaga_starcontrol
-
-
-// indices for some sprite objects
-#define SPR_IDX_SHIP (0x62)
-#define SPR_IDX_RCKT (0x64)
-#define SPR_IDX_RCKT0 (SPR_IDX_RCKT)
-#define SPR_IDX_RCKT1 (SPR_IDX_RCKT + sizeof(bpair_t))
-
+} fmtn_hpos_t;
 
 /*
- * sprite object state and index to associated slot in mctl pool ... 2 bytes
- * per element paired together in order to align data for reference to z80.
- */
+ Sprite object state and index to associated slot in mctl pool ... 2 bytes
+ per element paired together in order to align data for reference to z80.
+
+ The index of each array element corresponds to the assigned location in sprite
+ registers, however only the first $30 elements are tracked in sprt_hit_notif[].
+
+ memory structure of the formation in standby positions:
+
+             00 04 06 02         ; captured fighters (00, 02, 04 fighter icons on push-start-btn screen)
+             30 34 36 32
+       40 48 50 58 5A 52 4A 42
+       44 4C 54 5C 5E 56 4E 46
+    08 10 18 20 28 2A 22 1A 12 0A
+    0C 14 1C 24 2C 2E 26 1E 16 0E
+*/
 typedef struct
 {
     uint8 state;     // [ 0 + n ] : object state/disposition
     uint8 mctl_idx;  // [ 1 + n ] : index of slot in motion control (see f_2916)
                      //              ... object index copied to mctrl_que.b10
 } sprt_mctl_obj_t;
+
+// indices for some sprite objects
+#define SPR_IDX_SHIP  (0x62)
+#define SPR_IDX_RCKT  (0x64)
+#define SPR_IDX_RCKT0 (SPR_IDX_RCKT)
+#define SPR_IDX_RCKT1 (SPR_IDX_RCKT + sizeof(bpair_t))
+
 
 /*
  * struct type for motion control pool
@@ -321,25 +343,15 @@ extern uint8 b_9AA0[];
 extern uint8 b_9A70[];
 
 /* gg1-2.c */
-
-// 32 bytes (16 pairs) are allocated to home position locations to maintain
-// alignment with z80
-typedef struct
-{
-    uint8 rel;
-    uint8 abs;
-} home_posn_t;
-
-extern home_posn_t ds_home_posn_loc[];
-
-extern r16_t ds_home_posn_org[];
-
+extern const uint8 fmtn_hpos_orig[];
+extern fmtn_hpos_t fmtn_hpos;
 
 // object status structure... 2 bytes per element.
 extern sprt_mctl_obj_t sprt_mctl_objs[];
 
 
 /* gg1-2_1700.c */
+extern sprt_regs_t mrw_sprite;
 extern uint8 b_92A4_rockt_attribute[];
 extern uint8 b_92C0_0[]; // idfk ...  (size <= 10)
 extern uint8 b_92C0_A[]; // machine cfg params?

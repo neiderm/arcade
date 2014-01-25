@@ -318,8 +318,8 @@ void objs_dispatcher(uint8 frame_ct)
                 L = E;
                 C = db_obj_home_posn_RC[L + 0]; // row position index
                 L = db_obj_home_posn_RC[L + 1]; // column position index
-                A = ds_home_posn_loc[L].rel; // X coordinate offset
-                C = ds_home_posn_loc[C].rel; // Y coordinate offset
+                A = fmtn_hpos.offs[L]; // X coordinate offset
+                C = fmtn_hpos.offs[C]; // Y coordinate offset
 
                 mctl_mpool[ sprt_mctl_objs[ E ].mctl_idx ].b11 = A;
                 mctl_mpool[ sprt_mctl_objs[ E ].mctl_idx ].b12 = C;
@@ -376,9 +376,9 @@ void objs_dispatcher(uint8 frame_ct)
                 C = db_obj_home_posn_RC[ L + 0 ]; // row position index
                 L = db_obj_home_posn_RC[ L + 1 ]; // column position index
 
-                mrw_sprite.posn[ E ].b0 = ds_home_posn_org[ L ].pair.b0;
-                mrw_sprite.posn[ E ].b1 = ds_home_posn_org[ C ].pair.b0;
-                mrw_sprite.ctrl[ E ].b1 = ds_home_posn_org[ C ].pair.b1;
+                mrw_sprite.posn[ E ].b0 = fmtn_hpos.spcoords[ L ].pair.b0;
+                mrw_sprite.posn[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b0;
+                mrw_sprite.ctrl[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b1;
 
                 // jp   l_2413 ...  reset index to .b0 and continue
                 objs_dspch_ccnt += 1; // 2414
@@ -403,9 +403,9 @@ void objs_dispatcher(uint8 frame_ct)
                     C = db_obj_home_posn_RC[ L + 0 ]; // row position index
                     L = db_obj_home_posn_RC[ L + 1 ]; // column position index
 
-                    mrw_sprite.posn[ E ].b0 = ds_home_posn_org[ L ].pair.b0;
-                    mrw_sprite.posn[ E ].b1 = ds_home_posn_org[ C ].pair.b0;
-                    mrw_sprite.ctrl[ E ].b1 = ds_home_posn_org[ C ].pair.b1;
+                    mrw_sprite.posn[ E ].b0 = fmtn_hpos.spcoords[ L ].pair.b0;
+                    mrw_sprite.posn[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b0;
+                    mrw_sprite.ctrl[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b1;
 
                     // jp   l_2413 ...  reset index to .b0 and continue
                     // dec  e  ; reset index/pointer to b0
@@ -1198,19 +1198,18 @@ void f_2A90(void)
 
     while (B-- > 0)
     {
-        ds_home_posn_loc[ L ].rel += C;
-        ds_home_posn_org[ L ].pair.b0 += C;
+        fmtn_hpos.offs[ L ] += C;
+        fmtn_hpos.spcoords[ L ].pair.b0 += C; // column (x) coordinate
         L += 2;
     }
 
-    if (0 == plyr_state_actv.nest_lr_flag ||
-            0 != ds_home_posn_loc[ 0 ].rel)
+    if (0 == plyr_state_actv.nest_lr_flag || 0 != fmtn_hpos.offs[0])
     {
-        if (32 == ds_home_posn_loc[ 0 ].rel)
+        if (32 == fmtn_hpos.offs[0])
         {
             glbls9200.bug_nest_direction_lr = 1;
         }
-        if (-32 == (sint8) ds_home_posn_loc[ 0 ].rel) // TODO: signed data type?
+        if (-32 == (sint8)fmtn_hpos.offs[0]) // TODO: signed data type?
         {
             glbls9200.bug_nest_direction_lr = 0;
         }

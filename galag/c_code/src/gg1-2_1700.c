@@ -845,7 +845,7 @@ void f_1DE6(void)
 ;;   The selected bitmap table determines whether any given coordinate
 ;;   dimension is incremented at this update.
 ;; IN:
-;;    B ==  +/- 1 increment.
+;;    B ==  +/- 1 increment
 ;;    offs: offset into bitmap table, i.e. either 0 or 5
 ;;    cnt:
 ;;        5 if negative increment i.e. left 5 columns
@@ -871,11 +871,11 @@ void fmtn_expcon_comp(uint8 B, uint8 offs, uint8 cnt)
         // jr   nc,l_1E5C_update_ptrs
         if (Cy)
         {
-            ds_home_posn_loc[(offs + IXL) * 2 ].rel += B;
+            fmtn_hpos.offs[(offs + IXL) * 2 ] += B;
 
             // 10 column coordinates, 6 row coordinates, 16-bits per coordinate
-            ds_home_posn_org[ (offs + IXL) * 2 ].word += B;
-            ds_home_posn_org[ (offs + IXL) * 2 ].pair.b1 = 0; //for now, MSB not needed for non-inverted screen
+            fmtn_hpos.spcoords[ (offs + IXL) * 2 ].word += B;
+            fmtn_hpos.spcoords[ (offs + IXL) * 2 ].pair.b1 = 0; //for now, MSB not needed for non-inverted screen
         }
     }
 }

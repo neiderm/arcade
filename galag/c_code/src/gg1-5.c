@@ -24,28 +24,14 @@
 uint16 dbg_step_cnt;
 #endif
 
-/*
- sprite-object states and index to motion control pool.
- The index of the galag in the array corresponds also to the associated
- location in sprite registers, however only the first $30 elements are
- tracked in the rocket-hit notification array.
 
-   memory structure of the formation in standby positions:
-
-                         00 04 06 02         ; captured fighters (00, 02, 04 fighter icons on push-start-btn screen)
-                         30 34 36 32
-                   40 48 50 58 5A 52 4A 42
-                   44 4C 54 5C 5E 56 4E 46
-                08 10 18 20 28 2A 22 1A 12 0A
-                0C 14 1C 24 2C 2E 26 1E 16 0E
-*/
-// uses only even-indexed elements to keep indexing consistent with z80 code
+// sprite-object states and index to motion control pool, uses only
+// even-indexed elements to keep indexing consistent with z80 code
 sprt_mctl_obj_t sprt_mctl_objs[0x40 * 2]; // array of byte-pairs
 
 // rocket-hit notification to f_1DB3 from c_076A, requires 1-byte per object,
 // so only even-bytes are used to keep indexing consistent with z80
 uint8 sprt_hit_notif[0x30 * 2];
-
 
 uint8 ds3_92A0_frame_cts[3];
 uint8 cpu1_task_en[8];
@@ -178,7 +164,7 @@ static const uint8 flv_d_00d4[] =
 // db_flv_00f1: this one or db_flv_0411 for boss launcher
 
 
-// Copy of home position LUT from task_man.
+// origin coordinates in pixels, indexed as per sprt_mctl_objs and sprite registers
 const uint8 db_obj_home_posn_RC[] =
 {
     0x14, 0x06, 0x14, 0x0C, 0x14, 0x08, 0x14, 0x0A, 0x1C, 0x00, 0x1C, 0x12, 0x1E, 0x00, 0x1E, 0x12,
@@ -408,7 +394,7 @@ uint8 flv_get_data_uber(uint16 phl)
 }
 
 // return the next two bytes as a 16-bit address/offset with which to reload the data pointer
-uint16  flv_0B46_set_ptr(uint16 u16hl)
+uint16 flv_0B46_set_ptr(uint16 u16hl)
 {
     r16_t de;
 
@@ -1251,18 +1237,18 @@ void f_08D3(void)
                             sprt_mctl_objs[ L ].state = 9; // disposition 3 -> 9 (homing)
 
                             // should make this one .rowpos and .colpos
-                            C = db_obj_home_posn_RC[ L ]; // row index
+                            C = db_obj_home_posn_RC[ L + 0 ]; // row index
                             L = db_obj_home_posn_RC[ L + 1 ]; // column index
 
-                            B = ds_home_posn_loc[ L ].rel; // x offset
-                            E = ds_home_posn_loc[ L ].abs; // x coordinate
+                            B = fmtn_hpos.offs[L]; // x offset
+                            E = fmtn_hpos_orig[L / 2]; // x-coord (z80 must read from RAM copy)
 
                             L = C;
-                            C = ds_home_posn_loc[ L ].rel; // y offset
-                            D = ds_home_posn_loc[ L ].abs; // y coordinate
+                            C = fmtn_hpos.offs[L]; // y offset
+                            D = fmtn_hpos_orig[L / 2]; // y coord (z80 must read from RAM copy)
 
-                            pushDE.pair.b0 = E >> 1; // srl ... x coordinate (bits 1:7)
-                            pushDE.pair.b1 = D; // y coordinate (already bits 1:7)
+                            pushDE.pair.b0 = E >> 1; // srl ... precision x coordinate (bits 15:8)
+                            pushDE.pair.b1 = D; // precision y coordinate (already bits 15:8)
 
                             mctl_mpool[mctl_que_idx].b11 = B; // step x coord, x offset
                             mctl_mpool[mctl_que_idx].b12 = C; // step y coord, y offset
@@ -1348,7 +1334,7 @@ void f_08D3(void)
                         case 0x06: // _0B5F:
                             E = mctl_mpool[mctl_que_idx].b10;
                             E = db_obj_home_posn_RC[ E + 1 ]; // column index
-                            A = ds_home_posn_org[ E ].pair.b0; // even-bytes: relative offset from absolute coordinate
+                            A = fmtn_hpos.spcoords[ E ].pair.b0; // even-bytes: relative offset from absolute coordinate
 
                             if (0 != glbls9200.flip_screen)
                             {
@@ -1735,6 +1721,7 @@ static void mctl_rotn_incr(uint8 mpidx)
     return;
 }
 
+
 /*=============================================================================
 ;; mctl_coord_incr()
 ;;  Description:
@@ -1790,12 +1777,15 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
         pHL = pBx[pBidx];
     }
 
+
     // l_0CBF
     D = pushDE.pair.b1 + 1; // inc d
     A = B; // ... restore A: 0x0A(ix) or 0x0B(ix)
 
     if (0x04 & D) // bit  2,d ... jr   z,l_0CC7
+    {
         A = -A; // neg
+    }
 
     // l_0CC7
     // A is bits<7:14> of addend, .b00/.b02 is fixed point 9.7
@@ -1808,7 +1798,6 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
     *(pHL + 0) = tmpHL.pair.b0;
     *(pHL + 1) = tmpHL.pair.b1;
 
-
     pBidx ^= 0x02; // toggle x/y pointer, .b00 or .b02
     pHL = pBx[pBidx];
 
@@ -1816,8 +1805,8 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
     popHL.word = pushDE.word; // pop  hl ..... 0x04(ix) from push DE above
     Cy = (popHL.pair.b0 & 0x01);
     popHL.pair.b0 >>= 1; // srl  l ... revert to unshifted
-    if (Cy)
-        popHL.pair.b0 ^= 0x7F; // ld   l,a
+
+    if (Cy)  popHL.pair.b0 ^= 0x7F; // ld   l,a
 
     // l_0CE3
     A = B; // ... restore A: 0x0A(ix) or 0x0B(ix)
