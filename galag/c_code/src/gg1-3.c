@@ -316,8 +316,8 @@ void objs_dispatcher(uint8 frame_ct)
                 // _2422: dive attack or homing from formation pattern
             case 0x09:
                 L = E;
-                C = db_obj_home_posn_RC[L + 0]; // row position index
-                L = db_obj_home_posn_RC[L + 1]; // column position index
+                C = sprt_fmtn_hpos_ord_lut[L + 0]; // row position index
+                L = sprt_fmtn_hpos_ord_lut[L + 1]; // column position index
                 A = fmtn_hpos.offs[L]; // X coordinate offset
                 C = fmtn_hpos.offs[C]; // Y coordinate offset
 
@@ -373,12 +373,12 @@ void objs_dispatcher(uint8 frame_ct)
                 }
 
                 // l_249B:
-                C = db_obj_home_posn_RC[ L + 0 ]; // row position index
-                L = db_obj_home_posn_RC[ L + 1 ]; // column position index
+                C = sprt_fmtn_hpos_ord_lut[ L + 0 ]; // row position index
+                L = sprt_fmtn_hpos_ord_lut[ L + 1 ]; // column position index
 
-                mrw_sprite.posn[ E ].b0 = fmtn_hpos.spcoords[ L ].pair.b0;
-                mrw_sprite.posn[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b0;
-                mrw_sprite.ctrl[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b1;
+                mrw_sprite.posn[ E ].b0 = fmtn_hpos.spcoords[ L ].pair.b0; // x<7:0>
+                mrw_sprite.posn[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b0; // y<7:0>
+                mrw_sprite.ctrl[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b1; // y<8>
 
                 // jp   l_2413 ...  reset index to .b0 and continue
                 objs_dspch_ccnt += 1; // 2414
@@ -400,12 +400,12 @@ void objs_dispatcher(uint8 frame_ct)
                 if (0 != glbls9200.flying_bug_attck_condtn)
                 {
                     // l_249B:
-                    C = db_obj_home_posn_RC[ L + 0 ]; // row position index
-                    L = db_obj_home_posn_RC[ L + 1 ]; // column position index
+                    C = sprt_fmtn_hpos_ord_lut[ L + 0 ]; // row position index
+                    L = sprt_fmtn_hpos_ord_lut[ L + 1 ]; // column position index
 
-                    mrw_sprite.posn[ E ].b0 = fmtn_hpos.spcoords[ L ].pair.b0;
-                    mrw_sprite.posn[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b0;
-                    mrw_sprite.ctrl[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b1;
+                    mrw_sprite.posn[ E ].b0 = fmtn_hpos.spcoords[ L ].pair.b0; // x<7:0>
+                    mrw_sprite.posn[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b0; // y<7:0>
+                    mrw_sprite.ctrl[ E ].b1 = fmtn_hpos.spcoords[ C ].pair.b1; // y<8>
 
                     // jp   l_2413 ...  reset index to .b0 and continue
                     // dec  e  ; reset index/pointer to b0

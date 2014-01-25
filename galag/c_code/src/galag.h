@@ -335,7 +335,7 @@ extern mchn_cfg_t mchn_cfg;
 extern uint8 ds3_92A0_frame_cts[];
 extern uint8 cpu1_task_en[];
 extern uint8 b_bugs_flying_nbr;
-extern const uint8 db_obj_home_posn_RC[];
+extern const uint8 sprt_fmtn_hpos_ord_lut[];
 extern uint8 sprt_hit_notif[];
 
 /* gg1-7.c */

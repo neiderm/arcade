@@ -164,8 +164,13 @@ static const uint8 flv_d_00d4[] =
 // db_flv_00f1: this one or db_flv_0411 for boss launcher
 
 
-// origin coordinates in pixels, indexed as per sprt_mctl_objs and sprite registers
-const uint8 db_obj_home_posn_RC[] =
+// Look up table, indices into fmtn_hpos_ arrays for home-position
+// ordinates of sprt_mctl_objs[] i.e. indexed as per sprt_mctl_objs and
+// sprite registers. Table entries are pre-multiplied by two to provide byte
+// offsets into fmtn_hpos_ arrays (two-bytes for each pixel ordinate). Saves a
+//  considerable amount of RAM since there are only 16 unique ordinates that
+// have to be stored.
+const uint8 sprt_fmtn_hpos_ord_lut[] =
 {
     0x14, 0x06, 0x14, 0x0C, 0x14, 0x08, 0x14, 0x0A, 0x1C, 0x00, 0x1C, 0x12, 0x1E, 0x00, 0x1E, 0x12,
     0x1C, 0x02, 0x1C, 0x10, 0x1E, 0x02, 0x1E, 0x10, 0x1C, 0x04, 0x1C, 0x0E, 0x1E, 0x04, 0x1E, 0x0E,
@@ -1237,8 +1242,8 @@ void f_08D3(void)
                             sprt_mctl_objs[ L ].state = 9; // disposition 3 -> 9 (homing)
 
                             // should make this one .rowpos and .colpos
-                            C = db_obj_home_posn_RC[ L + 0 ]; // row index
-                            L = db_obj_home_posn_RC[ L + 1 ]; // column index
+                            C = sprt_fmtn_hpos_ord_lut[ L + 0 ]; // row index
+                            L = sprt_fmtn_hpos_ord_lut[ L + 1 ]; // column index
 
                             B = fmtn_hpos.offs[L]; // x offset
                             E = fmtn_hpos_orig[L / 2]; // x-coord (z80 must read from RAM copy)
@@ -1333,7 +1338,7 @@ void f_08D3(void)
                             // yellow alien flew under bottom of screen and now turns for home
                         case 0x06: // _0B5F:
                             E = mctl_mpool[mctl_que_idx].b10;
-                            E = db_obj_home_posn_RC[ E + 1 ]; // column index
+                            E = sprt_fmtn_hpos_ord_lut[ E + 1 ]; // column index
                             A = fmtn_hpos.spcoords[ E ].pair.b0; // even-bytes: relative offset from absolute coordinate
 
                             if (0 != glbls9200.flip_screen)
