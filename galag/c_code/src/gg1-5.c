@@ -1164,9 +1164,9 @@ void f_08D3(void)
 
 
         // 9 is diving, 7 is spawning, 3 (and 6) idfk
-        if ((sprt_mctl_objs[ L ].state == 3 ||
-                sprt_mctl_objs[ L ].state == 7 ||
-                sprt_mctl_objs[ L ].state == 9))
+        if ((sprt_mctl_objs[ L ].state == PTRN_CTL ||
+                sprt_mctl_objs[ L ].state == SPAWNING ||
+                sprt_mctl_objs[ L ].state == HOMING))
         {
             // l_0902_9_or_3_or_7:
             mctl_mpool[mctl_que_idx].b0D--;
@@ -1239,7 +1239,7 @@ void f_08D3(void)
                             // use byte-pointer as index of pairs:
 
                             // already 9 if executing attack sortie
-                            sprt_mctl_objs[ L ].state = 9; // disposition 3 -> 9 (homing)
+                            sprt_mctl_objs[ L ].state = HOMING;
 
                             // should make this one .rowpos and .colpos
                             C = sprt_fmtn_hpos_ord_lut[ L + 0 ]; // row index
@@ -1588,7 +1588,7 @@ static void mctl_path_update(uint8 mpidx)
                 mctl_mpool[mpidx].b02 = 0;
 
                 L = mctl_mpool[mpidx].b10;
-                sprt_mctl_objs[ L ].state = 2; // disposition = 02: rotating back into position in the collective
+                sprt_mctl_objs[ L ].state = HOME_RTN;
 
                 A = mrw_sprite.cclr[L].b1; // sprite color code
                 A += 1; // inc  a

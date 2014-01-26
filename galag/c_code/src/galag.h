@@ -177,6 +177,22 @@ typedef struct
                      //              ... object index copied to mctrl_que.b10
 } sprt_mctl_obj_t;
 
+// state of sprt_mctl_obj_t
+typedef enum
+{
+    STAND_BY = 1,   // in formation position (preceeded by "rotating")
+    HOME_RTN,       // arrived into home position and rotating
+    PTRN_CTL,       // pattern control ... follows spawning
+    EXPLODING,      // dying
+    SCORE_BITM,     // showing score bitmap
+    BOMB,           // special state if sprite used as bomb
+    SPAWNING,       // precedes pattern control
+    ROGUE_FGHTR,    // shot rogue fighter
+    HOMING,         // follows pattern control
+    INACTIVE = 0x80 // (also for fighter)
+}
+sprt_mctl_obj_state_t;
+
 // indices for some sprite objects
 #define SPR_IDX_SHIP  (0x62)
 #define SPR_IDX_RCKT  (0x64)

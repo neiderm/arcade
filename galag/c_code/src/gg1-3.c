@@ -207,7 +207,7 @@ static void objs_dispatcher_rckt_hit(uint8 E)
     {
         mrw_sprite.posn[ L ].b0 = 0;
         mrw_sprite.ctrl[ L ].b0 = 0;
-        sprt_mctl_objs[ L ].state = 0x80;
+        sprt_mctl_objs[ L ].state = INACTIVE;
 
         //jp   case_2416
         return; // break
@@ -253,7 +253,7 @@ static void objs_dispatcher_rckt_hit(uint8 E)
 
     // l_2529:
     mrw_sprite.ctrl[ L ].b0 = C;
-    sprt_mctl_objs[ L ].state = 5; // disposition ... showing score bitmap
+    sprt_mctl_objs[ L ].state = SCORE_BITM;
     sprt_mctl_objs[ L ].mctl_idx = 0x13; // counter for score bitmap
 
     //jp   case_2416
@@ -349,7 +349,7 @@ void objs_dispatcher(uint8 frame_ct)
                     else
                     {
                         // jr   z,l_2483
-                        sprt_mctl_objs[ E ].state = 1; // disposition ... stationary
+                        sprt_mctl_objs[ E ].state = STAND_BY;
                         // jr   l_249B
                     }
                 }
@@ -431,7 +431,7 @@ void objs_dispatcher(uint8 frame_ct)
                 // nz,case_2416
                 if (0 == sprt_mctl_objs[ E ].mctl_idx)
                 {
-                    sprt_mctl_objs[ E ].state = 0x80;
+                    sprt_mctl_objs[ E ].state = INACTIVE;
                     mrw_sprite.posn[ E ].b0 = 0;
                     mrw_sprite.ctrl[ E ].b0 = 0;
                 }
@@ -453,7 +453,7 @@ void objs_dispatcher(uint8 frame_ct)
                     if ( tmpA.pair.b0 >= 0x0B && tmpA.pair.b0 < 0xA5 )
                     {
                         // in range but don't include bombs in the count
-                        if ( 6 != sprt_mctl_objs[ E ].state ) // if not bomb (i.e. if disposition 3, pattern maneuvering)
+                        if ( BOMB != sprt_mctl_objs[ E ].state ) // i.e. "pattern maneuvering"
                         {
                             // l_2414_inc_active:
                             objs_dspch_ccnt += 1;
@@ -465,7 +465,7 @@ void objs_dispatcher(uint8 frame_ct)
                 }
 
                 // l_2571:
-                if ( 3 == sprt_mctl_objs[ E ].state ) // disposition pattern control, out of bounds, release mctl slot
+                if (PTRN_CTL == sprt_mctl_objs[ E ].state) // out of bounds, release mctl slot
                 {
                     // l_2582_kill_bug_q_slot:
                     uint8 A;
@@ -473,13 +473,13 @@ void objs_dispatcher(uint8 frame_ct)
                     mctl_mpool[A].b13 = 0;
                 }
                 // l_2578_mk_obj_inactive:
-                sprt_mctl_objs[ E ].state = 0x80;
+                sprt_mctl_objs[ E ].state = INACTIVE;
                 mrw_sprite.posn[ E ].b0 = 0;
                 break;
 
                 // _2590: once for each spawning orc (new stage)
             case 0x07:
-                sprt_mctl_objs[ E ].state = 3; // disposition ... transition to pattern control from 7 (spawning)
+                sprt_mctl_objs[ E ].state = PTRN_CTL; // from "spawning"
                 objs_dspch_ccnt += 1;
                 E += 4;
                 break;
@@ -1011,7 +1011,7 @@ void f_2916(void)
         // use even object offsets of L to maintain consistency of indexing with z80
         L = A; // ld   h,#>b_8800 ... ld   l,a
 
-        sprt_mctl_objs[ L ].state = 7; // 8800[L].l ... disposition = "spawning" ... i.e. case_2590
+        sprt_mctl_objs[ L ].state = SPAWNING;
 
         // store the slot index for this object
         //       inc  l

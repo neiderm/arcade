@@ -728,7 +728,7 @@ void f_1DB3(void)
         {
             sprt_hit_notif[ L ] &= ~0x80; // res  7,(hl)
 
-            sprt_mctl_objs[ L ].state = 4; // disposition = dying
+            sprt_mctl_objs[ L ].state = EXPLODING; // procdess hit-notification
 
             // explosion count
             sprt_mctl_objs[ L ].mctl_idx = 0x40; // ld   (hl),#0x40

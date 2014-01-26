@@ -532,7 +532,7 @@ void sprite_tiles_display(uint8 const *p_sptiles_displ)
     // l_12A6:
     mrw_sprite.cclr[ L ].b1 = A;
 
-    sprt_mctl_objs[ L ].state = 1; // disposition = ACTIVE
+    sprt_mctl_objs[ L ].state = STAND_BY; // sprite tiles display
 
     mrw_sprite.posn[ L ].b0 = p_sptiles_displ[2]; // posn.X
 
@@ -618,11 +618,13 @@ void c_12C3(uint8 IXL)
 
 
 /*=============================================================================
-;; initial pixel coordinates for standby-positions of formation
+;; Initial for formation home-positions ordinates in pixels.
 ;; 8-bits integer for column data (x).
-;; 8-bits row data provides bits <8:1> of sprite-sY, which for some reason is
-;; stored in "flipped-screen" format.
-;;
+;; 8-bits row data provides bits <8:1> of sprite-sY, stored for some reason in
+;; "flipped-screen" format.
+;; Diagram below shows how row/column ordinates are stored in
+;; sprt_fmtn_hpos_ord_lut byte indices, doubled since there are two-bytes for
+;; each ordinate in fmtn_hpos.spcoords[]
 ;; |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
 ;;
 ;; 00   02   04   06   08   0A   0C   0E   10   12   14   16   18   1A   1C   1E
