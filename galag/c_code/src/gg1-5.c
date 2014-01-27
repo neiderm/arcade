@@ -55,7 +55,7 @@ static void rckt_man(uint8);
 static void mctl_path_update(uint8);
 static void mctl_rotn_incr(uint8);
 static void mctl_coord_incr(uint8, uint8, uint8, uint8);
-static void mctl_posn_set(uint8, uint8);
+static void mctl_posn_set(uint8);
 static uint16 mctl_rotn_hp(uint16, uint8, uint8);
 static uint16 mctl_mul8(uint8, uint8);
 static uint16 mctl_div_16_8(uint8, uint16);
@@ -95,7 +95,7 @@ x       $F2  case_097B   inc HL x3 ... special 3 ship squadron (yellow alien spl
 /*
   flight-data, in groups of 3-byte sets:
    [0]: b0A (lo-nibble), b0B (hi-nibble) ... x and y displacements
-   [1]: b0C ... rotation
+   [1]: b0C ... rotation increment
    [2]: b0D ... duration of flight-step (frame-counts)
  */
 
@@ -1301,8 +1301,8 @@ void f_08D3(void)
                             mctl_mpool[mctl_que_idx].b04 = rHL.pair.b0;
                             mctl_mpool[mctl_que_idx].b05 = rHL.pair.b1;
 
-                            mctl_mpool[mctl_que_idx].b06 = pushDE.pair.b1;
-                            mctl_mpool[mctl_que_idx].b07 = pushDE.pair.b0;
+                            mctl_mpool[mctl_que_idx].b06 = pushDE.pair.b1; // origin home position y (bits 15:8)
+                            mctl_mpool[mctl_que_idx].b07 = pushDE.pair.b0; // origin home position x (bits 15:8)
 
                             // if set, flite path handler checks for home
                             mctl_mpool[mctl_que_idx].b13 |= 0x40; // set  6,0x13(ix)
@@ -1415,18 +1415,17 @@ void f_08D3(void)
                             r16_t tmpA;
 
                             // setup horizontal limits for targetting
-                            A = mrw_sprite.posn[SPR_IDX_SHIP].b0;
-                            if ( A <= 0x1E )
+                            tmpA.word = mrw_sprite.posn[SPR_IDX_SHIP].b0;
+                            if ( tmpA.word <= 0x1E )
                             {
-                                A = 0x1E;
+                                tmpA.word = 0x1E;
                             }
-                            if ( A >= 0xD1 )
+                            if ( tmpA.word >= 0xD1 )
                             {
-                                A = 0xD1;
+                                tmpA.word = 0xD1;
                             }
 
                             // l_0A16:
-                            tmpA.word = A;
                             if ( 0 != glbls9200.flip_screen ) // bit  0,c
                             {
                                 tmpA.word += 0x0E;
@@ -1436,8 +1435,7 @@ void f_08D3(void)
                             // l_0A1E:  9.7 fixed-point math
                             tmpA.word >>= 1; // srl  a ... sX<8:1> in tmpA
 
-                            A = mctl_mpool[mctl_que_idx].b03;
-                            tmpA.word -= A;
+                            tmpA.word -= mctl_mpool[mctl_que_idx].b03;
                             tmpA.word >>= 1; // rra  a ... Cy into <7>
                             tmpA.pair.b1 = 0; // clear it so the overflow condition can be tested
 
@@ -1520,8 +1518,8 @@ void f_08D3(void)
 
                 if (0x80 & mctl_mpool[mctl_que_idx].b13) // bit  7,0x13(ix)
                 {
-                    uint8 A = flv_get_data(pHLdata);
-                    mctl_mpool[mctl_que_idx].b0C = -A; // -(*pHLdata); // neg
+                    // negate rotation increment
+                    mctl_mpool[mctl_que_idx].b0C = -flv_get_data(pHLdata); // neg
                 }
                 else
                 {
@@ -1557,8 +1555,8 @@ l_0DFB_next_superloop:
 ;;---------------------------------------------------------------------------*/
 static void mctl_path_update(uint8 mpidx)
 {
-    // flag is set by case_0AA0 when cylon disposition -> 9
-    if (0x40 & mctl_mpool[mpidx].b13) // bit  6
+    // bit-flag is set by case_0AA0
+    if (0x40 & mctl_mpool[mpidx].b13) // bit  6 ... check if homing
     {
         // transitions to the next segment of the flight pattern
         if (mctl_mpool[mpidx].b01 ==
@@ -1588,10 +1586,9 @@ static void mctl_path_update(uint8 mpidx)
                 mctl_mpool[mpidx].b02 = 0;
 
                 L = mctl_mpool[mpidx].b10;
-                sprt_mctl_objs[ L ].state = HOME_RTN;
+                sprt_mctl_objs[L].state = HOME_RTN;
 
-                A = mrw_sprite.cclr[L].b1; // sprite color code
-                A += 1; // inc  a
+                A = mrw_sprite.cclr[L].b1 + 1; // inc  a ... sprite color code
                 A &= 0x07; // and  #0x07
 
                 if (A >= 5) // ... remaining bonus-bee returns to collective
@@ -1607,7 +1604,7 @@ static void mctl_path_update(uint8 mpidx)
                     mctl_mpool[mpidx].b07;
 
                 //almost done ... update the sprite x/y positions
-                mctl_posn_set(L, mpidx); // jp   z,l_0D03
+                mctl_posn_set(mpidx); // jp   z,l_0D03
 
                 return;
             }
@@ -1637,7 +1634,6 @@ static void mctl_rotn_incr(uint8 mpidx)
     uint8 A, B, C, L;
     uint8 E_save_b04, D_save_b05;
 
-
     if (0x20 & mctl_mpool[mpidx].b13) // bit  5
     {
         if ((mctl_mpool[mpidx].b01 ==
@@ -1658,7 +1654,7 @@ static void mctl_rotn_incr(uint8 mpidx)
     // l_0C46
     E_save_b04 = mctl_mpool[mpidx].b04;
     D_save_b05 = mctl_mpool[mpidx].b05; // need this later ...
-    temp16.word = E_save_b04;
+    temp16.pair.b0 = E_save_b04;
     temp16.pair.b1 = D_save_b05;
     temp16.word += (sint8) mctl_mpool[mpidx].b0C;
     mctl_mpool[mpidx].b04 = temp16.pair.b0;
@@ -1670,7 +1666,9 @@ static void mctl_rotn_incr(uint8 mpidx)
     A = E_save_b04; // ld   a,e
 
     if (0x01 & D_save_b05) // bit  0,c
+    {
         A = ~A; // cpl
+    }
 
     // l_0C6D
     temp16.word = A + 0x15;
@@ -1715,15 +1713,14 @@ static void mctl_rotn_incr(uint8 mpidx)
         A = mctl_mpool[mpidx].b0B;
     }
 
-
     // l_0CA7
     if (A)
+    {
         mctl_coord_incr(A, D_save_b05, E_save_b04, mpidx);
+    }
 
     //almost done ... update the sprite x/y positions
-    mctl_posn_set(L, mpidx); // jp   z,l_0D03
-
-    return;
+    mctl_posn_set(mpidx); // jp   z,l_0D03
 }
 
 
@@ -1819,7 +1816,7 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
     popHL.word = mctl_mul8(A, popHL.pair.b0); // HL = L * A
 
     A = B ^ 0x02; // msb of adjusted angle
-    A--; // dec  a
+    A -= 1; // dec  a
 
     if (A & 0x04) // bit  2,a ... jr   z,l_0CFA
     {
@@ -1843,18 +1840,19 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
 ;;    Updates sprite coordinates for specified object.
 ;;    Also determines if bomb drop is activated.
 ;; IN:
-;;
+;;   mpidx: index of mctl pool slot
 ;; OUT:
 ;;
 ;; PRESERVES:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void mctl_posn_set(uint8 _L_, uint8 mpidx)
+static void mctl_posn_set(uint8 mpidx)
 {
     r16_t r16;
     uint16 tmp16;
-    uint8 Cy, A, E;
-    uint8 L = _L_; // object index
+    uint8 Cy, A, E, L;
+
+    L = mctl_mpool[mpidx].b10; // object index
 
     // fixed point 9.7 in .b02.b03 - left shift integer portion into A ... carry
     // in to <0> from .b02<7>
@@ -1886,7 +1884,7 @@ static void mctl_posn_set(uint8 _L_, uint8 mpidx)
     {
         tmp16 = 0x4F + A;
         A = ~(0x00FF & tmp16); // add  a,#0x4F ... cpl
-        E--; // dec  e ... invert bit-0
+        E -= 1; // dec  e ... invert bit-0
     }
 
     // l_0D38:
@@ -1909,7 +1907,9 @@ static void mctl_posn_set(uint8 _L_, uint8 mpidx)
         A ^= mctl_mpool[mpidx].b12;
 
         if (0 != (A & 0x80)) // rlca (only need the Cy bit)
+        {
             E++;
+        }
 
         A = r16.pair.b0;
     }
@@ -1920,7 +1920,7 @@ static void mctl_posn_set(uint8 _L_, uint8 mpidx)
 
     // Once the timer in $0E is reached, then check conditions to enable bomb drop.
     // If bomb is disabled for any reason, the timer is restarted.
-    mctl_mpool[mpidx].b0E--;
+    mctl_mpool[mpidx].b0E -= 1;
 
 
     // jp   nz,l_0DFB_next_superloop
@@ -1946,7 +1946,6 @@ static void mctl_posn_set(uint8 _L_, uint8 mpidx)
 
     // l_0DF5_next_superloop_and_reload_0E
     mctl_mpool[mpidx].b0E = b_92E2_stg_parm[0]; // bomb drop counter
-
 
     // jp   l_08E4_superloop
     return;
