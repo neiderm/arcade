@@ -1262,7 +1262,6 @@ void f_08D3(void)
                                 C = -C;
                             }
 
-
                             // l_0ACD:
                             // adjust x/y for offset of home-positions - think
                             // of screen-pixels being in quadrant IV so x and y
@@ -1628,7 +1627,6 @@ static void mctl_rotn_incr(uint8 mpidx)
 {
     r16_t temp16;
     uint8 A, B, C, L;
-    uint8 E_save_b04, D_save_b05;
 
     // red alien flies doesn't need special handling because it flies thru
     // screen and snaps to his home position column
@@ -1649,21 +1647,14 @@ static void mctl_rotn_incr(uint8 mpidx)
         }
     }
 
-    // l_0C46
-    E_save_b04 = mctl_mpool[mpidx].b04;
-    D_save_b05 = mctl_mpool[mpidx].b05; // need this later ...
-    temp16.pair.b0 = E_save_b04;
-    temp16.pair.b1 = D_save_b05;
-    temp16.word += (sint8) mctl_mpool[mpidx].b0C;
-    mctl_mpool[mpidx].b04 = temp16.pair.b0;
-    mctl_mpool[mpidx].b05 = temp16.pair.b1;
+    // l_0C46 ... hold off on updating rotation value in pool slot
 
     /*
      * determine_sprite_code
      */
-    A = E_save_b04; // ld   a,e
+    A = mctl_mpool[mpidx].b04; // ld   a,e
 
-    if (0x01 & D_save_b05) // bit  0,c
+    if (0x01 & mctl_mpool[mpidx].b05) // bit  0,c
     {
         A = ~A; // cpl
     }
@@ -1697,10 +1688,11 @@ static void mctl_rotn_incr(uint8 mpidx)
 
 
     // determine_sprite_ctrl( C )
-    C = D_save_b05 >> 1; // rrc c
-    A = (D_save_b05 ^ C) + 1; // xor c, inc a ... now have bit1
+    C = mctl_mpool[mpidx].b05 >> 1; // rrc c
+    A = (mctl_mpool[mpidx].b05 ^ C) + 1; // xor c, inc a ... now have bit1
     A = (A << 1) | (C & 0x01); // rrc c ... rla
     mrw_sprite.ctrl[L].b0 = A & 0x03;
+
 
     if (0x01 & ds3_92A0_frame_cts[0])
     {
@@ -1712,12 +1704,20 @@ static void mctl_rotn_incr(uint8 mpidx)
     }
 
     // l_0CA7
-    if (A)
+    if (A) // jp   z,l_0D03_
     {
-        mctl_coord_incr(A, D_save_b05, E_save_b04, mpidx);
+        mctl_coord_incr(A, mctl_mpool[mpidx].b05, mctl_mpool[mpidx].b04, mpidx);
     }
 
-    //almost done ... update the sprite x/y positions
+    // now the rotation value for this slot can be updated (l_0C46)
+    temp16.pair.b0 = mctl_mpool[mpidx].b04;
+    temp16.pair.b1 = mctl_mpool[mpidx].b05;
+    temp16.word += (sint8) mctl_mpool[mpidx].b0C;
+    mctl_mpool[mpidx].b04 = temp16.pair.b0;
+    mctl_mpool[mpidx].b05 = temp16.pair.b1;
+
+
+    // l_0D03_ almost done ... update the sprite x/y positions
     mctl_posn_set(mpidx); // jp   z,l_0D03
 }
 
@@ -1725,6 +1725,7 @@ static void mctl_rotn_incr(uint8 mpidx)
 /*=============================================================================
 ;; mctl_coord_incr()
 ;;  Description:
+      NOT a reused subroutine.
 ;;    Calculate next increment of X and Y coords from rotion angle.
 ;; IN:
 ;;  _A_,  _D_,  _E_,
@@ -1822,9 +1823,7 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
         popHL.word = -popHL.word; // sbc  hl,bc (negate the word)
     }
 
-    // l_0CFA
-    // ex   de,hl                                 ; reload the pointer from DE
-    // *HL += *DE
+    // l_0CFA ... *HL += *DE
     tmp16.pair.b0 = *(pHL + 0);
     tmp16.pair.b1 = *(pHL + 1);
     tmp16.word += popHL.word;
