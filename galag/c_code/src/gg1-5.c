@@ -56,7 +56,7 @@ static void mctl_path_update(uint8);
 static void mctl_rotn_incr(uint8);
 static void mctl_coord_incr(uint8, uint8, uint8, uint8);
 static void mctl_posn_set(uint8);
-static uint16 mctl_rotn_hp(uint16, uint8, uint8);
+static uint16 mctl_rotn_hp(uint16, uint8);
 static uint16 mctl_mul8(uint8, uint8);
 static uint16 mctl_div_16_8(uint8, uint16);
 static uint8 hit_detect(uint8, uint8, uint8);
@@ -1169,7 +1169,7 @@ void f_08D3(void)
                 sprt_mctl_objs[ L ].state == HOMING))
         {
             // l_0902_9_or_3_or_7:
-            mctl_mpool[mctl_que_idx].b0D--;
+            mctl_mpool[mctl_que_idx].b0D -= 1;
 
             // check for expiration of this token
             // if token not expired, go directly to flite path handler
@@ -1195,7 +1195,7 @@ void f_08D3(void)
                     if (A_token >= 0xEF) // ... else ...  jp   c,l_0BDC_flite_pth_load
                     {
                         r16_t pushDE, rBC, rHL, rDE;
-                        uint8 A, B, C, D, E, H;
+                        uint8 A, B, C, D, E;
 
                         // the flag forces repetition of the do-block so that the
                         // next token will be retrieved before continuing to flight-path handler.
@@ -1236,12 +1236,9 @@ void f_08D3(void)
 
                             L = mctl_mpool[mctl_que_idx].b10;
 
-                            // use byte-pointer as index of pairs:
-
                             // already 9 if executing attack sortie
                             sprt_mctl_objs[ L ].state = HOMING;
 
-                            // should make this one .rowpos and .colpos
                             C = sprt_fmtn_hpos_ord_lut[ L + 0 ]; // row index
                             L = sprt_fmtn_hpos_ord_lut[ L + 1 ]; // column index
 
@@ -1252,8 +1249,8 @@ void f_08D3(void)
                             C = fmtn_hpos.offs[L]; // y offset
                             D = fmtn_hpos_orig[L / 2]; // y coord (z80 must read from RAM copy)
 
-                            pushDE.pair.b0 = E >> 1; // srl ... precision x coordinate (bits 15:8)
-                            pushDE.pair.b1 = D; // precision y coordinate (already bits 15:8)
+                            pushDE.pair.b0 = E >> 1; // srl ... origin position x (set bits 15:8)
+                            pushDE.pair.b1 = D; // origin position y (already bits 15:8)
 
                             mctl_mpool[mctl_que_idx].b11 = B; // step x coord, x offset
                             mctl_mpool[mctl_que_idx].b12 = C; // step y coord, y offset
@@ -1265,7 +1262,11 @@ void f_08D3(void)
                                 C = -C;
                             }
 
+
                             // l_0ACD:
+                            // adjust x/y for offset of home-positions - think
+                            // of screen-pixels being in quadrant IV so x and y
+                            // y adjustments are opposite in sign (subtract x)
 
                             // add y-offset to .b00/.b01 (sra/rr -> 9.7 fixed-point scaling)
                             rHL.pair.b0 = mctl_mpool[mctl_que_idx].b00; // ld   l
@@ -1277,25 +1278,19 @@ void f_08D3(void)
                             mctl_mpool[mctl_que_idx].b00 = rHL.pair.b0; // ld   0x00(ix),l
                             mctl_mpool[mctl_que_idx].b01 = rHL.pair.b1; // ld   0x01(ix),h
 
-                            E = rHL.pair.b1; // ld   e,h ... y, .b01 (bits<1:8> of integer portion)
-
                             // add x-offset to .b02/.b03 (sra/rr -> 9.7 fixed-point scaling
                             rHL.pair.b0 = mctl_mpool[mctl_que_idx].b02; // ld   l
                             rHL.pair.b1 = mctl_mpool[mctl_que_idx].b03; // ld   h
-                            rBC.pair.b0 = 0; // ld   c,#0
                             rBC.pair.b1 = B;
+                            rBC.pair.b0 = 0; // ld   c,#0
                             rBC.word >>= 1; // sra  b ... rr  c
                             rBC.pair.b1 |= (B & 0x80); // gets the sign extension of sra b
                             rHL.word -= rBC.word; // sbc  hl,bc
                             mctl_mpool[mctl_que_idx].b02 = rHL.pair.b0; // l
                             mctl_mpool[mctl_que_idx].b03 = rHL.pair.b1; // h
 
-                            // grab integer portion (bits<1:8>)
-                            L = rHL.pair.b1; // ld   l,h ... x, .b01
-                            H = E; // ld   h,e ... y, .b01
-
-                            // pop  de ... abs row pix coord & abs col pix coord >> 1
-                            rHL.word = mctl_rotn_hp(pushDE.word, H, L); // preserves DE & BC
+                            // update rotation angle for updated adjusted position
+                            rHL.word = mctl_rotn_hp(pushDE.word, mctl_que_idx); // preserves DE & BC
                             rHL.word >>= 1; // srl  h ... rr   l
 
                             mctl_mpool[mctl_que_idx].b04 = rHL.pair.b0;
@@ -1494,7 +1489,7 @@ void f_08D3(void)
                             }
                             // l_0B8C:
                             mctl_mpool[mctl_que_idx].p08.word = pHLdata;
-                            mctl_mpool[mctl_que_idx].b0D++; // inc  0x0D(ix)
+                            mctl_mpool[mctl_que_idx].b0D += 1; // inc  0x0D(ix)
 
                             // jp   l_0DFB_next_superloop
                             goto l_0DFB_next_superloop;
@@ -1532,14 +1527,15 @@ void f_08D3(void)
 l_0BFF:
                 mctl_mpool[mctl_que_idx].p08.word = pHLdata;
             }
+
             mctl_path_update(mctl_que_idx);
 
         } // else ... shot a non-flying capture boss
 
 l_0DFB_next_superloop:
         mctl_que_idx++;
+
     } // end while mctl_que_idx (l_08E4_superloop)
-    return;
 }
 
 /*=============================================================================
@@ -1634,7 +1630,9 @@ static void mctl_rotn_incr(uint8 mpidx)
     uint8 A, B, C, L;
     uint8 E_save_b04, D_save_b05;
 
-    if (0x20 & mctl_mpool[mpidx].b13) // bit  5
+    // red alien flies doesn't need special handling because it flies thru
+    // screen and snaps to his home position column
+    if (0x20 & mctl_mpool[mpidx].b13) // bit  5 ... check for yellow-alien or boss dive
     {
         if ((mctl_mpool[mpidx].b01 ==
                 mctl_mpool[mpidx].b06)
@@ -1854,10 +1852,11 @@ static void mctl_posn_set(uint8 mpidx)
 
     L = mctl_mpool[mpidx].b10; // object index
 
-    // fixed point 9.7 in .b02.b03 - left shift integer portion into A ... carry
-    // in to <0> from .b02<7>
-    A = mctl_mpool[mpidx].b03 << 1; // rla
-    A |= (0 != (0x80 & mctl_mpool[mpidx].b02)); // shift in .b02<7>
+    // recover integer portion from fixed point 9.7
+    r16.pair.b1 = mctl_mpool[mpidx].b03;
+    r16.pair.b0 = mctl_mpool[mpidx].b02;
+    r16.word <<= 1;
+    A = r16.pair.b1;
 
     if (0 != glbls9200.flip_screen) // bit  0,c
     {
@@ -1871,7 +1870,7 @@ static void mctl_posn_set(uint8 mpidx)
     }
 
     // l_0D23
-    mrw_sprite.posn[L].b0 = A;
+    mrw_sprite.posn[L].b0 = A; // sX
 
     // inc l
 
@@ -1936,7 +1935,7 @@ static void mctl_posn_set(uint8 mpidx)
             &&
             mctl_mpool[mpidx].b01 >= 0x4C // cp   #0x4C
             &&
-            0 != task_actv_tbl_0[0x15]
+            0 != task_actv_tbl_0[0x15] // fire button input
             &&
             0 == ds4_game_tmrs[1])
     {
@@ -1964,7 +1963,7 @@ static void mctl_posn_set(uint8 mpidx)
 ;; PRESERVES:
 ;;  BC, DE
 ;;---------------------------------------------------------------------------*/
-static uint16 mctl_rotn_hp(uint16 _DE_, uint8 _H_, uint8 _L_)
+static uint16 mctl_rotn_hp(uint16 _DE_, uint8 mctl_que_idx)
 {
     r16_t rDE, rHL;
     uint8 A, B, C, D, E, L, Cy, pushCy;
@@ -1973,10 +1972,10 @@ static uint16 mctl_rotn_hp(uint16 _DE_, uint8 _H_, uint8 _L_)
     E = rDE.pair.b0; // cX
     D = rDE.pair.b1; // cY
 
-    A = E - _L_; // sub  l
+    A = E - mctl_mpool[mctl_que_idx].b03; // sub  l
     B = 0;
 
-    if (_L_ > E) // jr   nc,l_0E67
+    if (mctl_mpool[mctl_que_idx].b03 > E) // jr   nc,l_0E67
     {
         B = 1; // set  0,b
         A = -A; // neg
@@ -1985,9 +1984,9 @@ static uint16 mctl_rotn_hp(uint16 _DE_, uint8 _H_, uint8 _L_)
     // l_0E67:
     C = A;
 
-    A = D - _H_; // sub  h
+    A = D - mctl_mpool[mctl_que_idx].b01; // sub  h
 
-    if (_H_ > D) // jr   nc,l_0E76
+    if (mctl_mpool[mctl_que_idx].b01 > D) // jr   nc,l_0E76
     {
         B ^= 1; // xor  #0x01
         B |= 2; // or   #0x02
