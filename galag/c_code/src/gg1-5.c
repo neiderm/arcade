@@ -54,7 +54,7 @@ static void rckt_hitd(uint8, uint8, uint8);
 static void rckt_man(uint8);
 static void mctl_path_update(uint8);
 static void mctl_rotn_incr(uint8);
-static void mctl_coord_incr(uint8, uint8, uint8, uint8);
+static void mctl_coord_incr(uint8, uint8);
 static void mctl_posn_set(uint8);
 static uint16 mctl_rotn_hp(uint16, uint8);
 static uint16 mctl_mul8(uint8, uint8);
@@ -1267,7 +1267,7 @@ void f_08D3(void)
                             // of screen-pixels being in quadrant IV so x and y
                             // y adjustments are opposite in sign (subtract x)
 
-                            // add y-offset to .b00/.b01 (sra/rr -> 9.7 fixed-point scaling)
+                            // add y-offset to .b00/.b01 (9.7 fixed-point scaling)
                             rHL.pair.b0 = mctl_mpool[mctl_que_idx].b00; // ld   l
                             rHL.pair.b1 = mctl_mpool[mctl_que_idx].b01; // ld   h
                             rDE.pair.b1 = C; // ld   d,c
@@ -1277,7 +1277,7 @@ void f_08D3(void)
                             mctl_mpool[mctl_que_idx].b00 = rHL.pair.b0; // ld   0x00(ix),l
                             mctl_mpool[mctl_que_idx].b01 = rHL.pair.b1; // ld   0x01(ix),h
 
-                            // add x-offset to .b02/.b03 (sra/rr -> 9.7 fixed-point scaling
+                            // sub x-offset from .b02/.b03 (9.7 fixed-point scaling)
                             rHL.pair.b0 = mctl_mpool[mctl_que_idx].b02; // ld   l
                             rHL.pair.b1 = mctl_mpool[mctl_que_idx].b03; // ld   h
                             rBC.pair.b1 = B;
@@ -1328,8 +1328,8 @@ void f_08D3(void)
                             }
                             break;
 
-                            // red alien flew through bottom of screen to top, heading for home
-                            // yellow alien flew under bottom of screen and now turns for home
+                        // red alien flew through bottom of screen to top, heading for home
+                        // yellow alien flew under bottom of screen and now turns for home
                         case 0x06: // _0B5F:
                             E = mctl_mpool[mctl_que_idx].b10;
                             E = sprt_fmtn_hpos_ord_lut[ E + 1 ]; // column index
@@ -1359,8 +1359,8 @@ void f_08D3(void)
                             goto l_0DFB_next_superloop;
                             break;
 
-                            // red alien flew through bottom of screen to top, heading for home
-                            // yellow alien flew under bottom of screen and now turns for home
+                        // red alien flew through bottom of screen to top, heading for home
+                        // yellow alien flew under bottom of screen and now turns for home
                         case 0x07: // _0B87:
                             mctl_mpool[mctl_que_idx].b01 = 0x9C; // ld   0x01(ix),#$9C
 
@@ -1446,7 +1446,7 @@ void f_08D3(void)
                             // is result > $7F ?
                             if (0 != tmpA.pair.b1) // jp   p,l_0A32
                             {
-                               A = 0; // xor  a ... S is set (overflow)
+                                A = 0; // xor  a ... S is set (overflow)
                             }
 
                             //l_0A32:
@@ -1656,7 +1656,7 @@ static void mctl_rotn_incr(uint8 mpidx)
 
     if (0x01 & mctl_mpool[mpidx].b05) // bit  0,c
     {
-        A = ~A; // cpl
+        A = ~A; // cpl ... invert bits 7:0 in quadrant 1 and 3
     }
 
     // l_0C6D
@@ -1680,9 +1680,7 @@ static void mctl_rotn_incr(uint8 mpidx)
     }
 
     // l_0C81
-    // ld   h,#>_mrw_sprite_code_base
     L = mctl_mpool[mpidx].b10;
-
     A = mrw_sprite.cclr[L].b0 & 0xF8; // base sprite code (multiple of 8)
     mrw_sprite.cclr[L].b0 = A | B;
 
@@ -1693,7 +1691,7 @@ static void mctl_rotn_incr(uint8 mpidx)
     A = (A << 1) | (C & 0x01); // rrc c ... rla
     mrw_sprite.ctrl[L].b0 = A & 0x03;
 
-
+    // select displacement vector
     if (0x01 & ds3_92A0_frame_cts[0])
     {
         A = mctl_mpool[mpidx].b0A;
@@ -1706,10 +1704,10 @@ static void mctl_rotn_incr(uint8 mpidx)
     // l_0CA7
     if (A) // jp   z,l_0D03_
     {
-        mctl_coord_incr(A, mctl_mpool[mpidx].b05, mctl_mpool[mpidx].b04, mpidx);
+        mctl_coord_incr(A, mpidx);
     }
 
-    // now the rotation value for this slot can be updated (l_0C46)
+    // l_0C46: now the rotation value for this slot can be updated (l_0C46)
     temp16.pair.b0 = mctl_mpool[mpidx].b04;
     temp16.pair.b1 = mctl_mpool[mpidx].b05;
     temp16.word += (sint8) mctl_mpool[mpidx].b0C;
@@ -1728,14 +1726,14 @@ static void mctl_rotn_incr(uint8 mpidx)
       NOT a reused subroutine.
 ;;    Calculate next increment of X and Y coords from rotion angle.
 ;; IN:
-;;  _A_,  _D_,  _E_,
+;;  _A_ - displacement vector
 ;;  mpidx - mctl pool index
 ;; OUT:
 ;;
 ;; PRESERVES:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
+static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
 {
     uint8 * pBx[4]; // only need 2, but use size 4 for indexing
     uint8 *pHL;
@@ -1744,12 +1742,11 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
     uint8 Cy;
     uint8 pBidx;
 
-    // setup pointers to b0 and b2
+    // setup pointers
     pBx[0] = &mctl_mpool[mpidx].b00;
     pBx[2] = &mctl_mpool[mpidx].b02;
     pBidx = 0;
-    pHL = pBx[pBidx]; // pop hl
-
+    pHL = pBx[pBidx]; // pop hl (initialize pointer index to .b0 from 'push IX'
 
     B = _A_; // (ix)0x0A or (ix)0x0B
 
@@ -1762,11 +1759,11 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
     ; checking bit-7 against bit-8, looking for orientation near 90 or 270.
     ; must be >= xx80 in quadrant 0 & 2, and < xx80 in quadrant 1 & 3
      */
-    A = _D_ & 3; // d saved from 0x05(ix)
+    A = mctl_mpool[mpidx].b05 & 3; // ld   a,d
     pushDE.pair.b1 = A;
-    pushDE.pair.b0 = _E_; // e saved from (ix)0x04
+    pushDE.pair.b0 = mctl_mpool[mpidx].b04; // e saved from (ix)0x04
     pushDE.word <<= 1; // rlc, rl ... restores to HL below .....
-    pushDE.pair.b0 |= (0 != (_E_ & 0x80)); // Cy from rlc  e
+    pushDE.pair.b0 |= (0 != (mctl_mpool[mpidx].b04 & 0x80)); // Cy from rlc  e
 
     A ^= pushDE.pair.b1; // xor  d
 
@@ -1834,7 +1831,9 @@ static void mctl_coord_incr(uint8 _A_, uint8 _D_, uint8 _E_, uint8 mpidx)
 /*=============================================================================
 ;; mctl_posn_set()
 ;;  Description:
-;;    Updates sprite coordinates for specified object.
+;;    Updates sprite coordinates for specified object which is basically
+;;    extracting the integer portion from fixed point 9.7 precision format
+;;    as stored in the mctl pool coordinate registers.
 ;;    Also determines if bomb drop is activated.
 ;; IN:
 ;;   mpidx: index of mctl pool slot
@@ -1851,6 +1850,8 @@ static void mctl_posn_set(uint8 mpidx)
 
     L = mctl_mpool[mpidx].b10; // object index
 
+    // x-coord: .b02/.b03
+
     // recover integer portion from fixed point 9.7
     r16.pair.b1 = mctl_mpool[mpidx].b03;
     r16.pair.b0 = mctl_mpool[mpidx].b02;
@@ -1865,14 +1866,15 @@ static void mctl_posn_set(uint8 mpidx)
     // l_0D1A
     if (0 != (0x40 & mctl_mpool[mpidx].b13)) // bit  6,0x13(ix)
     {
-        A += mctl_mpool[mpidx].b11; // heading home (step x coord)
+        // heading home (formation x offset)
+        A += mctl_mpool[mpidx].b11; // add  a,0x11(ix)
     }
 
     // l_0D23
     mrw_sprite.posn[L].b0 = A; // sX
 
-    // inc l
 
+    // y-coord: .b00/.b01
     // set carry-in from .b00<7>
     E = (0 != (0x80 & mctl_mpool[mpidx].b00)); // rl   e
 
@@ -1880,10 +1882,12 @@ static void mctl_posn_set(uint8 mpidx)
 
     if (0 == glbls9200.flip_screen) // bit  0,c
     {
-        tmp16 = 0x4F + A;
-        A = ~(0x00FF & tmp16); // add  a,#0x4F ... cpl
-        E -= 1; // dec  e ... invert bit-0
+        // reverse the offset/cpl for non-flipped screen (see c_12C3)
+        tmp16 = 0x4F + A; // add  a,#0x4F
+        A = ~(0x00FF & tmp16); // cpl
+        E -= 1; // dec  e ... compliment bit-0 of 9-bit integer portion
     }
+
 
     // l_0D38:
     Cy = (E & 0x01); // get carry for rla ...
@@ -1891,12 +1895,11 @@ static void mctl_posn_set(uint8 mpidx)
 
     r16.word = (A << 1) | Cy; // rla ... carry rotated into msb - bit-8 rotated into Cy
     A = r16.pair.b0; // rla
-
     E = r16.pair.b1 & 0x01; // rl   e ... carry-in from rla, bit-8 of sprite_y into e<0>
 
     if (0 != (0x40 & mctl_mpool[mpidx].b13)) // bit  6,0x13(ix)
     {
-        // heading home (step y coord)
+        // heading home (formation y offset)
         r16.word = A + mctl_mpool[mpidx].b12; // add  a,0x12(ix)
 
         A = r16.pair.b0 >> 1;
