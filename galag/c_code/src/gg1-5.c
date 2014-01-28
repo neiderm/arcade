@@ -1845,31 +1845,26 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
 static void mctl_posn_set(uint8 mpidx)
 {
     r16_t r16;
-    uint16 tmp16;
-    uint8 Cy, A, E, L;
+    uint8 Cy, A, L;
 
     L = mctl_mpool[mpidx].b10; // object index
 
     // x-coord: .b02/.b03
-
-    // recover integer portion from fixed point 9.7
     r16.pair.b1 = mctl_mpool[mpidx].b03;
     r16.pair.b0 = mctl_mpool[mpidx].b02;
     r16.word <<= 1;
-    A = r16.pair.b1;
+    A = r16.pair.b1; // recover integer portion from fixed point 9.7
 
     if (0 != glbls9200.flip_screen) // bit  0,c
     {
         A = ~(0x0D + A); // add  a,#0x0D ... cpl
     }
-
     // l_0D1A
     if (0 != (0x40 & mctl_mpool[mpidx].b13)) // bit  6,0x13(ix)
     {
         // heading home (formation x offset)
         A += mctl_mpool[mpidx].b11; // add  a,0x11(ix)
     }
-
     // l_0D23
     mrw_sprite.posn[L].b0 = A; // sX
 
@@ -1886,31 +1881,15 @@ static void mctl_posn_set(uint8 mpidx)
     }
     // l_0D38 ... rr, rla, rl
 
-
-    A = r16.pair.b0; // rla
-    E = r16.pair.b1 & 0x01; // rl   e ... carry-in from rla, bit-8 of sprite_y into e<0>
-
     if (0 != (0x40 & mctl_mpool[mpidx].b13)) // bit  6,0x13(ix)
     {
         // heading home (formation y offset)
-        r16.word = A + mctl_mpool[mpidx].b12; // add  a,0x12(ix)
-
-        A = r16.pair.b0 >> 1;
-        A |= (r16.pair.b1 & 0x01) << 7; // rra ... rotate in the Cy from add
-
-        A ^= mctl_mpool[mpidx].b12;
-
-        if (0 != (A & 0x80)) // rlca (only need the Cy bit)
-        {
-            E++;
-        }
-
-        A = r16.pair.b0;
+        r16.word += mctl_mpool[mpidx].b12; // add  a,0x12(ix)
     }
-
     // l_0D50
-    mrw_sprite.posn[L].b1 = A; // sprite[n].posn.sy<0:7>
-    mrw_sprite.ctrl[L].b1 = (mrw_sprite.ctrl[L].b1 & ~0x01) | (E & 0x01); // sprite[n].posn.sy<8>
+    mrw_sprite.posn[L].b1 = r16.pair.b0; // <0:7>
+    mrw_sprite.ctrl[L].b1 = (mrw_sprite.ctrl[L].b1 & ~0x01) | (r16.pair.b1 & 0x01); // sprite[n].posn.sy<8>
+
 
     // Once the timer in $0E is reached, then check conditions to enable bomb drop.
     // If bomb is disabled for any reason, the timer is restarted.
