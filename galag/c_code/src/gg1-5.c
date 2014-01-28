@@ -1875,25 +1875,18 @@ static void mctl_posn_set(uint8 mpidx)
 
 
     // y-coord: .b00/.b01
-    // set carry-in from .b00<7>
-    E = (0 != (0x80 & mctl_mpool[mpidx].b00)); // rl   e
-
-    A = mctl_mpool[mpidx].b01; // ld   a,b
+    r16.pair.b0 = mctl_mpool[mpidx].b00;
+    r16.pair.b1 = mctl_mpool[mpidx].b01; // ld   b,0x01(ix)
+    r16.word >>= 7; // extract 9-bit integer from precision 9.7 format
 
     if (0 == glbls9200.flip_screen) // bit  0,c
     {
-        // reverse the offset/cpl for non-flipped screen (see c_12C3)
-        tmp16 = 0x4F + A; // add  a,#0x4F
-        A = ~(0x00FF & tmp16); // cpl
-        E -= 1; // dec  e ... compliment bit-0 of 9-bit integer portion
+        r16.word += (0x4F << 1);
+        r16.word = ~r16.word & 0x01FF; // cpl ... mask off 9-bit integer
     }
+    // l_0D38 ... rr, rla, rl
 
 
-    // l_0D38:
-    Cy = (E & 0x01); // get carry for rla ...
-    E = (E >> 1) | (Cy << 7); // rr   e ... gets the Cy flag
-
-    r16.word = (A << 1) | Cy; // rla ... carry rotated into msb - bit-8 rotated into Cy
     A = r16.pair.b0; // rla
     E = r16.pair.b1 & 0x01; // rl   e ... carry-in from rla, bit-8 of sprite_y into e<0>
 
