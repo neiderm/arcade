@@ -1616,6 +1616,22 @@ static void mctl_path_update(uint8 mpidx)
 ;; mctl_rotn_incr()
 ;;  Description:
 ;;    Advance the rotation increment and select tile.
+;;
+;;      determine sprite ctrl
+;;      Step-size in .b0C and 10-bit angle in .b04+.b05
+;;                90          - angle in degrees
+;;              1  | 0        - quadrant derived from 10-bit angle
+;;           180 --+-- 0      - each tile rotation is 15 degrees (6 tiles per quadrant)
+;;              2  | 3
+;;                270
+;;      b0: flipx - flip about the X axis, i.e. "up/down"
+;;      b1: flipy - flip about the Y axis, i.e. "left/right"
+;;       Quad  b05        U/D (b<0>)  LR = (b<0> ^ b<1>) + 1
+;;       0     00  ->     0           0
+;;       1     01  ->     0           1
+;;       2     10  ->     1           1
+;;       3     11  ->     1           0
+;;
 ;; IN:
 ;;  mpidx - mctl pool index
 ;; OUT:
@@ -1626,7 +1642,7 @@ static void mctl_path_update(uint8 mpidx)
 static void mctl_rotn_incr(uint8 mpidx)
 {
     r16_t temp16;
-    uint8 A, B, C, L;
+    uint8 A, B, L;
 
     // red alien flies doesn't need special handling because it flies thru
     // screen and snaps to his home position column
@@ -1660,18 +1676,18 @@ static void mctl_rotn_incr(uint8 mpidx)
     }
 
     // l_0C6D
-    temp16.word = A + 0x15;
+    temp16.word = A + 42/2; // 0x15
     A = temp16.pair.b0;
     if (temp16.word & 0x0100)
     {
-        // select vertical tile if within 15 degrees of 90 or 270
+        // select vertical tile if within 21 degrees (half "step") of 90 or 270
         B = 6;
         // jr   l_0C81
     }
     else
     {
-        // l_0C75
-        // divide by 42 ...42 counts per step of rotation (with 24 steps in the circle, 1 step is 15 degrees)
+        // l_0C75 ... you just don't see this sort of thing anymore ...
+        // divide by 42 ...42 counts per step of rotation (with 24 steps in the circle, 1 step is 42 degrees)
         // Here's the math: A * ( 1/2 + 1/4 ) * ( 1/32 )
         B = A >> 1; // srl  a ... etc
         A = (A >> 1) + (B >> 1); // srl  b
@@ -1680,16 +1696,16 @@ static void mctl_rotn_incr(uint8 mpidx)
     }
 
     // l_0C81
-    L = mctl_mpool[mpidx].b10;
-    A = mrw_sprite.cclr[L].b0 & 0xF8; // base sprite code (multiple of 8)
-    mrw_sprite.cclr[L].b0 = A | B;
+    L = mctl_mpool[mpidx].b10; // ld   l,0x10(ix)
+    mrw_sprite.cclr[L].b0 = B | (mrw_sprite.cclr[L].b0 & 0xF8); // base code is multiple of 8
 
+    /*
+     * determine sprite ctrl
+     */
+    A = (mctl_mpool[mpidx].b05 >> 1) & 0x01; // rrc c
+    mrw_sprite.ctrl[L].b0 = ((mctl_mpool[mpidx].b05 ^ A) + 1) << 1; // (b0 ^ b1) + 1
+    mrw_sprite.ctrl[L].b0 = (mrw_sprite.ctrl[L].b0 | A) & 0x03; // and  #0x03 (double-x/double-y bits arrarently not used)
 
-    // determine_sprite_ctrl( C )
-    C = mctl_mpool[mpidx].b05 >> 1; // rrc c
-    A = (mctl_mpool[mpidx].b05 ^ C) + 1; // xor c, inc a ... now have bit1
-    A = (A << 1) | (C & 0x01); // rrc c ... rla
-    mrw_sprite.ctrl[L].b0 = A & 0x03;
 
     // select displacement vector
     if (0x01 & ds3_92A0_frame_cts[0])
