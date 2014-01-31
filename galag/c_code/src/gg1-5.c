@@ -1751,18 +1751,11 @@ static void mctl_rotn_incr(uint8 mpidx)
 ;;---------------------------------------------------------------------------*/
 static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
 {
-    uint8 * pBx[4]; // only need 2, but use size 4 for indexing
+    uint8 * pv[2];
     uint8 *pHL;
     r16_t pushDE, popHL, tmp16, tmpAC, tmpHL;
     uint8 A, B, D;
     uint8 Cy;
-    uint8 pBidx;
-
-    // setup pointers
-    pBx[0] = &mctl_mpool[mpidx].b00;
-    pBx[2] = &mctl_mpool[mpidx].b02;
-    pBidx = 0;
-    pHL = pBx[pBidx]; // pop hl (initialize pointer index to .b0 from 'push IX'
 
     B = _A_; // (ix)0x0A or (ix)0x0B
 
@@ -1786,15 +1779,22 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
     // check for Cy shifted into bit7 from rrca
     if (0x00 == (A & 0x01)) // jr   c,l_0CBF
     {
-        // update the pointer for horizontal travel
-        pBidx += 2; // L == offset to b02
-        pHL = pBx[pBidx];
+        // near horizontal orientation
+        pv[0] = &mctl_mpool[mpidx].b02;
+        pv[1] = &mctl_mpool[mpidx].b00;
+    }
+    else
+    {
+        // near vertical orientation
+        pv[0] = &mctl_mpool[mpidx].b00;
+        pv[1] = &mctl_mpool[mpidx].b02;
     }
 
+    pHL = pv[0];
 
     // l_0CBF
-    D = pushDE.pair.b1 + 1; // inc d
-    A = B; // ... restore A: 0x0A(ix) or 0x0B(ix)
+    D = pushDE.pair.b1 + 1; // inc d ... adjusted angle
+    A = B; // ld   a,b ... restore A: 0x0A(ix) or 0x0B(ix)
 
     if (0x04 & D) // bit  2,d ... jr   z,l_0CC7
     {
@@ -1812,8 +1812,7 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
     *(pHL + 0) = tmpHL.pair.b0;
     *(pHL + 1) = tmpHL.pair.b1;
 
-    pBidx ^= 0x02; // toggle x/y pointer, .b00 or .b02
-    pHL = pBx[pBidx];
+    pHL = pv[1]; // xor  #0x02 ... toggle x/y pointer, .b00 or .b02
 
     // test if bit-7 of E (pushed from DE above) was set, i.e. if > 0x80
     popHL.word = pushDE.word; // pop  hl ..... 0x04(ix) from push DE above
@@ -1823,11 +1822,11 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
     if (Cy)  popHL.pair.b0 ^= 0x7F; // ld   l,a
 
     // l_0CE3
-    A = B; // ... restore A: 0x0A(ix) or 0x0B(ix)
+    A = B; // ld   a,b ... restore A: 0x0A(ix) or 0x0B(ix)
     B = popHL.pair.b1; // ld   b,h ... msb of adjusted angle
     popHL.word = mctl_mul8(A, popHL.pair.b0); // HL = L * A
 
-    A = B ^ 0x02; // msb of adjusted angle
+    A = B ^ 0x02; // xor  #0x02 ... msb of adjusted angle
     A -= 1; // dec  a
 
     if (A & 0x04) // bit  2,a ... jr   z,l_0CFA
@@ -1839,7 +1838,7 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
     // l_0CFA ... *HL += *DE
     tmp16.pair.b0 = *(pHL + 0);
     tmp16.pair.b1 = *(pHL + 1);
-    tmp16.word += popHL.word;
+    tmp16.word += popHL.word; // adc  a,(hl)
     *(pHL + 0) = tmp16.pair.b0;
     *(pHL + 1) = tmp16.pair.b1; // adc  a,(hl)
 }
