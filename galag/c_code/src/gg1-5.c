@@ -1742,20 +1742,18 @@ static void mctl_rotn_incr(uint8 mpidx)
       NOT a reused subroutine.
 ;;    Calculate next increment of X and Y coords from rotion angle.
 ;; IN:
-;;  _A_ - displacement vector
+;;  ds - displacement magnitude applied to x and y ordinates
 ;;  mpidx - mctl pool index
 ;; OUT:
 ;;
 ;; PRESERVES:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
+static void mctl_coord_incr(uint8 ds, uint8 mpidx)
 {
     uint8 * pv[2];
     r16_t pushDE, popHL, tmp16, tmpAC, tmpHL;
-    uint8 A, B;
-
-    B = _A_; // (ix)0x0A or (ix)0x0B
+    uint8 A;
 
     /*
       xor bit-7 with bit-8 ... test for orientation near 0 or 180
@@ -1807,12 +1805,13 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
     // jr   z,l_0CC7
     if (0x04 & (pushDE.pair.b1 + 1)) // bit  2,d ... jr   z,l_0CC7
     {
-        A = -B; // neg
+        A = -ds; // neg
     }
     else
     {
-        A = B;
+        A = ds;
     }
+
     // l_0CC7
     // A is bits<7:14> of addend, .b00/.b02 is fixed point 9.7
     tmpAC.pair.b0 = 0;
@@ -1824,6 +1823,7 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
     *(pv[0] + 0) = tmpHL.pair.b0;
     *(pv[0] + 1) = tmpHL.pair.b1;
 
+
     // test if bit-7 of E (pushed from DE above) was set, i.e. if > 0x80
     popHL.word = pushDE.word; // pop  hl ..... 0x04(ix) from push DE above
     popHL.pair.b0 >>= 1; // srl  l ... revert to unshifted
@@ -1834,14 +1834,9 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
     }
 
     // l_0CE3
-    A = B; // ld   a,b ... restore A: 0x0A(ix) or 0x0B(ix)
-    B = popHL.pair.b1; // ld   b,h ... msb of adjusted angle
+    popHL.word = mctl_mul8(ds, popHL.pair.b0); // HL = L * A
 
-    popHL.word = mctl_mul8(A, popHL.pair.b0); // HL = L * A
-
-
-    A = B ^ 0x02; // xor  #0x02 ... msb of adjusted angle
-    A -= 1; // dec  a
+    A = (pushDE.pair.b1 ^ 0x02) - 1; // xor  #0x02 ... msb of adjusted angle
 
     if (A & 0x04) // bit  2,a ... jr   z,l_0CFA
     {
