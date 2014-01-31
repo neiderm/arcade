@@ -1760,24 +1760,21 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
     B = _A_; // (ix)0x0A or (ix)0x0B
 
     /*
-    ;               90          - angle in degrees
-    ;             1  | 0        - quadrant derived from 10-bit angle
-    ;          180 --+-- 0      - each tile rotation is 15 degrees (6 tiles per quadrant)
-    ;             2  | 3
-    ;               270
-    ; checking bit-7 against bit-8, looking for orientation near 90 or 270.
-    ; must be >= xx80 in quadrant 0 & 2, and < xx80 in quadrant 1 & 3
-     */
-    A = mctl_mpool[mpidx].b05 & 3; // ld   a,d
-    pushDE.pair.b1 = A;
-    pushDE.pair.b0 = mctl_mpool[mpidx].b04; // e saved from (ix)0x04
-    pushDE.word <<= 1; // rlc, rl ... restores to HL below .....
-    pushDE.pair.b0 |= (0 != (mctl_mpool[mpidx].b04 & 0x80)); // Cy from rlc  e
+      xor bit-7 with bit-8 ... test for orientation near 0 or 180
+      i.e. < xx80 in quadrant 0 & 2, and >= xx80 in quadrant 1 & 3
 
-    A ^= pushDE.pair.b1; // xor  d
-
-    // check for Cy shifted into bit7 from rrca
-    if (0x00 == (A & 0x01)) // jr   c,l_0CBF
+      b9 b8  b7
+     q 0  0   0  h
+       0  0   1
+     q 0  1   0
+       0  1   1  h
+     q 1  0   0  h
+       1  0   1
+     q 1  1   0
+       1  1   1  h
+    */
+    // select displacement vector  ... jr   c,l_0CBF
+    if (0x00 == ((0 != (mctl_mpool[mpidx].b04 & 0x80)) ^ (0 != (mctl_mpool[mpidx].b05 & 0x01)))) // jr   c,l_0CBF
     {
         // near horizontal orientation
         pv[0] = &mctl_mpool[mpidx].b02;
@@ -1791,6 +1788,11 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
     }
 
     pHL = pv[0];
+
+    pushDE.pair.b1 = mctl_mpool[mpidx].b05 & 3; // and  #0x03
+    pushDE.pair.b0 = mctl_mpool[mpidx].b04; // e saved from (ix)0x04
+    pushDE.word <<= 1; // rlc, rl
+    pushDE.pair.b0 |= (0 != (mctl_mpool[mpidx].b04 & 0x80)); // Cy from rlc  e
 
     // l_0CBF
     D = pushDE.pair.b1 + 1; // inc d ... adjusted angle
