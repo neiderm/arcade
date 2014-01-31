@@ -1752,10 +1752,8 @@ static void mctl_rotn_incr(uint8 mpidx)
 static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
 {
     uint8 * pv[2];
-    uint8 *pHL;
     r16_t pushDE, popHL, tmp16, tmpAC, tmpHL;
-    uint8 A, B, D;
-    uint8 Cy;
+    uint8 A, B;
 
     B = _A_; // (ix)0x0A or (ix)0x0B
 
@@ -1787,7 +1785,6 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
         pv[1] = &mctl_mpool[mpidx].b02;
     }
 
-    pHL = pv[0];
 
     pushDE.pair.b1 = mctl_mpool[mpidx].b05 & 3; // and  #0x03
     pushDE.pair.b0 = mctl_mpool[mpidx].b04; // e saved from (ix)0x04
@@ -1795,38 +1792,53 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
     pushDE.pair.b0 |= (0 != (mctl_mpool[mpidx].b04 & 0x80)); // Cy from rlc  e
 
     // l_0CBF
-    D = pushDE.pair.b1 + 1; // inc d ... adjusted angle
-    A = B; // ld   a,b ... restore A: 0x0A(ix) or 0x0B(ix)
-
-    if (0x04 & D) // bit  2,d ... jr   z,l_0CC7
+    /*
+      if  angle >135 && <304 then displacement is negated ... add 1, test bit-2
+      b9 b8  b7  +1
+     q 0  0   0  -> 001
+       0  0   1  -> 010
+     q 0  1   0  -> 011
+       0  1   1  -> 100
+     q 1  0   0  -> 101
+       1  0   1  -> 110
+     q 1  1   0  -> 111
+       1  1   1  -> 000
+    */
+    // jr   z,l_0CC7
+    if (0x04 & (pushDE.pair.b1 + 1)) // bit  2,d ... jr   z,l_0CC7
     {
-        A = -A; // neg
+        A = -B; // neg
     }
-
+    else
+    {
+        A = B;
+    }
     // l_0CC7
     // A is bits<7:14> of addend, .b00/.b02 is fixed point 9.7
     tmpAC.pair.b0 = 0;
     tmpAC.pair.b1 = A; // ld   c,a ... from 0x0A(ix) or 0x0B(ix)
     tmpAC.word = (sint16) tmpAC.word >> 1; // sra  c ... sign extend and carry out of bit-0 of msb
-    tmpHL.pair.b0 = *(pHL + 0);
-    tmpHL.pair.b1 = *(pHL + 1);
+    tmpHL.pair.b0 = *(pv[0] + 0);
+    tmpHL.pair.b1 = *(pv[0] + 1);
     tmpHL.word += tmpAC.word; // adc  a,c
-    *(pHL + 0) = tmpHL.pair.b0;
-    *(pHL + 1) = tmpHL.pair.b1;
-
-    pHL = pv[1]; // xor  #0x02 ... toggle x/y pointer, .b00 or .b02
+    *(pv[0] + 0) = tmpHL.pair.b0;
+    *(pv[0] + 1) = tmpHL.pair.b1;
 
     // test if bit-7 of E (pushed from DE above) was set, i.e. if > 0x80
     popHL.word = pushDE.word; // pop  hl ..... 0x04(ix) from push DE above
-    Cy = (popHL.pair.b0 & 0x01);
     popHL.pair.b0 >>= 1; // srl  l ... revert to unshifted
 
-    if (Cy)  popHL.pair.b0 ^= 0x7F; // ld   l,a
+    if (0 != (0x80 & mctl_mpool[mpidx].b04)) // jr   nc,l_0CE3
+    {
+        popHL.pair.b0 ^= 0x7F; // xor  #0x7F
+    }
 
     // l_0CE3
     A = B; // ld   a,b ... restore A: 0x0A(ix) or 0x0B(ix)
     B = popHL.pair.b1; // ld   b,h ... msb of adjusted angle
+
     popHL.word = mctl_mul8(A, popHL.pair.b0); // HL = L * A
+
 
     A = B ^ 0x02; // xor  #0x02 ... msb of adjusted angle
     A -= 1; // dec  a
@@ -1838,11 +1850,11 @@ static void mctl_coord_incr(uint8 _A_, uint8 mpidx)
     }
 
     // l_0CFA ... *HL += *DE
-    tmp16.pair.b0 = *(pHL + 0);
-    tmp16.pair.b1 = *(pHL + 1);
+    tmp16.pair.b0 = *(pv[1] + 0);
+    tmp16.pair.b1 = *(pv[1] + 1);
     tmp16.word += popHL.word; // adc  a,(hl)
-    *(pHL + 0) = tmp16.pair.b0;
-    *(pHL + 1) = tmp16.pair.b1; // adc  a,(hl)
+    *(pv[1] + 0) = tmp16.pair.b0;
+    *(pv[1] + 1) = tmp16.pair.b1; // adc  a,(hl)
 }
 
 /*=============================================================================
