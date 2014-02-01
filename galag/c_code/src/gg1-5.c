@@ -661,33 +661,30 @@ void f_06F5(void)
 ;;----------------------------------------------------------------------------*/
 static void rckt_man(uint8 de)
 {
-    uint8 AF, A, B;
-    uint16 HL;
+    uint8 AF, A;
+    r16_t HL;
     // adjust de for rocket 1 or 2,
     uint8 hl = SPR_IDX_RCKT + de * 2; // even indices
 
-    if (0 == mrw_sprite.posn[hl].b0)
-        return;
+    if (0 == mrw_sprite.posn[hl].b0) return;
 
-    // else ... this one is active, stash the parameter in B, e.g. $E0
-    B = b_92A4_rockt_attribute[de]; // ld   b,a
+    // else ... this one is active
 
     // if horizontal orientation, dY = A' ... adusted displacement in dY
-    AF = B & 0x07; // I thought it was only bits 1:2 ? ... bit7=orientation, bit6=flipY, bit5=flipX, 1:2=displacement
+    AF = b_92A4_rockt_attribute[de] & 0x07; // I thought it was only bits 1:2 ? ... bit7=orientation, bit6=flipY, bit5=flipX, 1:2=displacement
 
     // ... and dX == A ... maximum displacement in dX
     A = 6;
 
-
     // if ( vertical orientation )
-    if (B & 0x80) // bit  7,b
+    if (b_92A4_rockt_attribute[de] & 0x80) // bit  7,b
     {
         //  ex   af,af' ... swap
-        A = B & 0x07; // ... adusted displacement in dX
+        A = b_92A4_rockt_attribute[de] & 0x07; // ... adusted displacement in dX
         AF = 6; // maximum displacement in dY
     }
     // l_0713:
-    if (B & 0x64) // bit  6,b ... flipY
+    if (b_92A4_rockt_attribute[de] & 0x64) // bit  6,b ... flipY
     {
         // .. NOT flipY...negate X offset (non-flipped sprite is left facing)
 
@@ -715,57 +712,57 @@ static void rckt_man(uint8 de)
     // NOW onto sY...............
 
     // inc  l ... not needed since the access is thru b1
-    HL = mrw_sprite.ctrl[hl].b1 & 0x01; // get sprite.sY<8>
-    HL <<= 8; // todo: use tpair
-    HL += mrw_sprite.posn[hl].b1;
+    HL.pair.b1 = mrw_sprite.ctrl[hl].b1 & 0x01; // get sprite.sY<8>
+    HL.pair.b0 = mrw_sprite.posn[hl].b1;
 
-    if (B & 0x32) // bit  5,b ... flipX
+    if (b_92A4_rockt_attribute[de] & 0x32) // bit  5,b ... flipX
     {
         // negate and add dY to sprite.sY .. add  a,(hl)
-        HL -= AF;
+        HL.word -= AF;
     }
     else
     {
-        // add dY to sprite.sY .. add  a,(hl)
-        HL += AF;
+        // add dY to sprite.sY
+        HL.word += AF; // add  a,(hl)
     }
 
-    mrw_sprite.posn[hl].b1 = HL; // lower 8-bits to register
+    mrw_sprite.posn[hl].b1 = HL.pair.b0; // lower 8-bits to register
 
     // determine the sign, toggle position.sy:8 on overflow/carry.
-    if (HL > 255)
-        mrw_sprite.ctrl[hl].b1 |= 1;
+    if (HL.word > 0xFF)
+    {
+        mrw_sprite.ctrl[hl].b1 |= 0x01;
+    }
     else
-        mrw_sprite.ctrl[hl].b1 &= ~1;
-
+    {
+        mrw_sprite.ctrl[hl].b1 &= ~0x01;
+    }
     // ld   ixh,a ... stash sy<1:8> for hit-detection parameter (here, it's in AF)
 
     // z80 re-scales and drops bit-0, i.e. thresholds are $14 and $9C
-    if (HL < 40 || HL > 312) // disable_rocket_wposn
+    if (HL.word < 40 || HL.word > 312) // disable_rocket_wposn
     {
         // l_0760_disable_rocket_wposn:
         mrw_sprite.posn[hl].b0 = 0; // x
 
         //l_0763_disable_rocket:
         mrw_sprite.ctrl[hl].b0 = 0;
-
-        return;
     }
 
     // lower-byte of pointer to object/sprite in L is passed through to
     // j_07C2 (odd, i.e. offset to b1)
     //   ld   e,l
 
-    if (0 != task_actv_tbl_0[0x1D]) // ... else _call_hit_detection_all
+    else if (0 != task_actv_tbl_0[0x1D]) // ... else _call_hit_detection_all
     {
         // ld   hl,#ds_sprite_posn + 0x08             ; skip first 4 objects...
         // ld   b,#0x30 - 4
         // jr   l_075C_call_hit_detection
 
         rckt_hitd(hl, 0x08, 0x30 - 4);
-        return;
     }
-
+    else
+    {
     // jr   z,l_0757_call_hit_detection_all
 
     // l_0757_call_hit_detection_all
@@ -774,9 +771,8 @@ static void rckt_man(uint8 de)
 
     // l_075C_call_hit_detection
     // E=offset_to_rocket_sprite, hl=offset_to_object checked, b==count,
-    rckt_hitd(hl, 0x00, 0x30);
-
-    return;
+        rckt_hitd(hl, 0x00, 0x30);
+    }
 }
 
 /*=============================================================================
