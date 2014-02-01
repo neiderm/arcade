@@ -1752,8 +1752,8 @@ static void mctl_rotn_incr(uint8 mpidx)
 static void mctl_coord_incr(uint8 ds, uint8 mpidx)
 {
     uint8 * pv[2];
-    r16_t pushDE, popHL, tmp16, tmpAC, tmpHL;
-    uint8 A;
+    r16_t pushDE, popHL, tmpAC, tmp16;
+    uint8 A, L;
 
     /*
       xor bit-7 with bit-8 ... test for orientation near 0 or 180
@@ -1787,7 +1787,6 @@ static void mctl_coord_incr(uint8 ds, uint8 mpidx)
     pushDE.pair.b1 = mctl_mpool[mpidx].b05 & 3; // and  #0x03
     pushDE.pair.b0 = mctl_mpool[mpidx].b04; // e saved from (ix)0x04
     pushDE.word <<= 1; // rlc, rl
-    pushDE.pair.b0 |= (0 != (mctl_mpool[mpidx].b04 & 0x80)); // Cy from rlc  e
 
     // l_0CBF
     /*
@@ -1817,30 +1816,30 @@ static void mctl_coord_incr(uint8 ds, uint8 mpidx)
     tmpAC.pair.b0 = 0;
     tmpAC.pair.b1 = A; // ld   c,a ... from 0x0A(ix) or 0x0B(ix)
     tmpAC.word = (sint16) tmpAC.word >> 1; // sra  c ... sign extend and carry out of bit-0 of msb
-    tmpHL.pair.b0 = *(pv[0] + 0);
-    tmpHL.pair.b1 = *(pv[0] + 1);
-    tmpHL.word += tmpAC.word; // adc  a,c
-    *(pv[0] + 0) = tmpHL.pair.b0;
-    *(pv[0] + 1) = tmpHL.pair.b1;
+    tmp16.pair.b0 = *(pv[0] + 0);
+    tmp16.pair.b1 = *(pv[0] + 1);
+    tmp16.word += tmpAC.word; // adc  a,c
+    *(pv[0] + 0) = tmp16.pair.b0;
+    *(pv[0] + 1) = tmp16.pair.b1;
 
-
-    // test if bit-7 of E (pushed from DE above) was set, i.e. if > 0x80
-    popHL.word = pushDE.word; // pop  hl ..... 0x04(ix) from push DE above
-    popHL.pair.b0 >>= 1; // srl  l ... revert to unshifted
-
+    // determine if minor ordinate is negative or positive
     if (0 != (0x80 & mctl_mpool[mpidx].b04)) // jr   nc,l_0CE3
     {
-        popHL.pair.b0 ^= 0x7F; // xor  #0x7F
+        L = ~mctl_mpool[mpidx].b04 & 0x7F; // xor  #0x7F
     }
-
+    else
+    {
+        L = mctl_mpool[mpidx].b04 & 0x7F;
+    }
     // l_0CE3
-    popHL.word = mctl_mul8(ds, popHL.pair.b0); // HL = L * A
+    popHL.word = mctl_mul8(ds, L); // HL = L * A
 
     A = (pushDE.pair.b1 ^ 0x02) - 1; // xor  #0x02 ... msb of adjusted angle
 
     if (A & 0x04) // bit  2,a ... jr   z,l_0CFA
     {
         //and  a ...  whuuuuuut????
+
         popHL.word = -popHL.word; // sbc  hl,bc (negate the word)
     }
 
@@ -2040,6 +2039,7 @@ static uint16 mctl_rotn_hp(uint16 _DE_, uint8 mctl_que_idx)
 ;;    calculate 16-bit product of 2 8-bit integers
 ;;    HL = HL * A
 ;; IN:
+;;  A - displacement magnitude
 ;;  HL (only L is significant)
 ;; OUT:
 ;;  H
@@ -2047,13 +2047,11 @@ static uint16 mctl_rotn_hp(uint16 _DE_, uint8 mctl_que_idx)
 ;; PRESERVES:
 ;;  DE
 ;;---------------------------------------------------------------------------*/
-static uint16 mctl_mul8(uint8 _A_, uint8 _L_)
+static uint16 mctl_mul8(uint8 A, uint8 L)
 {
     r16_t HL, DE;
-    uint8 A;
 
-    A = _A_;
-    DE.word = _L_; // ex   de,hl
+    DE.word = L; // ex   de,hl
     HL.word = 0;
 
     do
