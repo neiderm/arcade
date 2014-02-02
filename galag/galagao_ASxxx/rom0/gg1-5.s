@@ -1525,7 +1525,7 @@ case_0968:  ; $0E
        inc  e
        ld   a,(de)                                ; msb, absolute row pix coordinate
        add  a,#0x20
-       ld   0x01(ix),a
+       ld   0x01(ix),a                            ; sY<8:1>
        jp   l_0B8B                                ; inc hl and finalize
 
 ; yellow alien special attack leader started dive ready to replicate
@@ -1743,12 +1743,12 @@ case_0AA0:  ; $04
        ld   h,#>ds_home_posn_loc
        ld   b,(hl)                                ; x offset
        inc  l
-       ld   e,(hl)                                ; x coordinate (ds_home_posn_abs)
+       ld   e,(hl)                                ; x coordinate (ds_hpos_loc_orig)
 
        ld   l,c                                   ; row position index
        ld   c,(hl)                                ; y offset
        inc  l
-       ld   d,(hl)                                ; y coordinate (ds_home_posn_abs)
+       ld   d,(hl)                                ; y coordinate (ds_hpos_loc_orig)
 
        srl  e                                     ; x coordinate
        push de                                    ; y coord, x coord >> 1
@@ -1769,7 +1769,7 @@ case_0AA0:  ; $04
 l_0ACD:
 ; add y-offset to .b00/.b01 (sra/rr -> 9.7 fixed-point scaling)
        ld   l,0x00(ix)                            ; .b00
-       ld   h,0x01(ix)                            ; .b01
+       ld   h,0x01(ix)                            ; .b01 ... sY<8:1>
        ld   d,c                                   ; step y coord, y offset
        ld   e,#0
        sra  d
@@ -1788,20 +1788,20 @@ l_0ACD:
        sbc  hl,bc
        ld   0x02(ix),l                            ; .b00
        ld   0x03(ix),h                            ; .b01
-       ld   l,h                                   ; x, .b01 (bits<1:8> of integer portion)
-       ld   h,e                                   ; y, .b01 (bits<1:8> of integer portion)
+       ld   l,h                                   ; x, .b01 (bits<8:1> of integer portion)
+       ld   h,e                                   ; y, .b01 (bits<8:1> of integer portion)
 
        ld   c,d                                   ; C is not used?
 
        pop  de                                    ; abs row pix coord & abs col pix coord >> 1
 
-       call c_0E5B                                ; HL = c_0E5B(DE, H, L)
+       call c_0E5B                                ; HL = mctl_rotn_hp(DE, H, L)
        srl  h
        rr   l
        ld   0x04(ix),l
        ld   0x05(ix),h
-       ld   0x06(ix),d                            ; attention: .b06 <- D
-       ld   0x07(ix),e
+       ld   0x06(ix),d                            ; origin home position y (bits 15:8) ... from hpos_loc_orig.x
+       ld   0x07(ix),e                            ; origin home position x (bits 15:8) ... from hpos_loc_orig.y
        set  6,0x13(ix)                            ; if set, flite path handler checks for home
 
        pop  hl                                    ; ptr to data table
@@ -1860,8 +1860,8 @@ case_0B4E:  ; $03
        inc  hl                                    ; ptr to data table
        ld   e,(hl)
        inc  hl
-       ld   0x06(ix),e
-       ld   0x07(ix),#0
+       ld   0x06(ix),e                            ; origin home position y (bits 15:8)
+       ld   0x07(ix),#0                           ; origin home position x (bits 15:8)
        set  5,0x13(ix)                            ; bee or boss dive
        jp   l_0BFF                                ; save pointer and goto _flite_pth_cont
 
@@ -1895,7 +1895,7 @@ l_0B76:
 ; red alien flew through bottom of screen to top, heading for home
 ; yellow alien flew under bottom of screen and now turns for home
 case_0B87:  ; $07
-       ld   0x01(ix),#0x9C
+       ld   0x01(ix),#0x0138>>1                   ; sY<15:8> ... $0138==312 ... $0138/2=$9C
 l_0B8B:
        inc  hl                                    ; data pointer
 l_0B8C:
@@ -2002,8 +2002,8 @@ l_0C18:
        dec  a
        jr   nz,l_0C2D_flite_pth_step
 l_0C1B:
-       ld   a,0x03(ix)                            ; detection of homespot... (ix)0x03-(ix)0x07 == 0 ?
-       sub  0x07(ix)                              ; detection of homespot... (ix)0x03-(ix)0x07 == 0 ?
+       ld   a,0x03(ix)                            ; detection of homespot... (ix)0x03-(ix)0x07 == 0
+       sub  0x07(ix)                              ; detection of homespot... (ix)0x03-(ix)0x07 == 0
        jp   z,l_0E08_imhome
        jp   p,l_0C29                              ; check overflow
        neg                                        ; negate if overflow (gets absolute value)
@@ -2017,8 +2017,8 @@ l_0C2D_flite_pth_step:
        bit  5,0x13(ix)                            ; check if bee or boss dive
        jr   z,l_0C46
        ld   a,0x01(ix)                            ; 0C33 boss: launched out of position, bee movement, 0x01(ix) counting down
-       sub  0x06(ix)
-       jr   z,l_0C3E                              ; (ix)0x01 counts down until equal to (ix)0x06
+       sub  0x06(ix)                              ; origin home position y (bits 15:8)
+       jr   z,l_0C3E
        inc  a
        jr   nz,l_0C46
 ; ... then ...
@@ -2033,10 +2033,12 @@ l_0C3E:
 ;          180 --+-- 0      - each tile rotation is 15 degrees (6 tiles per quadrant)
 ;             2  | 3
 ;               270
+
+; load DE with local copy of rotation value and go ahead and update pool slot
 l_0C46:
        ld   b,0x0C(ix)                            ; add to (ix)0x04
        ld   a,0x04(ix)
-       ld   e,a                                   ; stash this for a while .....
+       ld   e,a                                   ; need this later ...
        add  a,b                                   ; need this below for rra ...
        ld   0x04(ix),a                            ; .b04 += .b0C
 
@@ -2059,14 +2061,14 @@ l_0C63:
        ld   0x05(ix),a                            ; bits <8:9>
 
 ; determine_sprite_code
-       ld   a,e                                   ; from (ix)0x04
-       ld   c,d                                   ; from (ix)0x05 previous ... need this later ...
+       ld   a,e                                   ; from previous (ix)0x04
+       ld   c,d                                   ; from previous (ix)0x05 ... need this later ...
        bit  0,c
        jr   z,l_0C6D
-       cpl                                        ; invert bits 0:7 in quadrant 1 and 3 ...
+       cpl                                        ; invert bits 7:0 in quadrant 1 and 3 ...
 l_0C6D:
 ; ... select vertical tile if within 15 degrees of 90 or 270
-       add  a,#0x15                               ; 1024 / ( 6 * 4 ) == 42
+       add  a,#21                                 ; 1024 / ( 6 * 4 ) == 42
        jr   nc,l_0C75
        ld   b,#6                                  ; vertical orientation, wings open (7 is wings closed)
        jr   l_0C81
@@ -2101,10 +2103,10 @@ l_0C81:
        inc  a                                     ; ... add 1 ... now have bit1
        rrc  c                                     ; bit <1> ...
        rla                                        ; ... into <0>
-       and  #0x03                                 ; <0> flip up/down  <1> flip l/r
+       and  #0x03                                 ; <0> flip up/down  <1> flip l/r, double-x/double-y bits not used
        ld   (hl),a                                ; mrw_sprite[L].ctrl.b0 = A & 0x03
 
-; choose 0x0A or 0x0B
+; choose x or y displacement vector to apply on this update
        ld   a,(ds3_92A0_frame_cts + 0)
        and  #0x01
        jr   z,l_0CA4
@@ -2112,50 +2114,52 @@ l_0C81:
        jr   l_0CA7
 l_0CA4:
        ld   a,0x0B(ix)
+
 l_0CA7:
        and  a                                     ; if zero, start of tractor beam and we can skip this crap
        jp   z,l_0D03_flite_pth_posn_set           ; 2 "parameters": HL, and E (e saved from (ix)0x04)
 
-; flite_pth_exec ... into the soup ...
+; compute increment and update selected coordinate
        push hl                                    ; &mrw_sprite[L].ctrl.b0
        push ix
        pop  hl                                    ; &bug_motion_que[n].b00
 
        ld   b,a                                   ; (ix)0x0A or (ix)0x0B
 
-       ld   a,d                                   ; d saved from (ix)0x05  ( from C46 )
+       ld   a,d                                   ; saved from (ix)0x05  ( from C46 )
        and  #0x03
-       ld   d,a                                   ; &= 0x03
+       ld   d,a
 
-;               90          - angle in degrees
-;             1  | 0        - quadrant derived from 10-bit angle
-;          180 --+-- 0      - each tile rotation is 15 degrees (6 tiles per quadrant)
-;             2  | 3
-;               270
-; checking bit-7 against bit-8, looking for orientation near 90 or 270.
-; must be > xx80 in quadrant 0 & 2, and < xx80 in quadrant 1 & 3
+;         90          - angle in degrees
+;       1  | 0        - quadrant derived from 10-bit angle
+;    180 --+-- 0      - each tile rotation is 15 degrees (6 tiles per quadrant)
+;       2  | 3
+;         270
+; xor bit-7 with bit-8 ... test for orientation near 0 or 180
+; i.e. < xx80 in quadrant 0 & 2, and >= xx80 in quadrant 1 & 3
        rlc  e                                     ; e saved from (ix)0x04   ( from C46 )
        rl   d
        push de                                    ; adjusted rotation angle, restores to HL below .....
        xor  d
-       rrca                                       ; xor result in A:0
+       rrca                                       ; xor result in A<0>
        jr   c,l_0CBF                              ; check for Cy shifted into bit7 from rrca
        inc  l
        inc  l                                     ; L == offset to b02 ... update the pointer for horizontal travel
+
 l_0CBF:
-; .b04+.b05 is angle in 16-bits. bits<7:9> together give the quadrant and fraction of 90
+; .b04+.b05 is angle in 10-bits. bits<9:7> together give the quadrant and fraction of 90
 ; degrees, indicating whether the "primary" component of the magnitude should be negative.
 ; 0 1  1 - 3   Any of these would result in d<2> set after the "inc d".
 ; 1 0  0 - 4   Remembering they have been <<1, it means the lowest bit was
-; 1 0  1 - 5   .b04L<7> (degree 0-89) and the upper 2 bits were .b05<0:1> (quadrant)
+; 1 0  1 - 5   .b04<7> (degree 0-89) and the upper 2 bits were .b05<1:0> (quadrant)
 ; 1 1  0 - 6   Taking the quadrant and angle together, the range is 135-304 degrees.
        inc  d
        bit  2,d
        ld   a,b                                   ; ... restore A: 0x0A(ix) or 0x0B(ix)
        jr   z,l_0CC7
-       neg                                        ; negate primary componet for 135-305 degrees
+       neg                                        ; negate primary component for 135-305 degrees
 l_0CC7:
-; A is actually bits<7:15> of addend (.b00/.b02 in fixed point, 9.7)
+; A is actually bits<15:7> of addend (.b00/.b02 in fixed point, 9.7)
        ld   c,a                                   ; from 0x0A(ix) or 0x0B(ix)
        sra  c                                     ; sign extend, "bit-8" into Cy
        jr   nc,l_0CD0
@@ -2178,9 +2182,9 @@ l_0CD0:
 ; test L<0> (pushed/popped from left-shifted DE above .. but this would be .b04<7> before left-shift?)
        pop  hl                                    ; ..... adjusted rotation angle from push DE above
        srl  l                                     ; revert to unshifted, but did not retain bit-7
-       jr   nc,l_0CE3
+       jr   nc,l_0CE3                             ; bit<0> into Cy (which was actually bit<7>
        ld   a,l
-       xor  #0x7F                                 ; negated bits<0:6> ?
+       xor  #0x7F                                 ; compliment bits<6:0>
        ld   l,a
 l_0CE3:
        ld   a,b                                   ; ... restore A: 0x0A(ix) or 0x0B(ix)
@@ -2188,17 +2192,20 @@ l_0CE3:
        ld   h,#0
        call c_0E97                                ; HL = L * A
 
-; let's look at this again...
-;               90          - angle in degrees
+;             . 90          - angle in degrees
 ;             1  | 0        - quadrant derived from 10-bit angle
 ;          180 --+-- 0      - each tile rotation is 15 degrees (6 tiles per quadrant)
-;             2  | 3
-;               270
-;
-; 0 0 1  0  ->   0 0 0  0    range should be 305 - 135
-; 0 1 0  1  ->   0 1 1  1
-; 0 1 0  0  ->   0 1 1  0
-; 0 1 1  1  ->   0 1 0  1
+;           . 2  | 3 .
+;             . 270
+;      b9 b8  b7
+;     q 0  0   0  -> 010 -> 001
+;       0  0   1  -> 011 -> 010
+;     q 0  1   0  -> 000 -> 111  x  .
+;       0  1   1  -> 001 -> 000
+;     q 1  0   0  -> 110 -> 101  x  .
+;       1  0   1  -> 111 -> 110  x  .
+;     q 1  1   0  -> 100 -> 011
+;       1  1   1  -> 101 -> 100  x  .
 
        ld   a,b                                   ; msb of adjusted angle
        xor  #0x02
@@ -2228,13 +2235,16 @@ l_0D03_flite_pth_posn_set:
        ld   a,(b_9215_flip_screen)
        ld   c,a
 
+; extract x-coord and adjust for homing if needed
 ; fixed point 9.7 in .b02.b03 - left shift integer portion into A ... carry in to <0> from .b02<7>
-       ld   h,#>ds_sprite_posn                    ; &sprite[n].posn.x
-       ld   d,0x03(ix)                            ; bits<1:6> of x pixel ... does not need to be in D
+       ld   h,#>ds_sprite_posn
+       ld   d,0x03(ix)                            ; bits<1:6> of x pixel ... could load directly to A
+; set Cy from .b02<7>
        ld   a,#0x7F
-       cp   0x02(ix)                              ; set carry-in from .b02<7>
+       cp   0x02(ix)
+
        ld   a,d                                   ; (ix)0x03
-       rla                                        ; shift in .b02<7> (Cy from cp)
+       rla                                        ; rotate Cy into A<0> (.b02<7>)
 
        bit  0,c                                   ; test flip screen
        jr   z,l_0D1A
@@ -2243,40 +2253,46 @@ l_0D03_flite_pth_posn_set:
 l_0D1A:
        bit  6,0x13(ix)                            ; if !z, add  a,(ix)0x11 ... relative offset
        jr   z,l_0D23
-       add  a,0x11(ix)                            ; heading home (step x coord)
+       add  a,0x11(ix)                            ; heading home (add x-offset ... already bits<7:0>)
 l_0D23:
        ld   (hl),a                                ; &sprite[n].posn.x
 
+; extract y-coord and adjust for homing if needed
        inc  l                                     ; sprite[n].posn.sy<0:7>
        ld   b,0x01(ix)
+; set Cy from .b00<7>
        ld   a,#0x7F
-       cp   0x00(ix)                              ; set carry-in from .b00<7>
-       rl   e                                     ; shift in .b00<7> (Cy from cp) ... I hope only E<0> is significant
+       cp   0x00(ix)
+
+       rl   e                                     ; rotate Cy into E<0>
        ld   a,b                                   ; (ix)0x01
 
        bit  0,c                                   ; test flip screen
        jr   nz,l_0D38
-       add  a,#0x4F                               ; not flipped
+       add  a,#0x9E>>1                            ; not flipped ... (0 - 0160 - 2) = FE9E
        cpl
-       dec  e                                     ; invert bit-0
+       dec  e                                     ; compliment bit-0 of 9-bit integer portion
+
 l_0D38:
-       rr   e
-       rla                                        ; carry flag rotated into msb, bit-8 rotated into Cy
-       rl   e                                     ; carry-in from rla, bit-8 of sprite_y into e<0>
+; E<0> <- Cy <- 7 6 5 4 3 2 1 0 <- Cy <- E<0>
+       rr   e                                     ; bit-0 of 9-bit integer portion into Cy
+       rla                                        ; Cy (bit0) into lsb, bit8 into Cy
+       rl   e                                     ; bit8 from Cy into E<0> (bit8 of sprite_y)
 
        bit  6,0x13(ix)                            ; if !z, add  a,(ix)0x12
        jr   z,l_0D50
-
+; r16.word += mctl_mpool[mpidx].b12
        add  a,0x12(ix)                            ; heading home (step y coord)
-       ld   d,a                                   ; stash it
-       rra
+       ld   d,a                                   ; stash bits<7:0> of sum
+       rra                                        ; somehow the rest of this propogates bit9 of the sum into E<0>
        xor  0x12(ix)
        rlca
        ld   a,d
        jr   nc,l_0D50
        inc  e
+
 l_0D50:
-       ld   (hl),a                                ; sprite[n].posn.sy<0:7>
+       ld   (hl),a                                ; sprite[n].posn.sy<7:0>
        ld   h,#>ds_sprite_ctrl                    ; sprite[n].posn.sy<8>
        rrc  (hl)
        rrc  e
@@ -2438,7 +2454,7 @@ l_0E08_imhome:
 
 l_0E3A:
 ; these could be off by one if not already equal
-       ld   a,0x06(ix)                            ; ->(ix)0x01
+       ld   a,0x06(ix)                            ; ->(ix)0x01 ... origin home position y (bits 15:8)
        ld   0x01(ix),a                            ; (ix)0x06
        ld   a,0x07(ix)                            ; ->(ix)0x03
        ld   0x03(ix),a                            ; (ix)0x07
@@ -2542,6 +2558,7 @@ l_0E93:
 ;;    for f_08D3
 ;;    HL = HL * A
 ;; IN:
+;;  A
 ;;  HL (only L is significant)
 ;; OUT:
 ;;  H
