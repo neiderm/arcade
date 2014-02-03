@@ -95,7 +95,7 @@ void bmbr_setup_fltq_drone(uint8 obj_idx, uint16 pDE)
 static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
 {
     r16_t tmpA;
-    uint8 A, B, IX;
+    uint8 B, IX;
 
     // find an available data structure or quit
     for (B = 0; B < 0x0C; B++)
@@ -140,14 +140,17 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     mctl_mpool[IX].b00 = tmpA.pair.b0;
 
     // l_10DC ... insert sprite X coord into pool structure
-    A = mrw_sprite.posn[obj_idx].b0; // ld   a,c ... sprite_x
-
-    if ( 0 != glbls9200.flip_screen)
+    if ( 0 == glbls9200.flip_screen)
     {
-        A = ~(A + 0x0D); // add ... cpl
+        tmpA.word = mrw_sprite.posn[obj_idx].b0; // ld   a,c ... sprite_x
     }
-    tmpA.pair.b1 = A;
-    tmpA.word >>= 1; // srl  a
+    else
+    {
+        tmpA.word = 0xF0 - mrw_sprite.posn[obj_idx].b0 + 0x02;
+    }
+
+    tmpA.word <<= 7; // put in precision fixed-point
+
     mctl_mpool[IX].b03 = tmpA.pair.b1; // sX<8:1>
     mctl_mpool[IX].b02 = tmpA.pair.b0 & 0x80; // sX<:0> ... now scaled fixed point 9.7
 
@@ -155,12 +158,15 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     mctl_mpool[IX].b13 = rotn_flag | 0x01; // d
     mctl_mpool[IX].b0E = 0x1E; // bomb drop counter
 
-    A = 0;
-    if (0 != glbls9200.flying_bug_attck_condtn)
+
+    if (0 == glbls9200.flying_bug_attck_condtn)
     {
-        A = b_92C0_0[0x08]; // bomb_drop_enbl_flags
+        mctl_mpool[IX].b0F = 0; // bomb_drop_enbl_flags
     }
-    mctl_mpool[IX].b0F = A;
+    else
+    {
+        mctl_mpool[IX].b0F = b_92C0_0[0x08]; // bomb_drop_enbl_flags
+    }
 }
 
 
@@ -584,14 +590,15 @@ void c_12C3(uint8 IXL)
     B = 0;
     while (B < 10)
     {
-        uint8 A = fmtn_hpos_orig[B];
-        if (glbls9200.flip_screen & 0x01) // bit 0,C
+        if (0 == glbls9200.flip_screen) // bit 0,C
         {
-            A += 0x0D;
-            A = ~A; // cpl
+            fmtn_hpos.spcoords[B * 2].word = fmtn_hpos_orig[B];
+        }
+        else
+        {
+            fmtn_hpos.spcoords[B * 2].word = 0xF0 - fmtn_hpos_orig[B] + 0x02;
         }
 
-        fmtn_hpos.spcoords[B * 2].word = A;
         B++;
     }
 
@@ -603,7 +610,7 @@ void c_12C3(uint8 IXL)
 
         // TODO: add  a,ixl
 
-        if (0 == (glbls9200.flip_screen & 0x01)) // bit 0,C
+        if (0 == glbls9200.flip_screen) // bit 0,C
         {
             // does not add 1 to $0160-n result ... only bits <8:1> are significant
             fmtn_hpos.spcoords[B * 2].word = (0x0160 - tmp16) & 0x01FE;
