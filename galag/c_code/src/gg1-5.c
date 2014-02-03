@@ -809,14 +809,14 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
         // obj_status[L].state<7> ... $80==inactive object
         // b_9200[L].b0 ... $81 = hit notification already in progress
 
-        if (0x80 != (sprt_mctl_objs[hl].state |
+        if (INACTIVE != (sprt_mctl_objs[hl].state |
                      sprt_hit_notif[hl])) // else  jr   c,l_07B4_next_object
         {
             // check if object status 04 (already exploding) or 05 (bonus bitmap)
 
             // cp   #4 ... else ... jr   z,l_07B4_next_object
-            if (0x04 != sprt_mctl_objs[hl].state &&
-                    0x05 != sprt_mctl_objs[hl].state)
+            if (EXPLODING != sprt_mctl_objs[hl].state &&
+                    SCORE_BITM != sprt_mctl_objs[hl].state)
             {
                 r16_t tmpA;
 
@@ -1158,8 +1158,6 @@ void f_08D3(void)
 
         L = mctl_mpool[mctl_que_idx].b10; // object identifier (index)...8800[L]
 
-
-        // 9 is diving, 7 is spawning, 3 (and 6) idfk
         if ((sprt_mctl_objs[ L ].state == PTRN_CTL ||
                 sprt_mctl_objs[ L ].state == SPAWNING ||
                 sprt_mctl_objs[ L ].state == HOMING))
@@ -1329,12 +1327,15 @@ void f_08D3(void)
                         case 0x06: // _0B5F:
                             E = mctl_mpool[mctl_que_idx].b10;
                             E = sprt_fmtn_hpos_ord_lut[ E + 1 ]; // column index
-                            A = fmtn_hpos.spcoords[ E ].pair.b0; // even-bytes: relative offset from absolute coordinate
 
-                            if (0 != glbls9200.flip_screen)
+                            if (0 == glbls9200.flip_screen)
                             {
-                                A += 0x0E;
-                                A = -A; // neg
+                                A = fmtn_hpos.spcoords[ E ].pair.b0; // relative offset
+                            }
+                            else
+                            {
+                                A = fmtn_hpos.spcoords[ E ].pair.b0; // relative offset
+                                A = 0xF0 - A + 0x01;
                             }
 
                             //l_0B76
@@ -1358,7 +1359,7 @@ void f_08D3(void)
                         // red alien flew through bottom of screen to top, heading for home
                         // yellow alien flew under bottom of screen and now turns for home
                         case 0x07: // _0B87:
-                            mctl_mpool[mctl_que_idx].b01 = 0x9C; // ld   0x01(ix),#$9C
+                            mctl_mpool[mctl_que_idx].b01 = 0x0138 >> 1; // ld   0x01(ix),#$9C
 
                             //l_0B8B
                             pHLdata += 1; // inc  hl
@@ -1868,7 +1869,7 @@ static void mctl_posn_set(uint8 mpidx)
 
     L = mctl_mpool[mpidx].b10; // object index
 
-    // x-coord: .b02/.b03
+    // extract x-coord and adjust for homing if needed
     r16.pair.b1 = mctl_mpool[mpidx].b03;
     r16.pair.b0 = mctl_mpool[mpidx].b02;
     r16.word <<= 1;
@@ -1876,7 +1877,7 @@ static void mctl_posn_set(uint8 mpidx)
 
     if (0 != glbls9200.flip_screen) // bit  0,c
     {
-        A = ~(0x0D + A); // add  a,#0x0D ... cpl
+        A = 0xF0 - A + 0x02; // add  a,#0x0D ... cpl
     }
     // l_0D1A
     if (0 != (0x40 & mctl_mpool[mpidx].b13)) // bit  6,0x13(ix)
@@ -1888,15 +1889,24 @@ static void mctl_posn_set(uint8 mpidx)
     mrw_sprite.posn[L].b0 = A; // sX
 
 
-    // y-coord: .b00/.b01
+    // extract y-coord and adjust for homing if needed
     r16.pair.b0 = mctl_mpool[mpidx].b00;
     r16.pair.b1 = mctl_mpool[mpidx].b01; // ld   b,0x01(ix)
     r16.word >>= 7; // extract 9-bit integer from precision 9.7 format
 
+    // for some reason pool y-coord tracked in flipped format
     if (0 == glbls9200.flip_screen) // bit  0,c
     {
-        r16.word += (0x4F << 1);
-        r16.word = ~r16.word & 0x01FF; // cpl ... mask off 9-bit integer
+        // reference calculation: (9C << 1) + 9E == 01D6 ... ~01D6 == FE29
+        //                                 29 + 9E == C7 ... ~C7 == FF38
+        // screen "virtual size" 0138+28=0160 so flipped y would be (160-y)
+        // can "sorta" be done with 8-bit add by rolling the subtracted term
+        // into an 8-bit magic number and handling bit-8 explicitly i.e.
+        //   (0 - 0160 - 2) = FE9E ... so the following would work:
+        //r16.word = r16.word - 0x0160 - 0x02;
+        //r16.word = ~r16.word; // un-negate i.e. 1s comp but lazy omit +1
+        // note mask of resultant bit-8 in assignment to sprite.ctrl.b1 below
+        r16.word = 0x0160 - r16.word + 0x01; // how bout just use 16-bits!
     }
     // l_0D38 ... rr, rla, rl
 
