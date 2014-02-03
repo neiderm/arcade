@@ -95,7 +95,7 @@ void bmbr_setup_fltq_drone(uint8 obj_idx, uint16 pDE)
 static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
 {
     r16_t tmpA;
-    uint8 A, B, IX, Cy;
+    uint8 A, B, IX;
 
     // find an available data structure or quit
     for (B = 0; B < 0x0C; B++)
@@ -122,26 +122,24 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     //  ex   af,af'     function parameter from A'
     //  ld   d,a        to 0x13(ix)
 
-    sprt_mctl_objs[obj_idx].state = 9; // disposition diving attack
+    sprt_mctl_objs[obj_idx].state = HOMING; // diving attack
     sprt_mctl_objs[obj_idx].mctl_idx = IX;
 
-    tmpA.word = mrw_sprite.posn[obj_idx].b1; // sprite_y<7:0>
-    tmpA.pair.b1 = mrw_sprite.ctrl[obj_idx].b1; // sprite_y<8>
-    Cy = tmpA.pair.b0 & 0x01; // sY<0> to Cy
-    tmpA.word >>= 1; // rrca, rr etc.
+
+    // insert sprite Y coord into pool structure
+    tmpA.pair.b0 = mrw_sprite.posn[obj_idx].b1; // sprite_y<7:0>
+    tmpA.pair.b1 = mrw_sprite.ctrl[obj_idx].b1 & 0x01; // sprite_y<8>
 
     if ( 0 == glbls9200.flip_screen) // jr   nz,l_10DC
     {
-        tmpA.pair.b0 += (160/2); // add  a,#0x00A0/2
-        tmpA.pair.b0 = -tmpA.pair.b0; // neg
-        Cy = ~Cy; // ccf
+        // add  a,#0x00A0/2 etc.
+        tmpA.word = 0x0160 - tmpA.word + 0x01; // how bout just use 16-bits!
     }
+    tmpA.word <<= 7; // rescale sY<8:0> to fixed-point 9.7
+    mctl_mpool[IX].b01 = tmpA.pair.b1;
+    mctl_mpool[IX].b00 = tmpA.pair.b0;
 
-    // l_10DC:
-    // resacale sY<8:0> to fixed-point 9.7
-    mctl_mpool[IX].b01 = tmpA.pair.b0; // B ... sY<8:1>
-    mctl_mpool[IX].b00 = (Cy << 7) & 0x80 ; // sY<0> ... rra etc.
-
+    // l_10DC ... insert sprite X coord into pool structure
     A = mrw_sprite.posn[obj_idx].b0; // ld   a,c ... sprite_x
 
     if ( 0 != glbls9200.flip_screen)
@@ -152,6 +150,7 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     tmpA.word >>= 1; // srl  a
     mctl_mpool[IX].b03 = tmpA.pair.b1; // sX<8:1>
     mctl_mpool[IX].b02 = tmpA.pair.b0 & 0x80; // sX<:0> ... now scaled fixed point 9.7
+
 
     mctl_mpool[IX].b13 = rotn_flag | 0x01; // d
     mctl_mpool[IX].b0E = 0x1E; // bomb drop counter
@@ -600,16 +599,21 @@ void c_12C3(uint8 IXL)
     //B = 10; ... ASSERT(B==10)
     while (B < 16)
     {
-        uint8 A = fmtn_hpos_orig[B];
+        uint16 tmp16 = fmtn_hpos_orig[B] << 1;
+
         // TODO: add  a,ixl
-        if (!(glbls9200.flip_screen & 0x01)) // bit 0,C
+
+        if (0 == (glbls9200.flip_screen & 0x01)) // bit 0,C
         {
-            // for some reason, data is stored for flipped-screen, so un-flip
-            A += 0x4F;
-            A = ~A; // cpl
+            // does not add 1 to $0160-n result ... only bits <8:1> are significant
+            fmtn_hpos.spcoords[B * 2].word = (0x0160 - tmp16) & 0x01FE;
+        }
+        else
+        {
+            // flipped
+            fmtn_hpos.spcoords[B * 2].word = tmp16; // make 9-bit integer
         }
 
-        fmtn_hpos.spcoords[B * 2].word = A << 1; // make 9-bit integer
         B++;
     }
 
@@ -618,16 +622,16 @@ void c_12C3(uint8 IXL)
 
 
 /*=============================================================================
-;; Initial for formation home-positions ordinates in pixels.
+;; Initial home-position formation ordinates in pixels.
 ;; 8-bits integer for column data (x).
 ;; 8-bits row data provides bits <8:1> of sprite-sY, stored for some reason in
 ;; "flipped-screen" format.
 ;; Diagram below shows how row/column ordinates are stored in
 ;; sprt_fmtn_hpos_ord_lut byte indices, doubled since there are two-bytes for
 ;; each ordinate in fmtn_hpos.spcoords[]
-;; |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
+;; |<-------------- COLUMNS ----------------------->|<---------- ROWS ---------->|
 ;;
-;; 00   02   04   06   08   0A   0C   0E   10   12   14   16   18   1A   1C   1E
+;;  00   02   04   06   08   0A   0C   0E   10   12   14   16   18   1A   1C   1E
 ;;
 ;;----------------------------------------------------------------------------*/
 const uint8 fmtn_hpos_orig[] =
