@@ -1334,8 +1334,7 @@ void f_08D3(void)
                             }
                             else
                             {
-                                A = fmtn_hpos.spcoords[ E ].pair.b0; // relative offset
-                                A = 0xF0 - A + 0x01;
+                                A = 0xF0 - fmtn_hpos.spcoords[ E ].pair.b0 + 0x01;
                             }
 
                             //l_0B76
@@ -1407,11 +1406,12 @@ void f_08D3(void)
 
                             // setup horizontal limits for targetting
                             tmpA.word = mrw_sprite.posn[SPR_IDX_SHIP].b0;
-                            if ( tmpA.word <= 0x1E )
+
+                            if (tmpA.word < 0x1E) // cp   #0x1E
                             {
                                 tmpA.word = 0x1E;
                             }
-                            if ( tmpA.word >= 0xD1 )
+                            if (tmpA.word >= 0xD1) // cp   #0xD1
                             {
                                 tmpA.word = 0xD1;
                             }
@@ -1419,14 +1419,13 @@ void f_08D3(void)
                             // l_0A16:
                             if ( 0 != glbls9200.flip_screen ) // bit  0,c
                             {
-                                tmpA.word += 0x0E;
-                                tmpA.word = -tmpA.word; // neg
+                                tmpA.word = 0xF0 - tmpA.word + 0x01;
                             }
 
-                            // l_0A1E:  9.7 fixed-point math
+                            // l_0A1E: subtract mctl.X<15:8> i.e. sprite.x<7:1>
                             tmpA.word >>= 1; // srl  a ... sX<8:1> in tmpA
-
                             tmpA.word -= mctl_mpool[mctl_que_idx].b03;
+
                             tmpA.word >>= 1; // rra  a ... Cy into <7>
                             tmpA.pair.b1 = 0; // clear it so the overflow condition can be tested
 
@@ -1437,7 +1436,7 @@ void f_08D3(void)
                             }
 
                             // l_0A2C_:
-                            tmpA.word += 0x18;
+                            tmpA.word += (0x30>>1); // 0x18;
                             A = tmpA.pair.b0;
 
                             // is result > $7F ?
@@ -1447,7 +1446,7 @@ void f_08D3(void)
                             }
 
                             //l_0A32:
-                            if (A >= 0x30) A = 0x2F;
+                            if (A >= 0x30) A = 0x2F; // cp   #0x30 ... limit to 47
 
                             //l_0A38:
                             A = mctl_div_16_8(6, A); // HL = HL / A
