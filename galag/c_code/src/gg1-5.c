@@ -58,7 +58,7 @@ static void mctl_coord_incr(uint8, uint8);
 static void mctl_posn_set(uint8);
 static uint16 mctl_rotn_hp(uint16, uint8);
 static uint16 mctl_mul8(uint8, uint8);
-static uint16 mctl_div_16_8(uint8, uint16);
+static uint16 mctl_div_16_8(uint16, uint8);
 static uint8 hit_detect(uint8, uint8, uint8);
 
 
@@ -1400,20 +1400,22 @@ void f_08D3(void)
                         case 0x0B: // _0A53: capture boss diving
                             break;
 
-                        case 0x0C: // _0A01: diving elements have left formation (set bomb target?)
+                        case 0x0C: // _0A01: red alien select attack path to fighter
                         {
                             r16_t tmpA;
 
                             // setup horizontal limits for targetting
-                            tmpA.word = mrw_sprite.posn[SPR_IDX_SHIP].b0;
-
-                            if (tmpA.word < 0x1E) // cp   #0x1E
+                            if (mrw_sprite.posn[SPR_IDX_SHIP].b0 < 0x1E) // cp   #0x1E
                             {
                                 tmpA.word = 0x1E;
                             }
-                            if (tmpA.word >= 0xD1) // cp   #0xD1
+                            else if (mrw_sprite.posn[SPR_IDX_SHIP].b0 >= 0xD1) // cp   #0xD1
                             {
                                 tmpA.word = 0xD1;
+                            }
+                            else
+                            {
+                                tmpA.word = mrw_sprite.posn[SPR_IDX_SHIP].b0;
                             }
 
                             // l_0A16:
@@ -1426,34 +1428,44 @@ void f_08D3(void)
                             tmpA.word >>= 1; // srl  a ... sX<8:1> in tmpA
                             tmpA.word -= mctl_mpool[mctl_que_idx].b03;
 
+                            // divide again by 2 ... Cy from sub rra'd into b7
                             tmpA.word >>= 1; // rra  a ... Cy into <7>
-                            tmpA.pair.b1 = 0; // clear it so the overflow condition can be tested
+
+                            tmpA.pair.b1 = 0; // clear it so negative result of addition below can be detected (overflow condition)
 
                             // typically .b13 if set then negate data to (ix)0x0C
                             if ( 0 != (mctl_mpool[mctl_que_idx].b13 & 0x80)) // bit  7,0x13(ix)
                             {
+                                // negative (clockwise) rotation ... approach
+                                // to waypoint is from right to left
                                 tmpA.pair.b0 = -tmpA.pair.b0; // neg
                             }
 
                             // l_0A2C_:
-                            tmpA.word += (0x30>>1); // 0x18;
-                            A = tmpA.pair.b0;
+                            // offset to make positive index 
+                            tmpA.word += (0x30 >> 1); // 0x18;
 
-                            // is result > $7F ?
-                            if (0 != tmpA.pair.b1) // jp   p,l_0A32
+                            // test if offset'ed result still out of range negative (overflow if addition to negative delta above)
+                            if (0 == tmpA.pair.b1) // jp   p,l_0A32
+                            {
+                                A = tmpA.pair.b0;
+                            }
+                            else
                             {
                                 A = 0; // xor  a ... S is set (overflow)
                             }
 
                             //l_0A32:
-                            if (A >= 0x30) A = 0x2F; // cp   #0x30 ... limit to 47
+                            // enforce upper limit on offset'ed result
+                            if (A >= 0x30) A = 0x2F; // cp   #0x30 ... limit to 47 ... divide by 6 ... choose from 8
 
                             //l_0A38:
-                            A = mctl_div_16_8(6, A); // HL = HL / A
-                            A += 1;
-                            A = flv_get_data(pHLdata + A);
+                            // divide number of index steps into scaled result
+                            A = mctl_div_16_8(A, 6); // HL = HL / A
+
+                            A = flv_get_data(pHLdata + A + 1); // adjust for index range 1 thru 8
                             mctl_mpool[mctl_que_idx].b0D = A; // expiration of this data-set
-                            pHLdata += 9;
+                            pHLdata = pHLdata + 1 + 8;
                             // jp   l_0BFF
                             goto l_0BFF; // gotta get out somehow
                         }
@@ -2017,7 +2029,7 @@ static uint16 mctl_rotn_hp(uint16 _DE_, uint8 mctl_que_idx)
     rHL.pair.b1 = C;
     rHL.pair.b0 = 0;
 
-    rHL.word = mctl_div_16_8(A, rHL.word); // HL = HL / A
+    rHL.word = mctl_div_16_8(rHL.word, A); // HL = HL / A
 
     L = rHL.pair.b0;
 
@@ -2084,15 +2096,15 @@ static uint16 mctl_mul8(uint8 A, uint8 L)
 ;; PRESERVES:
 ;;  BC
 ;;---------------------------------------------------------------------------*/
-static uint16 mctl_div_16_8(uint8 _A_, uint16 _HL_)
+static uint16 mctl_div_16_8(uint16 HL, uint8 A)
 {
     uint32 Cy16; // carry out from adc hl
     r16_t rA, rHL;
     uint8 B, C;
     uint8 Cy;
 
-    rHL.word = _HL_;
-    C = _A_;
+    rHL.word = HL;
+    C = A;
 
     rA.word = 0; // xor  a ... clears Cy
     Cy = 0;
