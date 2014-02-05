@@ -308,13 +308,13 @@ void objs_dispatcher(uint8 frame_ct)
             switch (sprt_mctl_objs[ E ].state)
             {
                 // ignore me (fighter, or inactive invader)
-            case 0x80:
+            case INACTIVE:
                 // _2416
                 E += 4;
                 break;
 
                 // _2422: dive attack or homing from formation pattern
-            case 0x09:
+            case HOMING:
                 L = E;
                 C = sprt_fmtn_hpos_ord_lut[L + 0]; // row position index
                 L = sprt_fmtn_hpos_ord_lut[L + 1]; // column position index
@@ -330,12 +330,12 @@ void objs_dispatcher(uint8 frame_ct)
                 break;
 
                 // _243C: shot my damn ship (DE==8862 ... 8863 counts down from $0F for all steps of explosion)
-            case 0x08:
+            case ROGUE_FGHTR:
                 //sprt_mctl_objs[ E ].state) = 0x80;
                 break;
 
                 // _245F: rotating back into position in the collective
-            case 0x02:
+            case HOME_RTN:
                 L = E;
 
                 if (0 == (0x01 & mrw_sprite.ctrl[L].b0))
@@ -386,7 +386,7 @@ void objs_dispatcher(uint8 frame_ct)
                 break;
 
                 // _2488: stationary
-            case 0x01:
+            case STAND_BY:
                 L = E;
 
                 // use bit-1 of 4 Hz timer to animate nested aliens every 1/2
@@ -419,14 +419,14 @@ void objs_dispatcher(uint8 frame_ct)
                 break;
 
                 // _24B2: nearly fatally shot
-            case 0x04:
+            case EXPLODING:
                 objs_dispatcher_rckt_hit(E);
                 // _2416
                 E += 4;
                 break;
 
                 // _2535: showing a score bitmap for a bonus hit
-            case 0x05:
+            case SCORE_BITM:
                 sprt_mctl_objs[ E ].mctl_idx -= 1;
                 // nz,case_2416
                 if (0 == sprt_mctl_objs[ E ].mctl_idx)
@@ -440,8 +440,8 @@ void objs_dispatcher(uint8 frame_ct)
                 break;
 
                 // _254D: terminate out of bounds bombs or "transient" invaders
-            case 0x03: // state progression ... 7's to 3's, and then 9's, 2's, and finally 1's
-            case 0x06: // release slot for bomb when out of range
+            case PTRN_CTL: // state progression ... 7's to 3's, and then 9's, 2's, and finally 1's
+            case BOMB: // release slot for bomb when out of range
                 if ( mrw_sprite.posn[ E ].b0 < 0xF4 )
                 {
                     r16_t tmpA;
@@ -478,7 +478,7 @@ void objs_dispatcher(uint8 frame_ct)
                 break;
 
                 // _2590: once for each spawning orc (new stage)
-            case 0x07:
+            case SPAWNING:
                 sprt_mctl_objs[ E ].state = PTRN_CTL; // from "spawning"
                 objs_dspch_ccnt += 1;
                 E += 4;
@@ -616,8 +616,7 @@ void c_25A2(void)
             // l_2647_is_ff
             obj_ID_tmpb_9100[L++] = *p_atkw_oids++;
 
-            if (B == 5)
-                L = 8;
+            if (B == 5) L = 8;
 
             // l_2652:
             B--; // djnz l_263F
@@ -853,8 +852,7 @@ void atkw_eclass_init(uint8 *pIXL, uint8 *pHL, uint8 B, uint8 IXH)
         A |= (C.pair.b1 & 0x01) << 7;
         mrw_sprite.cclr[ *pHL ].b0 = A;
 
-        (*pHL)++; // inc  l
-        (*pHL)++; // inc  l
+        (*pHL) += 2; // inc  l
 
         B--; // djnz l_28E9
     }
@@ -982,8 +980,7 @@ void f_2916(void)
         IX = 0;
         while (IX < 0x0C)
         {
-            if (0 == (mctl_mpool[IX].b13 & 0x01))
-                break;
+            if (0 == (mctl_mpool[IX].b13 & 0x01)) break;
 
             IX++;
         }
@@ -1000,7 +997,9 @@ void f_2916(void)
         A = *plyr_state_actv.p_atkwav_tbl; // tbl[n].pair.h ... object ID/offset, e.g. 58
 
         if (0x78 == (A & 0x78)) //  [ object >= $78  &&  object < $80 ]
+        {
             A &= ~40; // res  6,a .. what object is > $78?
+        }
 
         // l_2980
         mctl_mpool[IX].b10 = A; // ld   0x10(ix),a ... object index
@@ -1058,9 +1057,14 @@ void f_2916(void)
         C = token_b0 & ~0x80; // res  7,c
 
         // setup the bomb-drop counter
-        B = 8;
         if (C & 0x02) // bit  1,c
+        {
             B = 0x44;
+        }
+        else
+        {
+            B = 8;
+        }
 
         mctl_mpool[IX].b0E = B;
 
