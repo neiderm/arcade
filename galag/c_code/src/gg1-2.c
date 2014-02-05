@@ -95,12 +95,11 @@ void bmbr_setup_fltq_drone(uint8 obj_idx, uint16 pDE)
 static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
 {
     r16_t tmpA;
-    uint8 B, IX;
+    uint8 IX;
 
     // find an available data structure or quit
-    for (B = 0; B < 0x0C; B++)
+    for (IX = 0; IX < 0x0C; IX++)
     {
-        IX = B;
         if (0 == (mctl_mpool[IX].b13 & 0x01)) // check for activated state
         {
             break; // jr   z,l_10A0_got_one
@@ -108,15 +107,12 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     } // djnz l_1094
 
     // check for quit condition
-    if (0x0C == B) return;
+    if (0x0C == IX) return;
 
     // l_10A0_got_one:
-
     mctl_mpool[IX].p08.word = p_dat;
     mctl_mpool[IX].b0D = 1;
-    mctl_mpool[IX].b04 = (0x0100 & 0xFF); // 0x0100<7:0>
-    mctl_mpool[IX].b05 = 0x0100 >> 8;     // 0x0100<15:8>
-
+    mctl_mpool[IX].ang.word = 0x0100;
     mctl_mpool[IX].b10 = obj_idx; // index of object, sprite etc.
 
     //  ex   af,af'     function parameter from A'
@@ -124,7 +120,6 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
 
     sprt_mctl_objs[obj_idx].state = HOMING; // diving attack
     sprt_mctl_objs[obj_idx].mctl_idx = IX;
-
 
     // insert sprite Y coord into pool structure
     tmpA.pair.b0 = mrw_sprite.posn[obj_idx].b1; // sprite_y<7:0>
@@ -135,8 +130,7 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
         // add  a,#0x00A0/2 etc.
         tmpA.word = 0x0160 - tmpA.word + 0x01; // how bout just use 16-bits!
     }
-    tmpA.word <<= 7; // make precision fixed-point
-    mctl_mpool[IX].cy.word = tmpA.word;
+    mctl_mpool[IX].cy.word = tmpA.word << 7; // make fixed-point
 
     // l_10DC ... insert sprite X coord into pool structure
     if ( 0 == glbls9200.flip_screen)
@@ -147,14 +141,10 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     {
         tmpA.word = 0xF0 - mrw_sprite.posn[obj_idx].b0 + 0x02;
     }
-
-    tmpA.word <<= 7; // make precision fixed-point
-    mctl_mpool[IX].cx.word = tmpA.word & 0xFF80;
-
+    mctl_mpool[IX].cx.word = (tmpA.word << 7) & 0xFF80; // make fixed-point
 
     mctl_mpool[IX].b13 = rotn_flag | 0x01; // d
     mctl_mpool[IX].b0E = 0x1E; // bomb drop counter
-
 
     if (0 == glbls9200.flying_bug_attck_condtn)
     {

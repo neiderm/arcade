@@ -1088,9 +1088,7 @@ void f_2916(void)
 
         mctl_mpool[IX].cy.word = atkw_mctl_cinits[HL + 0] << 8;
         mctl_mpool[IX].cx.word = atkw_mctl_cinits[HL + 1] << 8;
-        mctl_mpool[IX].b05 = atkw_mctl_cinits[HL + 2];
-
-        mctl_mpool[IX].b04 = 0;
+        mctl_mpool[IX].ang.word = atkw_mctl_cinits[HL + 2] << 8;
 
         mctl_mpool[IX].b0D = 1;
         A = token_b0 | 1;

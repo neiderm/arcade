@@ -1273,10 +1273,8 @@ void f_08D3(void)
 
                             // update rotation angle for updated adjusted position
                             rHL.word = mctl_rotn_hp(pushDE.word, mctl_que_idx); // preserves DE & BC
-                            rHL.word >>= 1; // srl  h ... rr   l
 
-                            mctl_mpool[mctl_que_idx].b04 = rHL.pair.b0;
-                            mctl_mpool[mctl_que_idx].b05 = rHL.pair.b1;
+                            mctl_mpool[mctl_que_idx].ang.word = rHL.word >> 1;
 
                             mctl_mpool[mctl_que_idx].b06 = pushDE.pair.b1; // origin home position y (bits 15:8)
                             mctl_mpool[mctl_que_idx].b07 = pushDE.pair.b0; // origin home position x (bits 15:8)
@@ -1423,7 +1421,7 @@ void f_08D3(void)
 
                             tmpA.pair.b1 = 0; // clear it so negative result of addition below can be detected (overflow condition)
 
-                            // typically .b13 if set then negate data to (ix)0x0C
+                            // typically b<7:> if set then negate data to (ix)0x0C
                             if ( 0 != (mctl_mpool[mctl_que_idx].b13 & 0x80)) // bit  7,0x13(ix)
                             {
                                 // negative (clockwise) rotation ... approach
@@ -1650,16 +1648,18 @@ static void mctl_rotn_incr(uint8 mpidx)
     /*
      * determine_sprite_code
      */
-    A = mctl_mpool[mpidx].b04; // ld   a,e
-
-    if (0x01 & mctl_mpool[mpidx].b05) // bit  0,c
+    if (0x0100 & mctl_mpool[mpidx].ang.word) // bit  0,c
     {
-        A = ~A; // cpl ... invert bits 7:0 in quadrant 1 and 3
+        A = ~mctl_mpool[mpidx].ang.pair.b0; // cpl ... invert bits 7:0 in quadrant 1 and 3
+    }
+    else
+    {
+        A = mctl_mpool[mpidx].ang.pair.b0; // ld   a,e
     }
 
     // l_0C6D
     temp16.word = A + 42/2; // 0x15
-    A = temp16.pair.b0;
+
     if (temp16.word & 0x0100)
     {
         // select vertical tile if within 21 degrees (half "step") of 90 or 270
@@ -1668,6 +1668,8 @@ static void mctl_rotn_incr(uint8 mpidx)
     }
     else
     {
+        A = temp16.pair.b0;
+
         // l_0C75 ... you just don't see this sort of thing anymore ...
         // divide by 42 ...42 counts per step of rotation (with 24 steps in the circle, 1 step is 42 degrees)
         // Here's the math: A * ( 1/2 + 1/4 ) * ( 1/32 )
@@ -1684,8 +1686,8 @@ static void mctl_rotn_incr(uint8 mpidx)
     /*
      * determine sprite ctrl
      */
-    A = (mctl_mpool[mpidx].b05 >> 1) & 0x01; // rrc c
-    mrw_sprite.ctrl[L].b0 = ((mctl_mpool[mpidx].b05 ^ A) + 1) << 1; // (b0 ^ b1) + 1
+    A = (mctl_mpool[mpidx].ang.pair.b1 >> 1) & 0x01; // rrc c
+    mrw_sprite.ctrl[L].b0 = ((mctl_mpool[mpidx].ang.pair.b1 ^ A) + 1) << 1; // (b0 ^ b1) + 1
     mrw_sprite.ctrl[L].b0 = (mrw_sprite.ctrl[L].b0 | A) & 0x03; // and  #0x03 (double-x/double-y bits arrarently not used)
 
 
@@ -1706,12 +1708,7 @@ static void mctl_rotn_incr(uint8 mpidx)
     }
 
     // l_0C46: now the rotation value for this slot can be updated (l_0C46)
-    temp16.pair.b0 = mctl_mpool[mpidx].b04;
-    temp16.pair.b1 = mctl_mpool[mpidx].b05;
-    temp16.word += (sint8) mctl_mpool[mpidx].b0C;
-    mctl_mpool[mpidx].b04 = temp16.pair.b0;
-    mctl_mpool[mpidx].b05 = temp16.pair.b1;
-
+    mctl_mpool[mpidx].ang.word += (sint8) mctl_mpool[mpidx].b0C;
 
     // l_0D03_ almost done ... update the sprite x/y positions
     mctl_posn_set(mpidx); // jp   z,l_0D03
@@ -1752,7 +1749,9 @@ static void mctl_coord_incr(uint8 ds, uint8 mpidx)
        1  1   1  h
     */
     // select displacement vector  ... jr   c,l_0CBF
-    if (0x00 == ((0 != (mctl_mpool[mpidx].b04 & 0x80)) ^ (0 != (mctl_mpool[mpidx].b05 & 0x01)))) // jr   c,l_0CBF
+    if (0x00 ==
+        ((0 != (mctl_mpool[mpidx].ang.pair.b0 & 0x80)) ^
+         (0 != (mctl_mpool[mpidx].ang.pair.b1 & 0x01)))) // jr   c,l_0CBF
     {
         // near horizontal orientation
         pv[0] = &mctl_mpool[mpidx].cx;
@@ -1765,10 +1764,8 @@ static void mctl_coord_incr(uint8 ds, uint8 mpidx)
         pv[1] = &mctl_mpool[mpidx].cx;
     }
 
-
-    pushDE.pair.b1 = mctl_mpool[mpidx].b05 & 3; // and  #0x03
-    pushDE.pair.b0 = mctl_mpool[mpidx].b04; // e saved from (ix)0x04
-    pushDE.word <<= 1; // rlc, rl ... integer from precision 9.7 format
+    // integer from precision 9.7 format
+    pushDE.word = (mctl_mpool[mpidx].ang.word & 0x03FF) << 1;
 
     // l_0CBF
     /*
@@ -1799,14 +1796,15 @@ static void mctl_coord_incr(uint8 ds, uint8 mpidx)
     pv[0]->word += tmpAC.word; // adc  a,c
 
     // determine if minor ordinate is negative or positive
-    if (0 != (0x80 & mctl_mpool[mpidx].b04)) // jr   nc,l_0CE3
+    if (0 == (0x0080 & mctl_mpool[mpidx].ang.word)) // jr   nc,l_0CE3
     {
-        L = ~mctl_mpool[mpidx].b04 & 0x7F; // xor  #0x7F
+        L = mctl_mpool[mpidx].ang.word & 0x007F;
     }
     else
     {
-        L = mctl_mpool[mpidx].b04 & 0x7F;
+        L = ~mctl_mpool[mpidx].ang.word & 0x007F; // xor  #0x7F
     }
+
     // l_0CE3
     popHL.word = mctl_mul8(ds, L); // HL = L * A
 
@@ -1896,7 +1894,6 @@ static void mctl_posn_set(uint8 mpidx)
     // Once the timer in $0E is reached, then check conditions to enable bomb drop.
     // If bomb is disabled for any reason, the timer is restarted.
     mctl_mpool[mpidx].b0E -= 1;
-
 
     // jp   nz,l_0DFB_next_superloop
     if (0 != mctl_mpool[mpidx].b0E)

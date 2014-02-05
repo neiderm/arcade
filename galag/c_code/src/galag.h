@@ -211,24 +211,24 @@ sprt_mctl_obj_state_t;
  */
 typedef struct
 {
-    r16_t cy;
-    r16_t cx;
-    uint8 b04;
-    uint8 b05;
-    uint8 b06;
-    uint8 b07;
+    r16_t cy; // current Y (adjusted for formation offset if homing)
+    r16_t cx; // current X (adjusted for formation offset if homing)
+    r16_t ang; // 10-bit rotation angle
+    uint8 b06; // origin home position Y (bits 15:8)
+    uint8 b07; // origin home position X (bits 15:8)
     r16_t p08; // flight pattern data table pointer ... treat as uint16
     //uint8 b09
-    uint8 b0A;
-    uint8 b0B;
-    uint8 b0C;
-    uint8 b0D;
-    uint8 b0E;
-    uint8 b0F;
-    uint8 b10;
-    uint8 b11;
-    uint8 b12;
-    uint8 b13;
+    uint8 b0A; // displacement vector
+    uint8 b0B; // displacement vector
+    uint8 b0C; // rotation increment
+    uint8 b0D; // flight path step counter/timer
+    uint8 b0E; // bomb drop counter
+    uint8 b0F; // bomb drop enable flag
+    uint8 b10; // index to sprt_mctl_objs[]
+    uint8 b11; // step X coord
+    uint8 b12; // step Y coord
+    uint8 b13; // status flags
+
 } mctl_pool_t;
 
 /*
