@@ -810,7 +810,7 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
         // b_9200[L].b0 ... $81 = hit notification already in progress
 
         if (INACTIVE != (sprt_mctl_objs[hl].state |
-                     sprt_hit_notif[hl])) // else  jr   c,l_07B4_next_object
+                         sprt_hit_notif[hl])) // else  jr   c,l_07B4_next_object
         {
             // check if object status 04 (already exploding) or 05 (bonus bitmap)
 
@@ -1552,23 +1552,17 @@ static void mctl_path_update(uint8 mpidx)
     if (0x40 & mctl_mpool[mpidx].b13) // bit  6 ... check if homing
     {
         // transitions to the next segment of the flight pattern
-        if (mctl_mpool[mpidx].cy.pair.b1 ==
-                mctl_mpool[mpidx].b06
+        if (mctl_mpool[mpidx].cy.pair.b1 == mctl_mpool[mpidx].b06
                 ||
-                (mctl_mpool[mpidx].cy.pair.b1 -
-                 mctl_mpool[mpidx].b06) == 1
+                (mctl_mpool[mpidx].cy.pair.b1 - mctl_mpool[mpidx].b06) == 1
                 ||
-                (mctl_mpool[mpidx].b06 -
-                 mctl_mpool[mpidx].cy.pair.b1) == 1)
+                (mctl_mpool[mpidx].b06 - mctl_mpool[mpidx].cy.pair.b1) == 1)
         {
-            if (mctl_mpool[mpidx].cx.pair.b1 ==
-                    mctl_mpool[mpidx].b07
+            if (mctl_mpool[mpidx].cx.pair.b1 == mctl_mpool[mpidx].b07
                     ||
-                    (mctl_mpool[mpidx].cx.pair.b1 -
-                     mctl_mpool[mpidx].b07) == 1
+                    (mctl_mpool[mpidx].cx.pair.b1 - mctl_mpool[mpidx].b07) == 1
                     ||
-                    (mctl_mpool[mpidx].b07 -
-                     mctl_mpool[mpidx].cx.pair.b1) == 1)
+                    (mctl_mpool[mpidx].b07 - mctl_mpool[mpidx].cx.pair.b1) == 1)
             {
                 uint8 A, L;
 
@@ -1639,14 +1633,11 @@ static void mctl_rotn_incr(uint8 mpidx)
     // screen and snaps to his home position column
     if (0x20 & mctl_mpool[mpidx].b13) // bit  5 ... check for yellow-alien or boss dive
     {
-        if ((mctl_mpool[mpidx].cy.pair.b1 ==
-                mctl_mpool[mpidx].b06)
+        if ((mctl_mpool[mpidx].cy.pair.b1 == mctl_mpool[mpidx].b06)
                 ||
-                (mctl_mpool[mpidx].cy.pair.b1 -
-                 mctl_mpool[mpidx].b06) == 1
+                (mctl_mpool[mpidx].cy.pair.b1 - mctl_mpool[mpidx].b06) == 1
                 ||
-                (mctl_mpool[mpidx].b06 -
-                 mctl_mpool[mpidx].cy.pair.b1) == 1)
+                (mctl_mpool[mpidx].b06 - mctl_mpool[mpidx].cy.pair.b1) == 1)
         {
             // set it up to expire on next step
             mctl_mpool[mpidx].b0D = 1;
@@ -1742,8 +1733,8 @@ static void mctl_rotn_incr(uint8 mpidx)
 ;;---------------------------------------------------------------------------*/
 static void mctl_coord_incr(uint8 ds, uint8 mpidx)
 {
-    uint8 * pv[2];
-    r16_t pushDE, popHL, tmpAC, tmp16;
+    r16_t * pv[2];
+    r16_t pushDE, popHL, tmpAC;
     uint8 A, L;
 
     /*
@@ -1764,20 +1755,20 @@ static void mctl_coord_incr(uint8 ds, uint8 mpidx)
     if (0x00 == ((0 != (mctl_mpool[mpidx].b04 & 0x80)) ^ (0 != (mctl_mpool[mpidx].b05 & 0x01)))) // jr   c,l_0CBF
     {
         // near horizontal orientation
-        pv[0] = &mctl_mpool[mpidx].cx.pair.b0;
-        pv[1] = &mctl_mpool[mpidx].cy.pair.b0;
+        pv[0] = &mctl_mpool[mpidx].cx;
+        pv[1] = &mctl_mpool[mpidx].cy;
     }
     else
     {
         // near vertical orientation
-        pv[0] = &mctl_mpool[mpidx].cy.pair.b0;
-        pv[1] = &mctl_mpool[mpidx].cx.pair.b0;
+        pv[0] = &mctl_mpool[mpidx].cy;
+        pv[1] = &mctl_mpool[mpidx].cx;
     }
 
 
     pushDE.pair.b1 = mctl_mpool[mpidx].b05 & 3; // and  #0x03
     pushDE.pair.b0 = mctl_mpool[mpidx].b04; // e saved from (ix)0x04
-    pushDE.word <<= 1; // rlc, rl
+    pushDE.word <<= 1; // rlc, rl ... integer from precision 9.7 format
 
     // l_0CBF
     /*
@@ -1803,15 +1794,9 @@ static void mctl_coord_incr(uint8 ds, uint8 mpidx)
     }
 
     // l_0CC7
-    // A is bits<7:14> of addend, .b00/.b02 is fixed point 9.7
-    tmpAC.pair.b0 = 0;
-    tmpAC.pair.b1 = A; // ld   c,a ... from 0x0A(ix) or 0x0B(ix)
+    tmpAC.word = A << 8; // ld   c,a ... from 0x0A(ix) or 0x0B(ix)
     tmpAC.word = (sint16) tmpAC.word >> 1; // sra  c ... sign extend and carry out of bit-0 of msb
-    tmp16.pair.b0 = *(pv[0] + 0);
-    tmp16.pair.b1 = *(pv[0] + 1);
-    tmp16.word += tmpAC.word; // adc  a,c
-    *(pv[0] + 0) = tmp16.pair.b0;
-    *(pv[0] + 1) = tmp16.pair.b1;
+    pv[0]->word += tmpAC.word; // adc  a,c
 
     // determine if minor ordinate is negative or positive
     if (0 != (0x80 & mctl_mpool[mpidx].b04)) // jr   nc,l_0CE3
@@ -1831,15 +1816,13 @@ static void mctl_coord_incr(uint8 ds, uint8 mpidx)
     {
         //and  a ...  whuuuuuut????
 
-        popHL.word = -popHL.word; // sbc  hl,bc (negate the word)
+        pv[1]->word -= popHL.word; // sbc  hl,bc (negate the word)
     }
-
-    // l_0CFA ... *HL += *DE
-    tmp16.pair.b0 = *(pv[1] + 0);
-    tmp16.pair.b1 = *(pv[1] + 1);
-    tmp16.word += popHL.word; // adc  a,(hl)
-    *(pv[1] + 0) = tmp16.pair.b0;
-    *(pv[1] + 1) = tmp16.pair.b1; // adc  a,(hl)
+    else
+    {
+        // l_0CFA ... *HL += *DE
+        pv[1]->word += popHL.word; // adc  a,(hl)
+    }
 }
 
 /*=============================================================================
@@ -2005,8 +1988,7 @@ static uint16 mctl_rotn_hp(uint16 _DE_, uint8 mctl_que_idx)
     }
 
     // l_0E84:
-    rHL.pair.b1 = C;
-    rHL.pair.b0 = 0;
+    rHL.word = C << 8;
 
     rHL.word = mctl_div_16_8(rHL.word, A); // HL = HL / A
 
