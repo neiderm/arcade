@@ -135,9 +135,8 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
         // add  a,#0x00A0/2 etc.
         tmpA.word = 0x0160 - tmpA.word + 0x01; // how bout just use 16-bits!
     }
-    tmpA.word <<= 7; // rescale sY<8:0> to fixed-point 9.7
-    mctl_mpool[IX].b01 = tmpA.pair.b1;
-    mctl_mpool[IX].b00 = tmpA.pair.b0;
+    tmpA.word <<= 7; // make precision fixed-point
+    mctl_mpool[IX].cy.word = tmpA.word;
 
     // l_10DC ... insert sprite X coord into pool structure
     if ( 0 == glbls9200.flip_screen)
@@ -149,10 +148,8 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
         tmpA.word = 0xF0 - mrw_sprite.posn[obj_idx].b0 + 0x02;
     }
 
-    tmpA.word <<= 7; // put in precision fixed-point
-
-    mctl_mpool[IX].b03 = tmpA.pair.b1; // sX<8:1>
-    mctl_mpool[IX].b02 = tmpA.pair.b0 & 0x80; // sX<:0> ... now scaled fixed point 9.7
+    tmpA.word <<= 7; // make precision fixed-point
+    mctl_mpool[IX].cx.word = tmpA.word & 0xFF80;
 
 
     mctl_mpool[IX].b13 = rotn_flag | 0x01; // d

@@ -1262,25 +1262,14 @@ void f_08D3(void)
                             // y adjustments are opposite in sign (subtract x)
 
                             // add y-offset to .b00/.b01 (9.7 fixed-point scaling)
-                            rHL.pair.b0 = mctl_mpool[mctl_que_idx].b00; // ld   l
-                            rHL.pair.b1 = mctl_mpool[mctl_que_idx].b01; // ld   h
-                            rDE.pair.b1 = C; // ld   d,c
-                            rDE.pair.b0 = 0; // ld   e,#0
-                            rDE.word >>= 1; // sra  d ... rr  e
-                            rHL.word += rDE.word;
-                            mctl_mpool[mctl_que_idx].b00 = rHL.pair.b0; // ld   0x00(ix),l
-                            mctl_mpool[mctl_que_idx].b01 = rHL.pair.b1; // ld   0x01(ix),h
+                            rDE.word = C << 7; // ld   d,c
+                            mctl_mpool[mctl_que_idx].cy.word += rDE.word;
 
                             // sub x-offset from .b02/.b03 (9.7 fixed-point scaling)
-                            rHL.pair.b0 = mctl_mpool[mctl_que_idx].b02; // ld   l
-                            rHL.pair.b1 = mctl_mpool[mctl_que_idx].b03; // ld   h
-                            rBC.pair.b1 = B;
-                            rBC.pair.b0 = 0; // ld   c,#0
+                            rBC.word = B << 8;
                             rBC.word >>= 1; // sra  b ... rr  c
                             rBC.pair.b1 |= (B & 0x80); // gets the sign extension of sra b
-                            rHL.word -= rBC.word; // sbc  hl,bc
-                            mctl_mpool[mctl_que_idx].b02 = rHL.pair.b0; // l
-                            mctl_mpool[mctl_que_idx].b03 = rHL.pair.b1; // h
+                            mctl_mpool[mctl_que_idx].cx.word -= rBC.word; // sbc  hl,bc
 
                             // update rotation angle for updated adjusted position
                             rHL.word = mctl_rotn_hp(pushDE.word, mctl_que_idx); // preserves DE & BC
@@ -1338,7 +1327,8 @@ void f_08D3(void)
                             }
 
                             //l_0B76
-                            mctl_mpool[mctl_que_idx].b03 =  A >> 1; // srl  a
+                            mctl_mpool[mctl_que_idx].cx.pair.b1 =  A >> 1; // srl  a
+
                             if (0 /* 0 != b_92A0_0A[0]*/) // jp   z,l_0B8B
                             {
                                 b_9AA0[0x13] = 1; // non-zero value
@@ -1349,7 +1339,7 @@ void f_08D3(void)
 
                             // l_0B8C:
                             mctl_mpool[mctl_que_idx].p08.word = pHLdata;
-                            mctl_mpool[mctl_que_idx].b0D++; // inc  0x0D(ix)
+                            mctl_mpool[mctl_que_idx].b0D += 1; // inc  0x0D(ix)
 
                             // jp   l_0DFB_next_superloop
                             goto l_0DFB_next_superloop;
@@ -1358,7 +1348,7 @@ void f_08D3(void)
                         // red alien flew through bottom of screen to top, heading for home
                         // yellow alien flew under bottom of screen and now turns for home
                         case 0x07: // _0B87:
-                            mctl_mpool[mctl_que_idx].b01 = 0x0138 >> 1; // ld   0x01(ix),#$9C
+                            mctl_mpool[mctl_que_idx].cy.pair.b1 = 0x0138 >> 1; // ld   0x01(ix),#$9C
 
                             //l_0B8B
                             pHLdata += 1; // inc  hl
@@ -1425,8 +1415,8 @@ void f_08D3(void)
                             }
 
                             // l_0A1E: subtract mctl.X<15:8> i.e. sprite.x<7:1>
-                            tmpA.word >>= 1; // srl  a ... sX<8:1> in tmpA
-                            tmpA.word -= mctl_mpool[mctl_que_idx].b03;
+                            tmpA.word >>= 1; // srl  a
+                            tmpA.word -= mctl_mpool[mctl_que_idx].cx.pair.b1;
 
                             // divide again by 2 ... Cy from sub rra'd into b7
                             tmpA.word >>= 1; // rra  a ... Cy into <7>
@@ -1562,37 +1552,33 @@ static void mctl_path_update(uint8 mpidx)
     if (0x40 & mctl_mpool[mpidx].b13) // bit  6 ... check if homing
     {
         // transitions to the next segment of the flight pattern
-        if (mctl_mpool[mpidx].b01 ==
+        if (mctl_mpool[mpidx].cy.pair.b1 ==
                 mctl_mpool[mpidx].b06
                 ||
-                (mctl_mpool[mpidx].b01 -
+                (mctl_mpool[mpidx].cy.pair.b1 -
                  mctl_mpool[mpidx].b06) == 1
                 ||
                 (mctl_mpool[mpidx].b06 -
-                 mctl_mpool[mpidx].b01) == 1)
+                 mctl_mpool[mpidx].cy.pair.b1) == 1)
         {
-            if (mctl_mpool[mpidx].b03 ==
+            if (mctl_mpool[mpidx].cx.pair.b1 ==
                     mctl_mpool[mpidx].b07
                     ||
-                    (mctl_mpool[mpidx].b03 -
+                    (mctl_mpool[mpidx].cx.pair.b1 -
                      mctl_mpool[mpidx].b07) == 1
                     ||
                     (mctl_mpool[mpidx].b07 -
-                     mctl_mpool[mpidx].b03) == 1)
+                     mctl_mpool[mpidx].cx.pair.b1) == 1)
             {
                 uint8 A, L;
 
                 // jp l_0E08 ... creature gets to home-spot
                 mctl_mpool[mpidx].b13 &= ~0x01; // res  0,0x13(ix) ... mark the flying structure as inactive
 
-                mctl_mpool[mpidx].b00 = 0;
-                mctl_mpool[mpidx].b02 = 0;
-
                 L = mctl_mpool[mpidx].b10;
                 sprt_mctl_objs[L].state = HOME_RTN;
 
-                A = mrw_sprite.cclr[L].b1 + 1; // inc  a ... sprite color code
-                A &= 0x07; // and  #0x07
+                A = (mrw_sprite.cclr[L].b1 + 1) & 0x07; // inc  a ... sprite color code
 
                 if (A >= 5) // ... remaining bonus-bee returns to collective
                 {
@@ -1600,11 +1586,8 @@ static void mctl_path_update(uint8 mpidx)
 
                 // l_0E3A
                 // these could be off by one if not already equal
-                mctl_mpool[mpidx].b01 =
-                    mctl_mpool[mpidx].b06;
-
-                mctl_mpool[mpidx].b03 =
-                    mctl_mpool[mpidx].b07;
+                mctl_mpool[mpidx].cy.word = mctl_mpool[mpidx].b06 << 8;
+                mctl_mpool[mpidx].cx.word = mctl_mpool[mpidx].b07 << 8;
 
                 //almost done ... update the sprite x/y positions
                 mctl_posn_set(mpidx); // jp   z,l_0D03
@@ -1656,14 +1639,14 @@ static void mctl_rotn_incr(uint8 mpidx)
     // screen and snaps to his home position column
     if (0x20 & mctl_mpool[mpidx].b13) // bit  5 ... check for yellow-alien or boss dive
     {
-        if ((mctl_mpool[mpidx].b01 ==
+        if ((mctl_mpool[mpidx].cy.pair.b1 ==
                 mctl_mpool[mpidx].b06)
                 ||
-                (mctl_mpool[mpidx].b01 -
+                (mctl_mpool[mpidx].cy.pair.b1 -
                  mctl_mpool[mpidx].b06) == 1
                 ||
                 (mctl_mpool[mpidx].b06 -
-                 mctl_mpool[mpidx].b01) == 1)
+                 mctl_mpool[mpidx].cy.pair.b1) == 1)
         {
             // set it up to expire on next step
             mctl_mpool[mpidx].b0D = 1;
@@ -1781,14 +1764,14 @@ static void mctl_coord_incr(uint8 ds, uint8 mpidx)
     if (0x00 == ((0 != (mctl_mpool[mpidx].b04 & 0x80)) ^ (0 != (mctl_mpool[mpidx].b05 & 0x01)))) // jr   c,l_0CBF
     {
         // near horizontal orientation
-        pv[0] = &mctl_mpool[mpidx].b02;
-        pv[1] = &mctl_mpool[mpidx].b00;
+        pv[0] = &mctl_mpool[mpidx].cx.pair.b0;
+        pv[1] = &mctl_mpool[mpidx].cy.pair.b0;
     }
     else
     {
         // near vertical orientation
-        pv[0] = &mctl_mpool[mpidx].b00;
-        pv[1] = &mctl_mpool[mpidx].b02;
+        pv[0] = &mctl_mpool[mpidx].cy.pair.b0;
+        pv[1] = &mctl_mpool[mpidx].cx.pair.b0;
     }
 
 
@@ -1881,9 +1864,7 @@ static void mctl_posn_set(uint8 mpidx)
     L = mctl_mpool[mpidx].b10; // object index
 
     // extract x-coord and adjust for homing if needed
-    r16.pair.b1 = mctl_mpool[mpidx].b03;
-    r16.pair.b0 = mctl_mpool[mpidx].b02;
-    r16.word <<= 1;
+    r16.word = mctl_mpool[mpidx].cx.word << 1;
     A = r16.pair.b1; // recover integer portion from fixed point 9.7
 
     if (0 != glbls9200.flip_screen) // bit  0,c
@@ -1901,9 +1882,7 @@ static void mctl_posn_set(uint8 mpidx)
 
 
     // extract y-coord and adjust for homing if needed
-    r16.pair.b0 = mctl_mpool[mpidx].b00;
-    r16.pair.b1 = mctl_mpool[mpidx].b01; // ld   b,0x01(ix)
-    r16.word >>= 7; // extract 9-bit integer from precision 9.7 format
+    r16.word = mctl_mpool[mpidx].cy.word >> 7; // extract 9-bit integer
 
     // for some reason pool y-coord tracked in flipped format
     if (0 == glbls9200.flip_screen) // bit  0,c
@@ -1947,7 +1926,7 @@ static void mctl_posn_set(uint8 mpidx)
 
     if (Cy
             &&
-            mctl_mpool[mpidx].b01 >= 0x4C // cp   #0x4C
+            mctl_mpool[mpidx].cy.pair.b1 >= 0x4C // cp   #0x4C ... $98>>1
             &&
             0 != task_actv_tbl_0[0x15] // fire button input
             &&
@@ -1986,10 +1965,10 @@ static uint16 mctl_rotn_hp(uint16 _DE_, uint8 mctl_que_idx)
     E = rDE.pair.b0; // cX
     D = rDE.pair.b1; // cY
 
-    A = E - mctl_mpool[mctl_que_idx].b03; // sub  l
+    A = E - mctl_mpool[mctl_que_idx].cx.pair.b1; // sub  l
     B = 0;
 
-    if (mctl_mpool[mctl_que_idx].b03 > E) // jr   nc,l_0E67
+    if (mctl_mpool[mctl_que_idx].cx.pair.b1 > E) // jr   nc,l_0E67
     {
         B = 1; // set  0,b
         A = -A; // neg
@@ -1998,9 +1977,9 @@ static uint16 mctl_rotn_hp(uint16 _DE_, uint8 mctl_que_idx)
     // l_0E67:
     C = A;
 
-    A = D - mctl_mpool[mctl_que_idx].b01; // sub  h
+    A = D - mctl_mpool[mctl_que_idx].cy.pair.b1; // sub  h
 
-    if (mctl_mpool[mctl_que_idx].b01 > D) // jr   nc,l_0E76
+    if (mctl_mpool[mctl_que_idx].cy.pair.b1 > D) // jr   nc,l_0E76
     {
         B ^= 1; // xor  #0x01
         B |= 2; // or   #0x02

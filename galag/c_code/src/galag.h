@@ -188,7 +188,7 @@ typedef enum
     BOMB,           // special state if sprite used as bomb
     SPAWNING,       // precedes pattern control
     ROGUE_FGHTR,    // shot rogue fighter
-    HOMING,         // follows pattern control
+    HOMING,         // moving to specific point location i.e. homing or diving attack
     INACTIVE = 0x80 // (also for fighter)
 }
 sprt_mctl_obj_state_t;
@@ -211,10 +211,8 @@ sprt_mctl_obj_state_t;
  */
 typedef struct
 {
-    uint8 b00;
-    uint8 b01;
-    uint8 b02;
-    uint8 b03;
+    r16_t cy;
+    r16_t cx;
     uint8 b04;
     uint8 b05;
     uint8 b06;
