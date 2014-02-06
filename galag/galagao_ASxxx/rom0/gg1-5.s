@@ -1623,8 +1623,9 @@ l_09FA_bonusbee_creat_fail:
        inc  hl
        jp   j_090E_flite_path_init
 
-; diving elements have left formation (set bomb target?)
-; red guy stuck in a circle if this doesn't work he can't get home
+; Red alien element has left formation - use deltaX to fighter to select flight
+; plan. This occurs when approximately mid-screen, after initial jump from
+; formation.
 case_0A01:  ; $0C
 ; stash 2 copies of hl
        push hl                                    ; ptr to data table
@@ -1652,13 +1653,16 @@ l_0A16:
 l_0A1E:
        srl  a
        sub  0x03(ix)
-       rra
+       rra                                        ; divide again by 2 ... also allows Cy from sub into b7
        bit  7,0x13(ix)                            ; if !z  then  a=-a
        jr   z,l_0A2C_
+; negative (clockwise) rotation ... approach to waypoint is from right to left
        neg
+
 l_0A2C_:
-       add  a,#0x18
-       jp   p,l_0A32                              ; jumps if S is reset (!p on overflow)
+; test if offset'ed result still out of range negative (overflow if addition to negative delta is greater than 0)
+       add  a,#0x30>>1                            ; offset to positive range for selection of index
+       jp   p,l_0A32                              ; clear A if S is set
        xor  a                                     ; !overflow
 l_0A32:
        cp   #0x30
@@ -2269,7 +2273,7 @@ l_0D23:
 
        bit  0,c                                   ; test flip screen
        jr   nz,l_0D38
-       add  a,#0x9E>>1                            ; not flipped ... (0 - 0160 - 2) = FE9E
+       add  a,#(<(-0x0160 - 0x02))>>1             ; not flipped ... lsb of result, right-shift 1
        cpl
        dec  e                                     ; compliment bit-0 of 9-bit integer portion
 
