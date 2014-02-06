@@ -1388,6 +1388,9 @@ void f_08D3(void)
                         case 0x0B: // _0A53: capture boss diving
                             break;
 
+// Red alien element has left formation - use deltaX to fighter to select flight
+// plan. This occurs when approximately mid-screen, after initial jump from
+// formation.
                         case 0x0C: // _0A01: red alien select attack path to fighter
                         {
                             r16_t tmpA;
@@ -1417,6 +1420,11 @@ void f_08D3(void)
                             tmpA.word -= mctl_mpool[mctl_que_idx].cx.pair.b1;
 
                             // divide again by 2 ... Cy from sub rra'd into b7
+                            // since it's unsigned, C (unlike MS-windoze
+                            // calculator) doesn't sign extend the
+                            // shift through all 16-bits, tho the sub was
+                            // sign extended thru all 16 on negative result and
+                            //  thus bit-8 effectively provides the Cy rra'd into <7>
                             tmpA.word >>= 1; // rra  a ... Cy into <7>
 
                             tmpA.pair.b1 = 0; // clear it so negative result of addition below can be detected (overflow condition)
@@ -1430,17 +1438,22 @@ void f_08D3(void)
                             }
 
                             // l_0A2C_:
-                            // offset to make positive index 
+                            // offset to make positive index (working range
+                            // -$18 to +$17) provides indices up to 4 available
+                            // paths depending upon situation either to left
+                            // or to right of fighter. This should mean that
+                            // the targetting approach would be max'd out for
+                            // delta > |($18*4)| ... (still not safe in corners tho?)
                             tmpA.word += (0x30 >> 1); // 0x18;
 
-                            // test if offset'ed result still out of range negative (overflow if addition to negative delta above)
+                            // test if offset'ed result still out of range negative (overflow if addition to negative delta is greater than 0)
                             if (0 == tmpA.pair.b1) // jp   p,l_0A32
                             {
-                                A = tmpA.pair.b0;
+                                A = 0; // xor  a ... S is clear (overflow)
                             }
                             else
                             {
-                                A = 0; // xor  a ... S is set (overflow)
+                                A = tmpA.pair.b0;
                             }
 
                             //l_0A32:
@@ -1808,6 +1821,25 @@ static void mctl_coord_incr(uint8 ds, uint8 mpidx)
     // l_0CE3
     popHL.word = mctl_mul8(ds, L); // HL = L * A
 
+    // calculate minor offset as a proportion to the ratio of the angle to 90
+    // degress and adjust signage of offset to the quadrant and whether the
+    // angle is closer to vertical or horizontal
+    /*
+             . 90          - angle in degrees
+             1  | 0        - quadrant derived from 10-bit angle
+          180 --+-- 0      - each tile rotation is 15 degrees (6 tiles per quadrant)
+           . 2  | 3 .
+             . 270
+      b9 b8  b7
+     q 0  0   0  -> 010 -> 001
+       0  0   1  -> 011 -> 010
+     q 0  1   0  -> 000 -> 111  x  .
+       0  1   1  -> 001 -> 000
+     q 1  0   0  -> 110 -> 101  x  .
+       1  0   1  -> 111 -> 110  x  .
+     q 1  1   0  -> 100 -> 011
+       1  1   1  -> 101 -> 100  x  .
+    */
     A = (pushDE.pair.b1 ^ 0x02) - 1; // xor  #0x02 ... msb of adjusted angle
 
     if (A & 0x04) // bit  2,a ... jr   z,l_0CFA
