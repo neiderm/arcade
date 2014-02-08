@@ -1397,16 +1397,16 @@ f_08D3:
        ld   a,#0x0C
        ld   (b_bug_que_idx),a                     ; $0C ... nbr of queue structures
 
-       ld   hl,#b_bugs_flying_cnt                 ; =0
+       ld   hl,#b_bugs_flying_cnt                 ; capture the (previous) count and zero the current count
        ld   a,(hl)
        ld   (hl),#0
-       inc  hl
-       ld   (hl),a                                ; b_bugs_flying_nbr = bugs_flying_cnt
+       inc  hl                                    ; b_bugs_flying_nbr
+       ld   (hl),a                                ; = bugs_flying_cnt
 
 ; traverse the object-motion queue
-l_08E4_superloop:
+for__pool_idx:
        bit  0,0x13(ix)                            ; check for activated state
-       jp   z,l_0DFB_next_superloop
+       jp   z,next__pool_idx
 
        ld   hl,#b_bugs_flying_cnt                 ; +=1
        inc  (hl)
@@ -1418,16 +1418,16 @@ l_08E4_superloop:
 ; if (!(A == 3 || A == 7 || A == 9)) ...
        ld   a,(hl)
        cp   #3                                    ; status 3 is what?
-       jr   z,l_0902_ck_frm_ct
+       jr   z,mctl_fltpn_dspchr
        cp   #9                                    ; if 8800[L]==9 ... flying into formation or diving out.
-       jr   z,l_0902_ck_frm_ct
+       jr   z,mctl_fltpn_dspchr
        cp   #7                                    ; if 8800[L]==7 ... spawning (new stage)
 ; ... then ...
 ; status==4 ... shot a non-flying capturing boss (ship will soon go rogue and launch out)
 ; HL==8830, *HL==04, 8831==40
        jp   nz,case_0E49_make_object_inactive     ; sets object state to $80
 
-l_0902_ck_frm_ct:
+mctl_fltpn_dspchr:
 ; load a new flight segment if this one timed out, otherwise go directly to flite path handler and continue with same data-set
        dec  0x0D(ix)                              ; check for expiration of this data-set
        jp   nz,l_0C05_flite_pth_cont
@@ -1907,7 +1907,7 @@ l_0B8C:
        ld   0x09(ix),h                            ; .b01
        inc  0x0D(ix)
 
-       jp   l_0DFB_next_superloop
+       jp   next__pool_idx
 
 ; in an attack convoy ... changing direction
 case_0B98:  ; $08
@@ -2306,7 +2306,7 @@ l_0D50:
 ; Once the timer in $0E is reached, then check conditions to enable bomb drop.
 ; If bomb is disabled for any reason, the timer is restarted.
        dec  0x0E(ix)                              ; countdown to enable a bomb
-       jp   nz,l_0DFB_next_superloop
+       jp   nz,next__pool_idx
 
        srl  0x0F(ix)                              ; these bits enable bombing
        jp   nc,l_0DF5_next_superloop_and_reload_0E
@@ -2414,15 +2414,16 @@ l_0DF5_next_superloop_and_reload_0E:
        ld   a,(b_92E2 + 0x00)                     ; to $0E(ix) e.g. A==14 (set for each round ... bomb drop counter)
        ld   0x0E(ix),a                            ; b_92E2[0] ... bomb drop counter
 
-l_0DFB_next_superloop:
+next__pool_idx:
 ;ret
-       ld   hl,#b_bug_que_idx                     ; -=1
+       ld   hl,#b_bug_que_idx                     ; -= 1 ... counts backwards
        dec  (hl)
        ret  z
+; mctl_pool_idx += 1
        ld   de,#0x0014                            ; size of object-movement structure
        add  ix,de
 
-       jp   l_08E4_superloop
+       jp   for__pool_idx
 
 ; creature gets to home-spot
 l_0E08_imhome:
@@ -2475,7 +2476,7 @@ case_0E49_make_object_inactive: ; 0x0
        ld   (hl),#0
        ld   0x13(ix),#0x00                        ; make inactive
 
-       jp   l_0DFB_next_superloop
+       jp   next__pool_idx
 ; end f_08D3
 
 ;;=============================================================================
