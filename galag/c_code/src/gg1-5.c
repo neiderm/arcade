@@ -47,12 +47,11 @@ uint8 b_bugs_flying_nbr;
 static uint8 flv_data[0x1000];
 
 static uint8 mctl_actv_cnt;
-static uint8 mctl_que_idx; // tracks consecutive iterations of f_08D3
 
 // function prototypes
 static void rckt_hitd(uint8, uint8, uint8);
 static void rckt_man(uint8);
-static void mctl_fltpn_dspchr(void);
+static void mctl_fltpn_dspchr(uint8);
 static void mctl_path_update(uint8);
 static void mctl_rotn_incr(uint8);
 static void mctl_coord_incr(uint8, uint8);
@@ -1138,43 +1137,37 @@ static uint8 hit_detect(uint8 AF, uint8 E, uint8 HL)
 ;;---------------------------------------------------------------------------*/
 void f_08D3(void)
 {
-    mctl_que_idx = 0;
+    uint8 a; // index of element in motion-control pool
 
     // wait till next frame to report count from previous frame for some reason
     b_bugs_flying_nbr = mctl_actv_cnt;
     mctl_actv_cnt = 0;
 
-    // traverse the object-motion queue
-    // l_08E4_superloop:
-    while (mctl_que_idx < 0x0C)
+    // l_08E4_ ... traverse the pool array
+    for (a = 0; a < 12; a++) // a,#0x0C
     {
         // check for activated state
-        if (0 != (mctl_mpool[mctl_que_idx].b13 & 0x01)) // bit  0,0x13(ix)
+        if (0 != (mctl_mpool[a].b13 & 0x01)) // bit  0,0x13(ix)
         {
-            uint8 L;
-
             mctl_actv_cnt += 1; // inc  (hl)
 
-            L = mctl_mpool[mctl_que_idx].b10; // ld   l,0x10(ix)
-
-            if ((sprt_mctl_objs[ L ].state == PTRN_CTL ||
-                    sprt_mctl_objs[ L ].state == SPAWNING ||
-                    sprt_mctl_objs[ L ].state == HOMING))
+            if ((sprt_mctl_objs[ mctl_mpool[a].b10 ].state == PTRN_CTL ||
+                    sprt_mctl_objs[ mctl_mpool[a].b10 ].state == SPAWNING ||
+                    sprt_mctl_objs[ mctl_mpool[a].b10 ].state == HOMING))
             {
-                mctl_fltpn_dspchr();
+                // jr   z,mctl_fltpn_dspchr
+                mctl_fltpn_dspchr(a);
             }
             else // jp   nz,case_0E49_make_object_inactive
             {
                 // shot a non-flying capture boss
             }
 
-            // nothing else here because returns from asdf expect to be at next superloop
-        } // else goto l_0DFB_next_superloop;
+            // nothing else here because returns from fltpn_dspchr expect to be at l_0DFB_
+        } // else ... jp   z,next__pool_idx
 
-        // l_0DFB_next_superloop:
-        mctl_que_idx += 1;
-
-    } // end while mctl_que_idx (l_08E4_superloop)
+        // next__pool_idx
+    } // ret  z
 }
 
 /*=============================================================================
@@ -1186,15 +1179,13 @@ void f_08D3(void)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void mctl_fltpn_dspchr(void)
+static void mctl_fltpn_dspchr(uint8 mpidx)
 {
-    uint8 C, L;
-
-    mctl_mpool[mctl_que_idx].b0D -= 1; // dec  0x0D(ix)
+    mctl_mpool[mpidx].b0D -= 1; // dec  0x0D(ix)
 
     // check for expiration of this token
     // if token not expired, go directly to flite path handler
-    if (0 == mctl_mpool[mctl_que_idx].b0D) // jp   nz,l_0C05_
+    if (0 == mctl_mpool[mpidx].b0D) // jp   nz,l_0C05_
     {
         uint16 pHLdata;
         uint8 get_token, A_token;
@@ -1202,7 +1193,7 @@ static void mctl_fltpn_dspchr(void)
         // flight-path vector has expired... setup HL as pointer to next data token
         // ld   l,0x08(ix)
         // ld   h,0x09(ix)
-        pHLdata = mctl_mpool[mctl_que_idx].p08.word;
+        pHLdata = mctl_mpool[mpidx].p08.word;
 
         // j_090E_flite_path_init ...
         // this do-block allows reading the next token after doing state-selection
@@ -1216,7 +1207,7 @@ static void mctl_fltpn_dspchr(void)
             if (A_token >= 0xEF) // ... else ...  jp   c,l_0BDC_flite_pth_load
             {
                 r16_t pushDE, rBC, rHL, rDE;
-                uint8 A, B, C, D, E;
+                uint8 A, B, C, D, E, L;
 
                 // the flag forces repetition of the do-block so that the
                 // next token will be retrieved before continuing to flight-path handler.
@@ -1247,17 +1238,17 @@ static void mctl_fltpn_dspchr(void)
 
                 case 0x03: // _0B4E: bee dive and starting loopback, or boss left position and starting dive down
                     pHLdata += 1; // inc  hl
-                    mctl_mpool[mctl_que_idx].b06 = flv_get_data(pHLdata);
+                    mctl_mpool[mpidx].b06 = flv_get_data(pHLdata);
                     pHLdata += 1; // inc  hl
-                    mctl_mpool[mctl_que_idx].b07 = 0; // X
-                    mctl_mpool[mctl_que_idx].b13 |= 0x20; // set  5,0x13(ix)
+                    mctl_mpool[mpidx].b07 = 0; // X
+                    mctl_mpool[mpidx].b13 |= 0x20; // set  5,0x13(ix)
                     //jp   l_0BFF
                     goto l_0BFF; // gotta get out somehow
                     break;
 
                 case 0x04: // _0AA0: attack wave element hits turning point and heads to home
 
-                    L = mctl_mpool[mctl_que_idx].b10;
+                    L = mctl_mpool[mpidx].b10;
 
                     // already 9 if executing attack sortie
                     sprt_mctl_objs[ L ].state = HOMING;
@@ -1275,8 +1266,8 @@ static void mctl_fltpn_dspchr(void)
                     pushDE.pair.b0 = E >> 1; // srl ... origin position x (set bits 15:8)
                     pushDE.pair.b1 = D; // origin position y (already bits 15:8)
 
-                    mctl_mpool[mctl_que_idx].b11 = B; // step x coord, x offset
-                    mctl_mpool[mctl_que_idx].b12 = C; // step y coord, y offset
+                    mctl_mpool[mpidx].b11 = B; // step x coord, x offset
+                    mctl_mpool[mpidx].b12 = C; // step y coord, y offset
 
                     if (glbls9200.flip_screen)
                     {
@@ -1292,24 +1283,24 @@ static void mctl_fltpn_dspchr(void)
 
                     // add y-offset to .b00/.b01 (9.7 fixed-point scaling)
                     rDE.word = C << 7; // ld   d,c
-                    mctl_mpool[mctl_que_idx].cy.word += rDE.word;
+                    mctl_mpool[mpidx].cy.word += rDE.word;
 
                     // sub x-offset from .b02/.b03 (9.7 fixed-point scaling)
                     rBC.word = B << 8;
                     rBC.word >>= 1; // sra  b ... rr  c
                     rBC.pair.b1 |= (B & 0x80); // gets the sign extension of sra b
-                    mctl_mpool[mctl_que_idx].cx.word -= rBC.word; // sbc  hl,bc
+                    mctl_mpool[mpidx].cx.word -= rBC.word; // sbc  hl,bc
 
                     // update rotation angle for updated adjusted position
-                    rHL.word = mctl_rotn_hp(pushDE.word, mctl_que_idx); // preserves DE & BC
+                    rHL.word = mctl_rotn_hp(pushDE.word, mpidx); // preserves DE & BC
 
-                    mctl_mpool[mctl_que_idx].ang.word = rHL.word >> 1;
+                    mctl_mpool[mpidx].ang.word = rHL.word >> 1;
 
-                    mctl_mpool[mctl_que_idx].b06 = pushDE.pair.b1; // origin home position y (bits 15:8)
-                    mctl_mpool[mctl_que_idx].b07 = pushDE.pair.b0; // origin home position x (bits 15:8)
+                    mctl_mpool[mpidx].b06 = pushDE.pair.b1; // origin home position y (bits 15:8)
+                    mctl_mpool[mpidx].b07 = pushDE.pair.b0; // origin home position x (bits 15:8)
 
                     // if set, flite path handler checks for home
-                    mctl_mpool[mctl_que_idx].b13 |= 0x40; // set  6,0x13(ix)
+                    mctl_mpool[mpidx].b13 |= 0x40; // set  6,0x13(ix)
 
                     pHLdata += 1; // inc  hl
 
@@ -1341,7 +1332,7 @@ static void mctl_fltpn_dspchr(void)
                 // red alien flew through bottom of screen to top, heading for home
                 // yellow alien flew under bottom of screen and now turns for home
                 case 0x06: // _0B5F:
-                    E = mctl_mpool[mctl_que_idx].b10;
+                    E = mctl_mpool[mpidx].b10;
                     E = sprt_fmtn_hpos_ord_lut[ E + 1 ]; // column index
 
                     if (0 == glbls9200.flip_screen)
@@ -1354,7 +1345,7 @@ static void mctl_fltpn_dspchr(void)
                     }
 
                     //l_0B76
-                    mctl_mpool[mctl_que_idx].cx.pair.b1 =  A >> 1; // srl  a
+                    mctl_mpool[mpidx].cx.pair.b1 =  A >> 1; // srl  a
 
                     if (0 /* 0 != b_92A0_0A[0]*/) // jp   z,l_0B8B
                     {
@@ -1365,8 +1356,8 @@ static void mctl_fltpn_dspchr(void)
                     pHLdata += 1; // inc  hl
 
                     // l_0B8C:
-                    mctl_mpool[mctl_que_idx].p08.word = pHLdata;
-                    mctl_mpool[mctl_que_idx].b0D += 1; // inc  0x0D(ix)
+                    mctl_mpool[mpidx].p08.word = pHLdata;
+                    mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
 
                     return; // jp   l_0DFB_next_
                     break;
@@ -1374,21 +1365,21 @@ static void mctl_fltpn_dspchr(void)
                 // red alien flew through bottom of screen to top, heading for home
                 // yellow alien flew under bottom of screen and now turns for home
                 case 0x07: // _0B87:
-                    mctl_mpool[mctl_que_idx].cy.pair.b1 = 0x0138 >> 1; // ld   0x01(ix),#$9C
+                    mctl_mpool[mpidx].cy.pair.b1 = 0x0138 >> 1; // ld   0x01(ix),#$9C
 
                     //l_0B8B
                     pHLdata += 1; // inc  hl
 
                     // l_0B8C:
-                    mctl_mpool[mctl_que_idx].p08.word = pHLdata;
-                    mctl_mpool[mctl_que_idx].b0D += 1; // inc  0x0D(ix)
+                    mctl_mpool[mpidx].p08.word = pHLdata;
+                    mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
 
                     return; // jp   l_0DFB_next_superloop
                     break;
 
                 case 0x08: // _0B98: attack wave
                     // "transient"? ($38, $3A, $3C, $3E)
-                    if (0x38 != (0x38 & mctl_mpool[mctl_que_idx].b10))
+                    if (0x38 != (0x38 & mctl_mpool[mpidx].b10))
                     {
                         pHLdata += 3; // 2 incs to skip address in table
                         // jp   j_090E_flite_path_init
@@ -1444,7 +1435,7 @@ static void mctl_fltpn_dspchr(void)
 
                     // l_0A1E: subtract mctl.X<15:8> i.e. sprite.x<7:1>
                     tmpA.word >>= 1; // srl  a
-                    tmpA.word -= mctl_mpool[mctl_que_idx].cx.pair.b1;
+                    tmpA.word -= mctl_mpool[mpidx].cx.pair.b1;
 
                     // divide again by 2 ... Cy from sub rra'd into b7
                     // since it's unsigned, C (unlike MS-windoze
@@ -1457,7 +1448,7 @@ static void mctl_fltpn_dspchr(void)
                     tmpA.pair.b1 = 0; // clear it so negative result of addition below can be detected (overflow condition)
 
                     // typically b<7:> if set then negate data to (ix)0x0C
-                    if ( 0 != (mctl_mpool[mctl_que_idx].b13 & 0x80)) // bit  7,0x13(ix)
+                    if ( 0 != (mctl_mpool[mpidx].b13 & 0x80)) // bit  7,0x13(ix)
                     {
                         // negative (clockwise) rotation ... approach
                         // to waypoint is from right to left
@@ -1494,7 +1485,7 @@ static void mctl_fltpn_dspchr(void)
                     A = mctl_div_16_8(A, 6); // HL = HL / A
 
                     A = flv_get_data(pHLdata + A + 1); // adjust for index range 1 thru 8
-                    mctl_mpool[mctl_que_idx].b0D = A; // expiration of this data-set
+                    mctl_mpool[mpidx].b0D = A; // expiration of this data-set
                     pHLdata = pHLdata + 1 + 8;
                     // jp   l_0BFF
                     goto l_0BFF; // gotta get out somehow
@@ -1525,8 +1516,8 @@ static void mctl_fltpn_dspchr(void)
                         pHLdata += 1; // inc  hl
                     }
                     // l_0B8C:
-                    mctl_mpool[mctl_que_idx].p08.word = pHLdata;
-                    mctl_mpool[mctl_que_idx].b0D += 1; // inc  0x0D(ix)
+                    mctl_mpool[mpidx].p08.word = pHLdata;
+                    mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
 
                     return; // jp   l_0DFB_next_superloop
                     break;
@@ -1542,29 +1533,29 @@ static void mctl_fltpn_dspchr(void)
         while (0 != get_token);
 
         // l_0BDC_flite_pth_load
-        mctl_mpool[mctl_que_idx].b0A = A_token & 0x0F;
-        mctl_mpool[mctl_que_idx].b0B = (A_token >> 4) & 0x0F; // rlca * 4
+        mctl_mpool[mpidx].b0A = A_token & 0x0F;
+        mctl_mpool[mpidx].b0B = (A_token >> 4) & 0x0F; // rlca * 4
 
         pHLdata += 1;
 
-        if (0x80 & mctl_mpool[mctl_que_idx].b13) // bit  7,0x13(ix)
+        if (0x80 & mctl_mpool[mpidx].b13) // bit  7,0x13(ix)
         {
             // negate rotation increment
-            mctl_mpool[mctl_que_idx].b0C = -flv_get_data(pHLdata); // neg
+            mctl_mpool[mpidx].b0C = -flv_get_data(pHLdata); // neg
         }
         else
         {
             //l_0BF7
-            mctl_mpool[mctl_que_idx].b0C = flv_get_data(pHLdata);
+            mctl_mpool[mpidx].b0C = flv_get_data(pHLdata);
         }
         pHLdata += 1;
-        mctl_mpool[mctl_que_idx].b0D = flv_get_data(pHLdata);
+        mctl_mpool[mpidx].b0D = flv_get_data(pHLdata);
         pHLdata += 1;
 l_0BFF:
-        mctl_mpool[mctl_que_idx].p08.word = pHLdata;
+        mctl_mpool[mpidx].p08.word = pHLdata;
     }
 
-    mctl_path_update(mctl_que_idx);
+    mctl_path_update(mpidx);
 }
 
 /*=============================================================================
