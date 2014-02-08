@@ -558,7 +558,7 @@ void sprite_tiles_display(uint8 const *p_sptiles_displ)
 ;; OUT:
 ;;  ...
 ;;----------------------------------------------------------------------------*/
-void c_12C3(uint8 IXL)
+void gctl_stg_new_fmtn_hpos_init(uint8 IXL)
 {
     uint8 B;
 

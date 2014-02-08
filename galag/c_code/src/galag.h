@@ -71,9 +71,6 @@ typedef struct
 {
     uint8 game_state; //               01
     uint8 demo_idx; //                 03
-    //uint8 b8_demo_scrn_txt_indx; //  05
-    //uint8 demo_timer;            //  07
-    //uint8 demo_idx_tgt_obj;      //  09
     uint8 flying_bug_attck_condtn; //  0B
     uint8 bug_nest_direction_lr; //    0F: 1:left, 0:right
     uint8 formatn_mv_signage; //       11: sign of formation pulse movement for snd mgr
@@ -389,8 +386,8 @@ int _updatescreen(int);
 void c_io_cmd_wait(void);
 
 /* gg1-3.c */
-void c_2896(void);
-void c_25A2(void);
+void gctl_stg_new_etypes_init(void);
+void gctl_stg_new_atk_wavs_init(void);
 
 /* game_ctrl.c */
 uint16 c_text_out_i_to_d(uint16, uint16);
@@ -408,7 +405,7 @@ void c_1230_init_taskman_structs(void);
 void sprite_tiles_display(uint8 const *);
 void c_133A_show_ship(void);
 void gctl_plyr_respawn_fghtr(void);
-void c_12C3(uint8);
+void gctl_stg_new_fmtn_hpos_init(uint8);
 void c_game_or_demo_init(void);
 void c_tdelay_3(void);
 void bmbr_setup_fltq_boss(uint8, uint16);

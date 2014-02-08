@@ -503,10 +503,10 @@ void objs_dispatcher(uint8 frame_ct)
 }
 
 /*=============================================================================
-;; c_25A2()
+;; gctl_stg_new_atk_wavs_init()
 ;;  Description:
 ;;   Build attack wave sequence table ($7E $7E $7E $7E $7E $7F)
-;;   Follows c_2896 (initializes each invader by station)
+;;   Follows gctl_stg_new_etypes_init (initializes each invader by station)
 ;;   Individual attack wave elements are inserted into motion control queued
 ;;   by f_2916().
 ;;   The format is oriented toward having two flights of 4 creatures in each
@@ -521,7 +521,7 @@ void objs_dispatcher(uint8 frame_ct)
 ;; OUT:
 ;;  ...
 ;;----------------------------------------------------------------------------*/
-void c_25A2(void)
+void gctl_stg_new_atk_wavs_init(void)
 {
     uint8 const * p_atkw_oids;
     uint8 const * pHL_db_stg_dat;
@@ -561,7 +561,7 @@ void c_25A2(void)
     }
 
     /*
-     First, load bomb-control params from the 2 byte header (once per stage).
+     load bomb-control params from the 2 byte header (once per stage)
      */
     b_92E2_stg_parm[0] = *pHL_db_stg_dat++; // [0]
     b_92E2_stg_parm[1] = *pHL_db_stg_dat++; // [1]
@@ -610,7 +610,7 @@ void c_25A2(void)
             // j_263F_skip_until_ff ... check for unused slot in tmp buffer
             while (0xFF != obj_ID_tmpb_9100[ L ])
             {
-                L++;
+                L += 1;
             }
 
             // l_2647_is_ff
@@ -619,7 +619,7 @@ void c_25A2(void)
             if (B == 5) L = 8;
 
             // l_2652:
-            B--; // djnz l_263F
+            B -= 1; // djnz l_263F
         }
 
         /*
@@ -653,15 +653,15 @@ void c_25A2(void)
 
             *pDE_ds_8920_atk_wv_obj_t++ = obj_ID_tmpb_9100[L + 8]; // R object ID
 
-            L++;
+            L += 1;
         }
         *pDE_ds_8920_atk_wv_obj_t++ = 0x7E; // marks the start of each group
     }
 
     // l_2681_end_of_table:
 
-    // pointer is already advanced, so decrement it so we overwrite the 7E with 7F
-    pDE_ds_8920_atk_wv_obj_t--;
+    // pointer is already advanced, decrement it to overwrite the 7E with 7F
+    pDE_ds_8920_atk_wv_obj_t -= 1;
 
     // check capture-mode and two-ship status
 
@@ -708,7 +708,7 @@ static const uint8 atkw_challg_stg_d_idx[] =
 
   one triplet of bytes for each of the 5 waves:
   byte 0:
-    c_25A2, controls loading of transients into attack wave table
+    gctl_stg_new_atk_wavs_init, controls loading of transients into attack wave table
   byte 1 & 2
     bit  7    byte-2 only ... if clear, 2nd bug of pair is delayed for trailing formation
     bit  6    if set selects second set of 3-bytes in atkw_mctl_cinits[]
@@ -758,19 +758,18 @@ static const uint8 atkw_oids[] =
 };
 
 /*=============================================================================
-;; c_2896()
+;; gctl_stg_new_etypes_init()
 ;;  Description:
-;;   c_01C5_new_stg_game_or_demo
 ;;   Called at beginning of each stage, including challenge stages and demo.
 ;;   Initializes mrw_sprite[n].cclr.b0 for 3 sets of creatures. Color code is
 ;;   packed into b<0:2>, and bomb-drop parameter packed into b<7>
-;;   Called before c_25A2.
+;;   Called before gctl_stg_new_atk_wavs_init.
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-void c_2896(void)
+void gctl_stg_new_etypes_init(void)
 {
     uint8 HL, IXL, A, B, C, D, E;
 
@@ -888,7 +887,7 @@ static const uint8 atkw_chlg_spcclr[] =
 ;; f_2916()
 ;;  Description:
 ;;   Inserts creature objects from the attack wave table into the movement
-;;   queue. The table of attack wave structures is built in c_25A2.
+;;   queue. The table of attack wave structures is built in gctl_stg_new_atk_wavs_init.
 ;;   Each struct starts with $7E, and the end of table marker is $7F.
 ;;   This task will be enabled by gctl_stg_new_env_init... after the
 ;;   creature classes and formation tables are initialized.
@@ -950,8 +949,8 @@ void f_2916(void)
         // Finally... sending out next wave of creatures. We are on start token
         // ($7E) so do nothing on this time step.
         // l_2944_attack_wave_start:
-        plyr_state_actv.p_atkwav_tbl++;
-        plyr_state_actv.b_attkwv_ctr++;
+        plyr_state_actv.p_atkwav_tbl += 1;
+        plyr_state_actv.b_attkwv_ctr += 1;
         return;
     }
     else // ! 0x7E
@@ -1021,7 +1020,7 @@ void f_2916(void)
 
         if (0x38 != (A & 0x38)) //  if ( object >= $38 && object < $40 ) then goto _setup_transients
         {
-            // Init routine c_2896 has populated the sprite code buffer such that each even
+            // Init routine gctl_stg_new_etypes_init has populated the sprite code buffer such that each even
             // byte consists of the "primary" code (multiple of 8), AND'd with the color.
             uint8 D;
 

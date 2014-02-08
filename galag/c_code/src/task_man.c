@@ -311,12 +311,12 @@ static void gctl_stg_new_env_init(void)
 
     ds4_game_tmrs[2] = 120;
 
-    c_2896(); // Initializes each creature by position
-    c_25A2(); // mob setup
+    gctl_stg_new_etypes_init(); // intialize attack wave enemies by type
+    gctl_stg_new_atk_wavs_init(); // build attack wave sequence table
 
     ds4_game_tmrs[0] = 2;
 
-    c_12C3(0); //  A==0 ... set MOB coordinates, new stage
+    gctl_stg_new_fmtn_hpos_init(0); // set origin coordinates of formation elements
 
     for (B = 0; B < 0x60; B += 2)
     {
@@ -347,8 +347,8 @@ static void gctl_stg_new_env_init(void)
     gctl_stg_bombr_setparms();
 
     pHL = plyr_state_susp.pbm;
-    B = 0;
-    while (B++ < 4)
+
+    for (B = 0; B < 4; B++)
     {
         *pHL++ = 0x01;
         *pHL++ = 0xB5;
