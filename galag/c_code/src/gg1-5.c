@@ -1188,7 +1188,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
     if (0 == mctl_mpool[mpidx].b0D) // jp   nz,l_0C05_
     {
         uint16 pHLdata;
-        uint8 get_token, A_token;
+        uint8 mctld; // movement control data
 
         // flight-path vector has expired... setup HL as pointer to next data token
         // ld   l,0x08(ix)
@@ -1199,44 +1199,39 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
         // this do-block allows reading the next token after doing state-selection
         do
         {
-            get_token = 0;
-
             // get next token and check if ordinary data or state-selection
-            A_token = flv_get_data_uber(pHLdata);
+            mctld = flv_get_data_uber(pHLdata);
 
-            if (A_token >= 0xEF) // ... else ...  jp   c,l_0BDC_flite_pth_load
+            if (mctld >= 0xEF) // ... else ...  jp   c,l_0BDC_flite_pth_load
             {
                 r16_t pushDE, rBC, rHL, rDE;
                 uint8 A, B, C, D, E, L;
 
-                // the flag forces repetition of the do-block so that the
-                // next token will be retrieved before continuing to flight-path handler.
-                get_token = 1;
-
-                // Negated token indexes into jp-tbl for selection of next state.
-                A_token = ~A_token; // cpl
-
-                // d_0920_jp_tbl
-                switch (A_token)
+                // cpl'd token indexes into jp-tbl for selection of next state,
+                // but there is no benefit to the cpl in the switch/case
+                switch (mctld) // d_0920_jp_tbl
                 {
-                case 0x00: // _0E49: _inactive
+                case 0xFF: // _0E49 (00): inactive
                     // does it really go here?
                     //jp   l_0DFB_next_superloop;
                     break;
 
-                case 0x01: // _0B16: attack elements that break formation to attack ship (level 3+)
+                case 0xFE: // _0B16 (01): attack elements that break formation to attack ship (level 3+)
 
                     goto l_0BFF; // jp   l_0BFF_flite_pth_skip_load
                     break;
 
-                case 0x02: // _0B46: returning to base: moths or bosses from top of screen, bees from bottom of loop-around.
-
+                // returning to base: red or boss from top of screen, yellow
+                // from bottom of loop-around.
+                case 0xFD: // _0B46 (02):
 
                     pHLdata = flv_0B46_set_ptr(pHLdata);
                     // jp   j_090E_flite_path_init
                     break;
 
-                case 0x03: // _0B4E: bee dive and starting loopback, or boss left position and starting dive down
+                // yellow dive and starting loopback, or boss left position
+                // and starting dive down
+                case 0xFC: // _0B4E (03):
                     pHLdata += 1; // inc  hl
                     mctl_mpool[mpidx].b06 = flv_get_data(pHLdata);
                     pHLdata += 1; // inc  hl
@@ -1246,7 +1241,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     goto l_0BFF; // jp   l_0BFF_flite_pth_skip_load
                     break;
 
-                case 0x04: // _0AA0: attack wave element hits turning point and heads to home
+                case 0xFB: // _0AA0 (04): attack wave turn and head to home
 
                     L = mctl_mpool[mpidx].b10;
 
@@ -1307,7 +1302,10 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     // jp   j_090E_flite_path_init
                     break;
 
-                case 0x05: // _0BD1: homing, red transit to top, yellow from offscreen at bottom or skip if in continuous mode
+                // homing, red transit to top, yellow from offscreen at bottom
+                // or skip if in continuous bombing mode
+                case 0xFA: // _0BD1 (05):
+
                     // ld   a,(b_92A0 + 0x0A) ; flag set when continuous bombing
                     // ld   c,a
                     // ld   a,(ds_cpu0_task_actv + 0x1D)          ; f_2000 (destroyed boss that captured ship)
@@ -1332,7 +1330,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
 
                 // red alien flew through bottom of screen to top, heading for home
                 // yellow alien flew under bottom of screen and now turns for home
-                case 0x06: // _0B5F:
+                case 0xF9: // _0B5F (06):
                     E = mctl_mpool[mpidx].b10;
                     E = sprt_fmtn_hpos_ord_lut[ E + 1 ]; // column index
 
@@ -1365,7 +1363,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
 
                 // red alien flew through bottom of screen to top, heading for home
                 // yellow alien flew under bottom of screen and now turns for home
-                case 0x07: // _0B87:
+                case 0xF8: // _0B87 (07):
                     mctl_mpool[mpidx].cy.pair.b1 = 0x0138 >> 1; // ld   0x01(ix),#$9C
 
                     //l_0B8B
@@ -1375,10 +1373,10 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     mctl_mpool[mpidx].p08.word = pHLdata;
                     mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
 
-                    return; // jp   l_0DFB_next_superloop
+                    return; // jp   next__pool_idx
                     break;
 
-                case 0x08: // _0B98: in an attack convoy ... changing direction
+                case 0xF7: // _0B98 (08): in an attack convoy ... changing direction
                     // "transient"? ($38, $3A, $3C, $3E)
 
                     // ... coming from case_0BD1
@@ -1396,14 +1394,13 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                         //       inc  hl
                         //       ld   d,(hl)
                         //       ex   de,hl
-                        //       jp   j_090E_flite_path_init
                         pHLdata = flv_0B46_set_ptr(pHLdata);
 
                         // jp   j_090E_flite_path_init
                     }
                     break;
 
-                case 0x09: // _0BA8: one red moth left in "free flight mode"
+                case 0xF6: // _0BA8 (09): one red alien remain, in "free flight mode"
 
                     // jp   l_0B8B
 
@@ -1414,20 +1411,21 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     mctl_mpool[mpidx].p08.word = pHLdata;
                     mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
 
+                    return; // jp   next__pool_idx
                     break;
 
-                case 0x0A: // _0942: ?
+                case 0xF5: // _0942 (0A): ?
                     //jp   j_090E_flite_path_init
                     break;
 
-                case 0x0B: // _0A53: capture boss diving
+                case 0xF4: // _0A53 (0B): capture boss diving
                     //jp   j_090E_flite_path_init
                     break;
 
 // Red alien element has left formation - use deltaX to fighter to select flight
 // plan. This occurs when approximately mid-screen, after initial jump from
 // formation.
-                case 0x0C: // _0A01: red alien select attack path to fighter
+                case 0xF3: // _0A01 (0C): red alien select attack path to fighter
                 {
                     r16_t tmpA;
 
@@ -1510,11 +1508,11 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 }
                 break;
 
-                case 0x0D: // _097B: bonus bee
+                case 0xF2: // _097B (0D): special clone attacker
                     // jp   j_090E_flite_path_init
                     break;
 
-                case 0x0E: // _0968: diving attacks stop and bugs go home
+                case 0xF1: // _0968 (0E): diving attacks stop and aliens go home
                     //
                     // jp   l_0B8B
                     //l_0B8B
@@ -1524,17 +1522,17 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     mctl_mpool[mpidx].p08.word = pHLdata;
                     mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
 
-                    // jp   next__pool_idx
+                    return; // jp   next__pool_idx
                     break;
 
-                case 0x10: // _094E: one red moth left in "free flight mode"
+                case 0xEF: // _094E (10): one red alien left in continuous bombing mode
                     A = ds_new_stage_parms[0x09]; // jumps the pointer on/after stage 8
 
                     // jp   l_0959 ... no break
 
-                case 0x0F: // _0955: attack wave
+                case 0xF0: // _0955 (0F): attack wave
 
-                    if (0x10 != A_token) // jp   l_0959
+                    if (0xEF != mctld) // jp   l_0959
                     {
                         A = ds_new_stage_parms[0x08];
                         A = 0; // this can be 0 for now
@@ -1560,7 +1558,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     mctl_mpool[mpidx].p08.word = pHLdata;
                     mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
 
-                    return; // jp   l_0DFB_next_superloop
+                    return; // jp   next__pool_idx
                     break;
 
                 default:
@@ -1568,11 +1566,11 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 } // switch
             } // if (A
         }
-        while (0 != get_token);
+        while (mctld >= 0xEF); // break out if token was data byte
 
         // l_0BDC_flite_pth_load
-        mctl_mpool[mpidx].b0A = A_token & 0x0F;
-        mctl_mpool[mpidx].b0B = (A_token >> 4) & 0x0F; // rlca * 4
+        mctl_mpool[mpidx].b0A = mctld & 0x0F;
+        mctl_mpool[mpidx].b0B = (mctld >> 4) & 0x0F; // rlca * 4
 
         pHLdata += 1;
 
@@ -1589,9 +1587,10 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
         pHLdata += 1;
         mctl_mpool[mpidx].b0D = flv_get_data(pHLdata);
         pHLdata += 1;
+
 l_0BFF:
         mctl_mpool[mpidx].p08.word = pHLdata;
-    }
+    } // if (0 == mctl_mpool[mpidx].b0D)
 
     mctl_path_update(mpidx); // check home positions
 }
