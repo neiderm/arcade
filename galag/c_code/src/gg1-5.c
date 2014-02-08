@@ -1225,8 +1225,8 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     break;
 
                 case 0x01: // _0B16: attack elements that break formation to attack ship (level 3+)
-                    // jp   l_0BFF
-                    return; // tmp
+
+                    goto l_0BFF; // jp   l_0BFF_flite_pth_skip_load
                     break;
 
                 case 0x02: // _0B46: returning to base: moths or bosses from top of screen, bees from bottom of loop-around.
@@ -1242,8 +1242,8 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     pHLdata += 1; // inc  hl
                     mctl_mpool[mpidx].b07 = 0; // X
                     mctl_mpool[mpidx].b13 |= 0x20; // set  5,0x13(ix)
-                    //jp   l_0BFF
-                    goto l_0BFF; // gotta get out somehow
+
+                    goto l_0BFF; // jp   l_0BFF_flite_pth_skip_load
                     break;
 
                 case 0x04: // _0AA0: attack wave element hits turning point and heads to home
@@ -1313,6 +1313,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     // ld   a,(ds_cpu0_task_actv + 0x1D)          ; f_2000 (destroyed boss that captured ship)
                     // dec  a
                     // and  c
+
                     // jr   l_0B9F
 
                     // l_0B9F:
@@ -1359,7 +1360,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     mctl_mpool[mpidx].p08.word = pHLdata;
                     mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
 
-                    return; // jp   l_0DFB_next_
+                    return; // jp   next__pool_idx
                     break;
 
                 // red alien flew through bottom of screen to top, heading for home
@@ -1377,8 +1378,11 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     return; // jp   l_0DFB_next_superloop
                     break;
 
-                case 0x08: // _0B98: attack wave
+                case 0x08: // _0B98: in an attack convoy ... changing direction
                     // "transient"? ($38, $3A, $3C, $3E)
+
+                    // ... coming from case_0BD1
+
                     if (0x38 != (0x38 & mctl_mpool[mpidx].b10))
                     {
                         pHLdata += 3; // 2 incs to skip address in table
@@ -1394,16 +1398,30 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                         //       ex   de,hl
                         //       jp   j_090E_flite_path_init
                         pHLdata = flv_0B46_set_ptr(pHLdata);
+
+                        // jp   j_090E_flite_path_init
                     }
                     break;
 
                 case 0x09: // _0BA8: one red moth left in "free flight mode"
+
+                    // jp   l_0B8B
+
+                    //l_0B8B
+                    pHLdata += 1; // inc  hl
+
+                    // l_0B8C:
+                    mctl_mpool[mpidx].p08.word = pHLdata;
+                    mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
+
                     break;
 
                 case 0x0A: // _0942: ?
+                    //jp   j_090E_flite_path_init
                     break;
 
                 case 0x0B: // _0A53: capture boss diving
+                    //jp   j_090E_flite_path_init
                     break;
 
 // Red alien element has left formation - use deltaX to fighter to select flight
@@ -1487,26 +1505,49 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     A = flv_get_data(pHLdata + A + 1); // adjust for index range 1 thru 8
                     mctl_mpool[mpidx].b0D = A; // expiration of this data-set
                     pHLdata = pHLdata + 1 + 8;
-                    // jp   l_0BFF
-                    goto l_0BFF; // gotta get out somehow
+
+                    goto l_0BFF; // jp   l_0BFF_flite_pth_skip_load
                 }
                 break;
 
                 case 0x0D: // _097B: bonus bee
+                    // jp   j_090E_flite_path_init
                     break;
 
                 case 0x0E: // _0968: diving attacks stop and bugs go home
+                    //
+                    // jp   l_0B8B
+                    //l_0B8B
+                    pHLdata += 1; // inc  hl
+
+                    // l_0B8C:
+                    mctl_mpool[mpidx].p08.word = pHLdata;
+                    mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
+
+                    // jp   next__pool_idx
                     break;
 
+                case 0x10: // _094E: one red moth left in "free flight mode"
+                    A = ds_new_stage_parms[0x09]; // jumps the pointer on/after stage 8
+
+                    // jp   l_0959 ... no break
+
                 case 0x0F: // _0955: attack wave
-                    // a,(ds_new_stage_parms + 0x08) .. this can be 0 for now
-                    if (0 != ds_new_stage_parms[0x08])
+
+                    if (0x10 != A_token) // jp   l_0959
+                    {
+                        A = ds_new_stage_parms[0x08];
+                        A = 0; // this can be 0 for now
+                    }
+
+                    // l_0959:
+                    if (0 != A) // and  a
                     {
                         // not until stage 8
                         // load a pointer from data tbl into .p08 (09)
                         // jp   l_0B8C
                     }
-                    else
+                    else // jr   z,l_0963
                     {
                         // l_0963
                         pHLdata += 2;
@@ -1520,9 +1561,6 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
 
                     return; // jp   l_0DFB_next_superloop
-                    break;
-
-                case 0x10: // _094E: one red moth left in "free flight mode"
                     break;
 
                 default:
@@ -1555,13 +1593,13 @@ l_0BFF:
         mctl_mpool[mpidx].p08.word = pHLdata;
     }
 
-    mctl_path_update(mpidx);
+    mctl_path_update(mpidx); // check home positions
 }
 
 /*=============================================================================
 ;; mctl_path_update()
 ;;  Description:
-;;    Execute currently selected path control command.
+;;    if homing flag set, check for proximity to home positions
 ;; IN:
 ;;
 ;; OUT:
