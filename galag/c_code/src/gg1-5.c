@@ -1161,11 +1161,10 @@ void f_08D3(void)
             else // jp   nz,case_0E49_make_object_inactive
             {
                 // shot a non-flying capture boss
+
+                // jp   next__pool_idx
             }
-
-            // nothing else here because returns from fltpn_dspchr expect to be at l_0DFB_
-        } // else ... jp   z,next__pool_idx
-
+        }
         // next__pool_idx
     } // ret  z
 }
@@ -1188,7 +1187,8 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
     if (0 == mctl_mpool[mpidx].b0D) // jp   nz,l_0C05_
     {
         uint16 pHLdata;
-        uint8 mctld; // movement control data
+        uint8 mctld; // control or data token
+        uint8 get_token; // avoids a goto for exitting do/while (jp 0x0BFF)
 
         // flight-path vector has expired... setup HL as pointer to next data token
         pHLdata = mctl_mpool[mpidx].p08.word;
@@ -1203,35 +1203,43 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
             // get next token and check if ordinary data or state-selection
             mctld = flv_get_data_uber(pHLdata); // ld   a,(hl)
 
+            get_token = 0;
+
+            // cp   #0xEF
             if (mctld >= 0xEF) // jp   c,l_0BDC_flite_pth_load
             {
-            // enclose remaining if/else within if > $EF to optimize and allow ctrl-shift-B over entire block
+                // the flag forces repetition of the do-block so that the
+                // next token will be retrieved before continuing to flight-path handler
+                get_token = 1;
+                // enclose remaining if/else within if > $EF to optimize and allow ctrl-shift-B over entire block
             }
 
             // cpl'd token indexes into jp-tbl for selection of next state,
             // but there is no benefit to the cpl here
-
+            //
             switch (mctld) // d_0920_jp_tbl
             {
+
             case 0xFF: // _0E49 (00): inactive
             {
                 // does it really go here?
-                //jp   l_0DFB_next_superloop;
-                break;
+                break; //jp   l_0DFB_next_superloop
             }
+
             case 0xFE: // _0B16 (01): attack elements that break formation to attack ship (level 3+)
             {
-                goto l_0BFF; // jp   l_0BFF_flite_pth_skip_load
-                break;
+                get_token = 0; // get out of do/while
+                break; // jp   l_0BFF_flite_pth_skip_load
             }
+
             // returning to base: red or boss from top of screen, yellow
             // from bottom of loop-around.
             case 0xFD: // _0B46 (02):
             {
                 pHLdata = flv_0B46_set_ptr(pHLdata);
-                // jp   j_090E_flite_path_init
-                break;
+                break; // jp   j_090E_flite_path_init
             }
+
             // yellow dive and starting loopback, or boss left position
             // and starting dive down
             case 0xFC: // _0B4E (03):
@@ -1242,9 +1250,10 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 mctl_mpool[mpidx].b07 = 0; // X
                 mctl_mpool[mpidx].b13 |= 0x20; // set  5,0x13(ix)
 
-                goto l_0BFF; // jp   l_0BFF_flite_pth_skip_load
-                break;
+                get_token = 0; // get out of do/while
+                break; // jp   l_0BFF_flite_pth_skip_load
             }
+
             case 0xFB: // _0AA0 (04): attack wave turn and head to home
             {
                 L = mctl_mpool[mpidx].b10;
@@ -1306,6 +1315,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 // jp   j_090E_flite_path_init
                 break;
             }
+
             // homing, red transit to top, yellow from offscreen at bottom
             // or skip if in continuous bombing mode
             case 0xFA: // _0BD1 (05):
@@ -1322,16 +1332,15 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 if (0) // if ( 1 == b_92A0_0A && 0 == ds_cpu0_task_actv[0x1D]) // jp   z,l_0B46
                 {
                     pHLdata += 3; // inc  hl (x3)
-                    // jp   j_090E_flite_path_init
                 }
                 else
                 {
                     // l_0B46:
                     pHLdata = flv_0B46_set_ptr(pHLdata);
-                    // jp   j_090E_flite_path_init
                 }
-                break;
+                break; // jp   j_090E_flite_path_init
             }
+
             // red alien flew through bottom of screen to top, heading for home
             // yellow alien flew under bottom of screen and now turns for home
             case 0xF9: // _0B5F (06):
@@ -1366,6 +1375,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 return; // jp   next__pool_idx
                 break;
             }
+
             // red alien flew through bottom of screen to top, heading for home
             // yellow alien flew under bottom of screen and now turns for home
             case 0xF8: // _0B87 (07):
@@ -1382,6 +1392,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 return; // jp   next__pool_idx
                 break;
             }
+
             case 0xF7: // _0B98 (08): in an attack convoy ... changing direction
             {
                 // "transient"? ($38, $3A, $3C, $3E)
@@ -1391,7 +1402,6 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 if (0x38 != (0x38 & mctl_mpool[mpidx].b10))
                 {
                     pHLdata += 3; // 2 incs to skip address in table
-                    // jp   j_090E_flite_path_init
                 }
                 else // jp   z,l_0B46 ... jp if this is a "transient" ($38, $3A, $3C, $3E)
                 {
@@ -1402,11 +1412,10 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     //       ld   d,(hl)
                     //       ex   de,hl
                     pHLdata = flv_0B46_set_ptr(pHLdata);
-
-                    // jp   j_090E_flite_path_init
                 }
-                break;
+                break; // jp   j_090E_flite_path_init
             }
+
             case 0xF6: // _0BA8 (09): one red alien remain, in "free flight mode"
             {
                 // jp   l_0B8B
@@ -1421,20 +1430,21 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 return; // jp   next__pool_idx
                 break;
             }
+
             case 0xF5: // _0942 (0A): ?
             {
-                //jp   j_090E_flite_path_init
-                break;
+                break; //jp   j_090E_flite_path_init
             }
+
             case 0xF4: // _0A53 (0B): capture boss diving
             {
-                //jp   j_090E_flite_path_init
-                break;
+                break; //jp   j_090E_flite_path_init
             }
-// Red alien element has left formation - use deltaX to fighter to select flight
-// plan. This occurs when approximately mid-screen, after initial jump from
-// formation.
-            case 0xF3: // _0A01 (0C): red alien select attack path to fighter
+
+            // Red alien element has left formation - use deltaX to fighter
+            // to select flight plan. Occurs when approximately mid-screen,
+            // after initial jump from formation.
+            case 0xF3: // _0A01 (0C)
             {
                 r16_t tmpA;
 
@@ -1513,15 +1523,15 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 mctl_mpool[mpidx].b0D = A; // expiration of this data-set
                 pHLdata = pHLdata + 1 + 8;
 
-                goto l_0BFF; // jp   l_0BFF_flite_pth_skip_load
-                break;
+                get_token = 0; // get out of do/while
+                break; // jp   l_0BFF_flite_pth_skip_load
             }
 
             case 0xF2: // _097B (0D): special clone attacker
             {
-                // jp   j_090E_flite_path_init
-                break;
+                break; // jp   j_090E_flite_path_init
             }
+
             case 0xF1: // _0968 (0E): diving attacks stop and aliens go home
             {
                 // jp   l_0B8B
@@ -1535,12 +1545,14 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 return; // jp   next__pool_idx
                 break;
             }
+
             case 0xEF: // _094E (10): one red alien left in continuous bombing mode
             {
                 A = ds_new_stage_parms[0x09]; // jumps the pointer on/after stage 8
 
                 // jp   l_0959 ... no break
             }
+
             case 0xF0: // _0955 (0F): attack wave
             {
                 if (0xEF != mctld) // jp   l_0959
@@ -1572,36 +1584,43 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 return; // jp   next__pool_idx
                 break;
             }
+
             default:
                 break;
             } // switch
         }
-        while (mctld >= 0xEF); // break out if token was data byte
+        while (0 != get_token); // break out if data-token (or jp 0BFF)
 
-        // l_0BDC_flite_pth_load
-        mctl_mpool[mpidx].b0A = mctld & 0x0F;
-        mctl_mpool[mpidx].b0B = (mctld >> 4) & 0x0F; // rlca * 4
-
-        pHLdata += 1;
-
-        if (0x80 & mctl_mpool[mpidx].b13) // bit  7,0x13(ix)
+        // make sure we're not in a control-token (avoid using goto for "jp   l_0BFF_flite_pth_skip_load")
+        if (mctld < 0xEF)
         {
-            // negate rotation increment
-            mctl_mpool[mpidx].b0C = -flv_get_data(pHLdata); // neg
-        }
-        else
-        {
-            //l_0BF7
-            mctl_mpool[mpidx].b0C = flv_get_data(pHLdata);
-        }
-        pHLdata += 1;
-        mctl_mpool[mpidx].b0D = flv_get_data(pHLdata);
-        pHLdata += 1;
+            // l_0BDC_flite_pth_load
+            mctl_mpool[mpidx].b0A = mctld & 0x0F;
+            mctl_mpool[mpidx].b0B = (mctld >> 4) & 0x0F; // rlca * 4
 
-l_0BFF:
+            pHLdata += 1;
+
+            if (0x80 & mctl_mpool[mpidx].b13) // bit  7,0x13(ix)
+            {
+                // negate rotation increment
+                mctl_mpool[mpidx].b0C = -flv_get_data(pHLdata); // neg
+            }
+            else
+            {
+                //l_0BF7
+                mctl_mpool[mpidx].b0C = flv_get_data(pHLdata);
+            }
+            pHLdata += 1;
+            mctl_mpool[mpidx].b0D = flv_get_data(pHLdata);
+            pHLdata += 1;
+        } // if mctld
+
+        // l_0BFF_flite_pth_skip_l
         mctl_mpool[mpidx].p08.word = pHLdata;
+
     } // if (0 == mctl_mpool[mpidx].b0D)
 
+    // this has to be here (not in caller) to allow the returns from cases to skip it
     mctl_path_update(mpidx); // l_0C05_ ... check home positions
 }
 
