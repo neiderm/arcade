@@ -318,7 +318,8 @@ static const uint8 flv_d_atk_yllw[] =
 //static const uint8 _flv_i_036c[] = {
     0xF8,0xF9,0xEF,
     W2B(_flv_i_037c),
-    0xF6,0xAB,0x12,0x01,0x28,0x12,0x0A,0x18,0xFD,
+    0xF6,0xAB,
+    0x12,0x01,0x28,0x12,0x0A,0x18,0xFD,
     W2B(_flv_i_0352),
 //};
 //static const uint8 _flv_i_037c[] = {
@@ -1682,8 +1683,8 @@ static void mctl_path_update(uint8 mpidx)
 
     mctl_rotn_incr(mpidx); //jp l_0C2D
 
-    //almost done ... update the sprite x/y positions
-    // mctl_posn_set(L); // jp   z,l_0D03
+    // l_0D03_ almost done ... update the sprite x/y positions
+    mctl_posn_set(mpidx); // jp   z,l_0D03
 }
 
 /*=============================================================================
@@ -1800,9 +1801,6 @@ static void mctl_rotn_incr(uint8 mpidx)
 
     // l_0C46: now the rotation value for this slot can be updated (l_0C46)
     mctl_mpool[mpidx].ang.word += (sint8) mctl_mpool[mpidx].b0C;
-
-    // l_0D03_ almost done ... update the sprite x/y positions
-    mctl_posn_set(mpidx); // jp   z,l_0D03
 }
 
 
@@ -2029,7 +2027,6 @@ static void mctl_posn_set(uint8 mpidx)
     mctl_mpool[mpidx].b0E = b_92E2_stg_parm[0]; // bomb drop counter
 
     // jp   l_08E4_superloop
-    return;
 }
 
 /*=============================================================================
