@@ -1725,8 +1725,6 @@ static void mctl_rotn_incr(uint8 mpidx)
     {
         if ((mctl_mpool[mpidx].cy.pair.b1 == mctl_mpool[mpidx].b06)
                 ||
-                (mctl_mpool[mpidx].cy.pair.b1 - mctl_mpool[mpidx].b06) == 1
-                ||
                 (mctl_mpool[mpidx].b06 - mctl_mpool[mpidx].cy.pair.b1) == 1)
         {
             // set it up to expire on next step
