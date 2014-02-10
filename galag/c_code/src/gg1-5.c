@@ -52,7 +52,7 @@ static uint8 mctl_actv_cnt;
 static void rckt_hitd(uint8, uint8, uint8);
 static void rckt_man(uint8);
 static void mctl_fltpn_dspchr(uint8);
-static void mctl_path_update(uint8);
+static void mctl_hpos_ck(uint8);
 static void mctl_rotn_incr(uint8);
 static void mctl_coord_incr(uint8, uint8);
 static void mctl_posn_set(uint8);
@@ -1621,12 +1621,16 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
 
     } // if (0 == mctl_mpool[mpidx].b0D)
 
-    // this has to be here (not in caller) to allow the returns from cases to skip it
-    mctl_path_update(mpidx); // l_0C05_ ... check home positions
+    // the rest of this would not be done in caller if return'd from cases above
+
+    mctl_hpos_ck(mpidx); // l_0C05_ ... check home positions
+
+    // l_0D03_ almost done ... update the sprite x/y positions
+    mctl_posn_set(mpidx); // jp   z,l_0D03
 }
 
 /*=============================================================================
-;; mctl_path_update()
+;; mctl_hpos_ck()
 ;;  Description:
 ;;    if homing flag set, check for proximity to home positions
 ;; IN:
@@ -1636,7 +1640,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
 ;; PRESERVES:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void mctl_path_update(uint8 mpidx)
+static void mctl_hpos_ck(uint8 mpidx)
 {
     // l_0C05_ ... bit-flag is set by case_0AA0
     if (0x40 & mctl_mpool[mpidx].b13) // bit  6 ... check if homing
@@ -1670,21 +1674,18 @@ static void mctl_path_update(uint8 mpidx)
 
                 // l_0E3A
                 // these could be off by one if not already equal
-                mctl_mpool[mpidx].cy.word = mctl_mpool[mpidx].b06 << 8;
-                mctl_mpool[mpidx].cx.word = mctl_mpool[mpidx].b07 << 8;
+                mctl_mpool[mpidx].cy.word = mctl_mpool[mpidx].b06 << 8; // ld   0x01(ix),a
+                mctl_mpool[mpidx].cx.word = mctl_mpool[mpidx].b07 << 8; // ld   0x03(ix),a
 
-                //almost done ... update the sprite x/y positions
-                mctl_posn_set(mpidx); // jp   z,l_0D03
-
-                return;
+                return; // jp   l_0D03_flite_pth_posn_set
             }
         }
     }
 
-    mctl_rotn_incr(mpidx); //jp l_0C2D
+    // else ...  jp l_0C2D
 
-    // l_0D03_ almost done ... update the sprite x/y positions
-    mctl_posn_set(mpidx); // jp   z,l_0D03
+    // l_0C2D_
+    mctl_rotn_incr(mpidx);
 }
 
 /*=============================================================================
@@ -1719,7 +1720,8 @@ static void mctl_rotn_incr(uint8 mpidx)
     r16_t temp16;
     uint8 A, B, L;
 
-    // red alien flies doesn't need special handling because it flies thru
+    // l_0C2D_
+    // red alien doesn't need special handling because it flies thru
     // screen and snaps to his home position column
     if (0x20 & mctl_mpool[mpidx].b13) // bit  5 ... check for yellow-alien or boss dive
     {
@@ -2024,7 +2026,7 @@ static void mctl_posn_set(uint8 mpidx)
     // l_0DF5_next_superloop_and_reload_0E
     mctl_mpool[mpidx].b0E = b_92E2_stg_parm[0]; // bomb drop counter
 
-    // jp   l_08E4_superloop
+    // jp   for__pool_idx
 }
 
 /*=============================================================================
