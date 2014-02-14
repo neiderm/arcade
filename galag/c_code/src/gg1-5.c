@@ -60,6 +60,9 @@ static uint16 mctl_rotn_hp(uint16, uint8);
 static uint16 mctl_mul8(uint8, uint8);
 static uint16 mctl_div_16_8(uint16, uint8);
 static uint8 hit_detect(uint8, uint8, uint8);
+static uint8 hit_det_fghtr(uint8, uint8, uint8, uint8, uint8);
+static uint8 hit_notif_fghtr(uint8);
+static void hit_det_fghtr_hdlr(uint8, uint8);
 
 
 /*
@@ -630,7 +633,189 @@ void f_05BF(void)
 ;;----------------------------------------------------------------------------*/
 void f_05EE(void)
 {
+    uint8 hit_notif = 0;
 
+    if ( 0 == task_actv_tbl_0[0x14]) // f_1F85 (input and ship movement)
+    {
+        return; // ret  z
+    }
+
+
+    // if two_ship ... jr   z,l_0613
+
+    // hit_det_fghtr_hdlr(SPR_IDX_SHIP + 0, 1); // pass flag to inhibit stage restart
+
+
+    // l_0613: else ... !two_ship
+
+    if (0 == mrw_sprite.cclr[SPR_IDX_SHIP + 0].b0) return; // ret  z
+#if 0
+    hit_notif = hit_notif_fghtr(SPR_IDX_SHIP + 0); // ship_collisn_detectn_runner
+#endif
+    if (0 == hit_notif) return; // ret  z
+
+    //if (!two_ship) jr   z,l_0639_not_two_
+
+
+    // l_0639_not_two_:
+
+    task_actv_tbl_0[0x14] = 0; // f_1F85 (input and fighter movement)
+    task_actv_tbl_0[0x15] = 0; // f_1F04 (fire button input)
+    task_actv_tbl_0[0x05] = 0; // f_05EE (this task, fighter hit-detection)
+    //ld   (ds_99B9_star_ctrl + 0x00),a  ; 0 ... 1 when fighter on screen
+
+    hit_det_fghtr_hdlr(SPR_IDX_SHIP + 0, 0); // not docked fighters, pass flag to allow stage restart
+}
+
+/*=============================================================================
+;; hit_det_fghtr_hdlr()
+;;  Description:
+;;   handle a collision detected on fighter
+;;   continues from f_05EE to handle ship 1 collision
+;; IN:
+;;   HL == &sprite_posn_base[0x60]  ... ship2 position (if call hit_det_fghtr_hdlr)
+;;   HL == &sprite_posn_sfr[0x60] ... (if jp  l_064F)
+
+;;   E == object index of fighter1 or fighter2
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+static void hit_det_fghtr_hdlr(uint8 fghtr_obj_offs, uint8 no_restart_stg)
+{
+    mrw_sprite.posn[fghtr_obj_offs].b0 -= 8; // x<7:0>
+    mrw_sprite.posn[fghtr_obj_offs].b1 -= 8; // y<7:0>
+    mrw_sprite.cclr[fghtr_obj_offs].b1 = 0x0B; // color
+    mrw_sprite.cclr[fghtr_obj_offs].b0 = 0x20; // explosion tile
+
+    sprt_mctl_objs[fghtr_obj_offs].state = ROGUE_FGHTR;
+    sprt_mctl_objs[fghtr_obj_offs].mctl_idx = 0x0F; // explosion counter to obj-state dispatcher
+
+    mrw_sprite.ctrl[fghtr_obj_offs].b0 = 0x08 | 0x04;
+// ds_plyr_actv._b_2ship = 0
+
+    // sound-fx count/enable registers "bang" sound (not in Attract Mode)
+    b_9AA0[0x19] = glbls9200.game_state - 1; // dec  a
+
+    if (0 == no_restart_stg) // stage must restart if not docked fighters
+    {
+//        glbls9200.restart_stage = 1;
+        // ret
+    }
+    // else ... ret  nz
+}
+
+/*=============================================================================
+;; hit_notif_fghtr()
+;;  Description:
+;;   hit notification for fighter
+;; IN:
+;;  L == sprite_posn_base[] ... offset (FIGHTER1 or FIGHTER2)
+;; OUT:
+;;  E == preserved offset passed as argument in L
+;;---------------------------------------------------------------------------*/
+static uint8 hit_notif_fghtr(uint8 fghtr_obj_offs)
+{
+    r16_t tmp16;
+    uint8 hit_notif1, hit_notif2; // use two separate variables to avoid the global ship_collsn_detectd_
+    uint8 ixl, ixh, l, b;
+
+    if (ROGUE_FGHTR == sprt_mctl_objs[fghtr_obj_offs].state)
+    {
+        return; // ret  z
+    }
+
+    ixl = mrw_sprite.posn[fghtr_obj_offs].b0; // x
+
+    tmp16.pair.b0 = mrw_sprite.posn[fghtr_obj_offs].b1; // y<7:0>
+    tmp16.pair.b1 = mrw_sprite.ctrl[fghtr_obj_offs].b1; // y<8>
+    tmp16.word >>= 1; // y<8:1> in pair.b0
+
+    ixh = tmp16.pair.b0;
+
+    if (0 != task_actv_tbl_0[0x08]) // f_2916 ...supervises attack waves
+    {
+        // only transients can do collision in attack wave
+        l = 0x38;
+        b = 0x04;
+        // jr   l_06AC_
+    }
+    else
+    {
+        // not attack wave, set parameters to check all
+        l = 0x00;
+        b = 0x30;
+    }
+    // l_06AC_
+    hit_notif1 = hit_det_fghtr(fghtr_obj_offs, ixl, ixh, l, b);
+
+    l = 0x68; // bombs
+    b = 0x08;
+
+    hit_notif2 = hit_det_fghtr(fghtr_obj_offs, ixl, ixh, l, b);
+
+    return hit_notif1 | hit_notif2;
+}
+
+/*=============================================================================
+;; hit_det_fghtr()
+;;  Description:
+;;   hit detection for fighter
+;; IN:
+;;  L==starting object/index of alien or bomb
+;;  B==repeat count ($08 or $30)
+;;  ixl == fighter x<7:0>
+;;  ixh == fighter y<15:8> of fixed-point
+;; OUT:
+;;  b8_ship_collsn_detectd_status
+;;---------------------------------------------------------------------------*/
+static uint8 hit_det_fghtr(uint8 fghtr_idx, uint8 fx, uint8 fy, uint8 start_offset, uint8 number)
+{
+    uint8 coffs = start_offset;
+    uint8 b = number;
+    uint8 hit_notif = 0;
+
+    while(b > 0)
+    {
+        if (0x80 != sprt_hit_notif[coffs]
+        && INACTIVE != sprt_mctl_objs[coffs].state)
+        {
+            if (0x04 != (sprt_mctl_objs[coffs].state & 0xFE))
+            {
+                if (0 != mrw_sprite.posn[coffs].b0)
+                {
+                    // test for dX +/- 7 using offset and overvflow technique
+                    r16_t tmpA;
+                    tmpA.word = mrw_sprite.posn[coffs].b0;
+                    tmpA.pair.b0 = tmpA.pair.b0 - fx - 7;
+                    tmpA.word += 13; // add  a,#13
+
+                    if (tmpA.pair.b1 > 0)
+                    {
+                        tmpA.pair.b1 = mrw_sprite.ctrl[coffs].b1;
+                        tmpA.pair.b0 = mrw_sprite.posn[coffs].b1;
+                        tmpA.word >>= 1; // sprite.y<8:1> in b0
+
+                        tmpA.pair.b0 = tmpA.pair.b0 - fy - 4;
+                        tmpA.word += 7;
+
+                        if (tmpA.pair.b1 > 0)
+                        {
+                            hit_notif = 1;
+                            // we're hit!
+                            // AF==1 if moving alien
+                            // nz if fighter hit
+                            hit_detect(1, fghtr_idx, coffs); // jp   j_07C2
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        coffs += 2;
+        b -= 1; // djnz
+    }
+
+    return hit_notif;
 }
 
 /*=============================================================================
@@ -1199,7 +1384,6 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
         do
         {
             r16_t pushDE, rBC, rHL, rDE;
-            uint8 A, B, C, D, E, L;
 
             // get next token and check if ordinary data or state-selection
             mctld = flv_get_data_uber(pHLdata); // ld   a,(hl)
@@ -1257,6 +1441,8 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
 
             case 0xFB: // _0AA0 (04): attack wave turn and head to home
             {
+                uint8 B, C, D, E, L;
+
                 L = mctl_mpool[mpidx].b10;
 
                 // already 9 if executing attack sortie
@@ -1313,8 +1499,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
 
                 pHLdata += 1; // inc  hl
 
-                // jp   j_090E_flite_path_init
-                break;
+                break; // jp   j_090E_flite_path_init
             }
 
             // homing, red transit to top, yellow from offscreen at bottom
@@ -1346,6 +1531,8 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
             // yellow alien flew under bottom of screen and now turns for home
             case 0xF9: // _0B5F (06):
             {
+                uint8 E, A;
+
                 E = mctl_mpool[mpidx].b10;
                 E = sprt_fmtn_hpos_ord_lut[ E + 1 ]; // column index
 
@@ -1448,6 +1635,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
             case 0xF3: // _0A01 (0C)
             {
                 r16_t tmpA;
+                uint8 A;
 
                 // setup horizontal limits for targetting
                 if (mrw_sprite.posn[SPR_IDX_SHIP].b0 < 0x1E) // cp   #0x1E
@@ -1547,15 +1735,13 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 break;
             }
 
+            case 0xF0: // _0955 (0F): attack wave
             case 0xEF: // _094E (10): one red alien left in continuous bombing mode
             {
+                uint8 A;
+
                 A = ds_new_stage_parms[0x09]; // jumps the pointer on/after stage 8
 
-                // jp   l_0959 ... no break
-            }
-
-            case 0xF0: // _0955 (0F): attack wave
-            {
                 if (0xEF != mctld) // jp   l_0959
                 {
                     A = ds_new_stage_parms[0x08];

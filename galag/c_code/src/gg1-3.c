@@ -331,7 +331,30 @@ void objs_dispatcher(uint8 frame_ct)
 
                 // _243C: shot my damn ship (DE==8862 ... 8863 counts down from $0F for all steps of explosion)
             case ROGUE_FGHTR:
-                //sprt_mctl_objs[ E ].state) = 0x80;
+                // obj_status[].mctl_q_index used for explosion counter
+                // counts down to 0 (from $F) during explosion
+                A = sprt_mctl_objs[E].mctl_idx - 1; // dec  a
+
+                if (0 != A) // jr   z,l_2451
+                {
+                    sprt_mctl_objs[E].mctl_idx = A; // ld   (de),a
+
+                    // advance the tile code on even multiples of 4
+                    if (0 == (A & 0x03))
+                    {
+                        // 4 tiles for sprite with dblh and dblw set
+                        mrw_sprite.cclr[E].b0 += 4;
+                    }
+                    //jp   l_2416
+                    E += 4; // 2416
+                    break;
+                }
+
+                // l_2451
+                mrw_sprite.posn[E].b0 = 0;
+                mrw_sprite.ctrl[E].b0 = 0;
+                sprt_mctl_objs[E].state = INACTIVE;
+                // jp   l_2416
                 break;
 
                 // _245F: rotating back into position in the collective
