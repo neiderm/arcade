@@ -266,6 +266,7 @@ l_10A0_got_one:
         ld   a,(b_9215_flip_screen)
         ld   e,a
 
+; insert sprite Y coord into pool structure
         ld   l,c                                  ; restore index to obj_status[], sprite etc. (dec l just as good, no?)
         ld   h,#>ds_sprite_posn
         ld   c,(hl)                               ; sprite_x
@@ -282,12 +283,13 @@ l_10A0_got_one:
 ; 160 - sprite_y + 1 ... backwards math since sY<8:1> already loaded in B, and this is only for flipped screen
         ex   af,af'                               ; stash Cy ... sY<:0>
         ld   a,b
-        add  a,#0x00A0/2                          ; adjust addend for scale factor 2
+        add  a,#<(-0x0160 >> 1)                   ; adjust addend for scale factor 2
         neg
         ld   b,a
         ex   af,af'                               ; un-stash Cy
         ccf                                       ; sY<:0> = Cy ^ 1
 
+; insert sprite X coord into pool structure
 l_10DC:
 ; resacale sY<8:0> to fixed-point 9.7
         ld   0x01(ix),b                           ; sY<8:1> ... fixed point 9.7
@@ -296,7 +298,6 @@ l_10DC:
         and  #0x80
         ld   0x00(ix),a                           ; sY<0> ... fixed point 9.7
 
-; x coordinates
         ld   a,c                                  ; sprite_x
         bit  0,e                                  ; test flipped screen
         jr   z,l_10ED
@@ -871,21 +872,21 @@ c_12C3:
 ; init formation location tracking structure: relative (offset) initialize to 0
 ; and origin coordingate bits<8:1> from data (copy of origin coordinate from
 ; CPU0 data as it would be outside of address space of CPU1)
-       ld   hl,#ds_home_posn_loc                  ; init home_posn_loc[]
-       ld   de,#db_home_posn_ini
-       ld   b,#16                                 ; table size.
+       ld   hl,#ds_hpos_loc_t                     ; init home_posn_loc[]
+       ld   de,#db_fmtn_hpos_orig
+       ld   b,#16                                 ; table size
 l_12D1:
-       ld   (hl),#0                               ; home_posn[].rel ... pair.byte0
+       ld   (hl),#0                               ; pair.b0 i.e. ds_hpos_loc_offs
        inc  l
        ld   a,(de)
        inc  de
-       ld   (hl),a                                ; ds_home_posn_abs
+       ld   (hl),a                                ; pair.b1 i.e. ds_hpos_loc_orig ... copy data for reference in CPU1
        inc  l
        djnz l_12D1
 
 ; X coordinates at origin (10 bytes) to even offsets, adjusted for flip-screen.
-       ld   hl,#ds_home_posn_org                  ; init origin x-coords (10 columns)
-       ld   de,#db_home_posn_ini
+       ld   hl,#ds_hpos_spcoords                  ; init origin x-coords (10 columns)
+       ld   de,#db_fmtn_hpos_orig
        ld   b,#10
 l_12E2:
        ld   a,(de)                                ; home_posn_ini[B]
@@ -908,7 +909,7 @@ l_12EB:
 ; taking 1's compliment) for use in non-inverted screen configuration.
        ld   b,#6
 l_12F2:
-       ld   a,(de)                                ; db_home_posn_ini[B]
+       ld   a,(de)                                ; db_fmtn_hpos_orig[B]
        add  a,ixl
        inc  de
        bit  0,c                                   ; test if flip_screen
@@ -937,7 +938,7 @@ l_12FD:
 ;;     00   02   04   06   08   0A   0C   0E   10   12   14   16   18   1A   1C   1E
 ;;
 ;;-----------------------------------------------------------------------------
-db_home_posn_ini:
+db_fmtn_hpos_orig:
   .db 0x31,0x41,0x51,0x61,0x71,0x81,0x91,0xA1,0xB1,0xC1, 0x92,0x8A,0x82,0x7C,0x76,0x70
 
 ;;=============================================================================

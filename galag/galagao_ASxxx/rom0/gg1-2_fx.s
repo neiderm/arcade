@@ -899,7 +899,10 @@ l_1B8B:
        ld   (b_9AA0 + 0x13),a                     ; 1 ... sound-fx count/enable registers, bug dive attack sound
        ret
 
+
 l_1BA8:
+; should check (b_bugs_flying_nbr >= ds_new_stage_parms[4]) here!
+
 ; check each bomber type for ready status i.e. yellow, red, boss
        ld   hl,#b_92C0 + 0x00                     ; 3 bytes, 1 byte for each slot, enumerates selection of red, yellow, or boss
        ld   b,#3
@@ -920,7 +923,9 @@ l_1BB4:
        cp   c
        jr   c,l_1BC0
 ; bomber_rdy_tmr[n]++ && ret ... maximum nbr of bugs already flying
-       inc  (hl)                                  ; set slot counter back to 1 since it can't be processed right now
+; have to set slot counter back to 1 since it can't be processed right now
+; and we're too dumb to check at 1BA8
+       inc  (hl)
        ret
 
 ; else ... launch another bombing excursion
@@ -959,7 +964,7 @@ l_1BDF:
        ld   a,(ds_plyr_actv +_b_bbee_obj)         ; load bonus-bee parameter
        ld   c,a                                   ; stash A
 l_1BE3:
-; if ( disposition == resting ) && ...
+; if ( disposition == STAND_BY ) && ...
        ld   a,(hl)                                ; obj_status[L].state
        dec  a
        jr   nz,l_1BEB_next
@@ -1299,7 +1304,7 @@ f_1D32:
 
 l_1D4B:
        ld   c,a
-       ld   hl,#ds_home_posn_org + (10 * 2)       ; + byte offset to row coordinates
+       ld   hl,#ds_hpos_spcoords + (10 * 2)       ; + byte offset to row coordinates
 
        ld   b,#6                                  ; 6 row coordinates to update
 l_1D51:
@@ -1567,7 +1572,7 @@ l_1E23:
 ; the parameter for the second call in C, at the same time that B is set.
 
        ld   hl,#ds10_9920                         ; 16 bytes copied from _bitmap_tables+2*A
-       ld   de,#ds_home_posn_rel                  ; hl==ds10_9920
+       ld   de,#ds_hpos_loc_offs                  ; hl==ds10_9920
 
        jr   nc,l_1E36
 
@@ -1615,7 +1620,7 @@ j_1E43:
        ld   (de),a
 
 ; _home_posn_org[ n ] += B ... 10 column coordinates, 6 row coordinates, 16-bits per coordinate
-       ld   d,#>ds_home_posn_org
+       ld   d,#>ds_hpos_spcoords
        ld   a,(de)
        add  a,b                                   ; +/- 1
        ld   (de),a
@@ -1633,7 +1638,7 @@ j_1E43:
        dec  e                                     ; LSB again
 
 l_1E5A:
-       ld   d,#>ds_home_posn_rel                  ; reset pointer
+       ld   d,#>ds_hpos_loc_offs                  ; reset pointer
 
 l_1E5C_update_ptrs:
        inc  e

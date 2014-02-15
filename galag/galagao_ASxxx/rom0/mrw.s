@@ -240,7 +240,7 @@ b_svc_test_inp_buf:
 ;  11
 ;  13
 ds_bug_motion_que:
-         .ds     $$14 * 12  ; 12 object data structures
+         .ds     $$14 * 12  ; 12 object data structures (total size $F0)
 
          .ds     $$10       ; 91F0 unused
 
@@ -455,7 +455,7 @@ ds_9800_RAM2:
 
 
 ; Pixel coordinates for object origin positions in the cylon fleet.
-ds_home_posn_org:
+ds_hpos_spcoords:
 
 ; 10 column coordinates, 6 row coordinates, 16-bits per coordinate.
          .ds     $$20
@@ -481,12 +481,14 @@ ds_cpu0_task_resrv:
 ; home position locations for objects in the cylon fleet.
 ; 10 column coordinates, 6 row coordinates, 2-bytes per coordinate.
 
-; even-bytes: relative offset from absolute coordinate
-ds_home_posn_rel:
-; odd-bytes: absolute coordinates (from d_130F)
-ds_home_posn_abs:
+; even-bytes: offset of home-position coordinate relative to origin
+ds_hpos_loc_offs:
 
-ds_home_posn_loc:
+; odd-bytes: copy of origin data for access in CPU1 address space (i.e. bits <8:1> of precision coordinate)
+ds_hpos_loc_orig:
+
+; struct for home position locations
+ds_hpos_loc_t:
          .ds     $$20
 
 

@@ -831,7 +831,7 @@ case_2422:
        ld   c,(hl)                                ; row position index
        inc  l
        ld   l,(hl)                                ; column position index
-       ld   h,#>ds_home_posn_rel                  ; .b0
+       ld   h,#>ds_hpos_loc_offs                  ; .b0
        ld   a,(hl)                                ; X coordinate offset
        ex   af,af'
        ld   l,c                                   ; row position index
@@ -930,7 +930,7 @@ l_249B:
        ld   c,(hl)                                ; row position index
        inc  l
        ld   l,(hl)                                ; column position index
-       ld   h,#>ds_home_posn_org                  ; L == offset to MSB
+       ld   h,#>ds_hpos_spcoords                  ; L == offset to MSB
        ld   a,(hl)
        ld   d,#>ds_sprite_posn
        ld   (de),a                                ; X pix coordinate
@@ -1081,7 +1081,7 @@ case_2535:
 ; 3 or 6: terminate cylons or bombs that have gone past the sides or bottom of screen
 ; active rocket
 case_254D:
-       ld   h,#>ds_sprite_posn
+       ld   h,#>ds_sprite_posn                    ; read directly from SFRs (not buffer RAM)
        ld   l,e                                   ; object offset
        set  7,l                                   ; +=$80 ... set pointer to read directly from the SFR
        ld   a,(hl)
@@ -1984,12 +1984,12 @@ l_2AAB:
        ld   b,#10                                 ; nbr of column positions
 l_2AAF:
 ; increment the relative position
-       ld   h,#>ds_home_posn_rel                  ; even-bytes, relative offset, all 0's, then all 1's, etc. etc.
+       ld   h,#>ds_hpos_loc_offs                  ; even-bytes, relative offset, all 0's, then all 1's, etc. etc.
        ld   a,(hl)
        add  a,c                                   ; +1 or -1
        ld   (hl),a
 ; increment sprite position LSB
-       ld   h,#>ds_home_posn_org
+       ld   h,#>ds_hpos_spcoords
        ld   a,(hl)
        add  a,c
        ld   (hl),a
@@ -2001,7 +2001,7 @@ l_2AAF:
 ; if ( 0 == nestlr_inh  ||  0 != obj_pos_rel[0] )  ...
        ld   a,(ds_plyr_actv +_b_nestlr_inh)
        and  a
-       ld   a,(ds_home_posn_rel + 0x00)           ; check for 0 i.e. returned to center
+       ld   a,(ds_hpos_loc_offs + 0x00)           ; check for 0 i.e. returned to center
        jr   z,l_2AC9
        and  a
        jr   z,l_2ADA_done

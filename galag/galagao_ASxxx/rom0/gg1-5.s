@@ -127,7 +127,7 @@ d_003B_task_table:
        .dw f_08D3  ; [2]: bug motion runner
        .dw f_05BE  ; null-task
        .dw f_06F5  ; [4]: rocket hit-detection
-       .dw f_05EE  ; [5]: hit-detection (change to f_05BE for invincibility)
+       .dw f_05EE  ; [5]: hit-detection
        .dw f_05BE  ; null-task
        .dw f_0ECA  ; [7] ... ?
 
@@ -653,21 +653,21 @@ f_05EE:
        and  a
        ret  z
 
-       ld   (ds_9200_glbls + 0x17),a              ; :=1  (flag ...ship-input-movement active, and we are doing collisn detect)
+       ld   (ds_9200_glbls + 0x17),a              ; 1 ... no_restart_stg
 
-; if ( ! plyr_is_two_ship )
+; if ( plyr_is_two_ship ) ...
        ld   a,(ds_plyr_actv +_b_2ship)
        and  a
        jr   z,l_0613
 
-; else ... Handle 2-ship configuration
+; ... handle 2-ship configuration
        ld   hl,#ds_sprite_posn + 0x60             ; ship2 position
        ld   a,(hl)
        and  a
        jr   z,l_0613
 
        call c_0681_ship_collisn_detectn_runner    ; HL == &sprite_posn_base[0x60]  ...ship2 position
-       ld   a,(b8_ship_collsn_detectd_status)     ; collision detected (ship 2)
+       ld   a,(b8_ship_collsn_detectd_status)     ; fighter hit notif (2)
        and  a
        jr   z,l_0613
 ;60c
@@ -682,8 +682,9 @@ l_0613:
        and  a
        ret  z
 
-       call c_0681_ship_collisn_detectn_runner    ; HL == sprite_posn_base + 0x62 ... ship (1) position
-       ld   a,(b8_ship_collsn_detectd_status)     ; collision detected (ship 1)
+       call c_0681_ship_collisn_detectn_runner    ; HL == sprite_posn_base + 0x62 ... fighter (1) position (only L significant)
+       ; L passed to c_0681_ship_collisn_detect preserved in E
+       ld   a,(b8_ship_collsn_detectd_status)     ; fighter hit notif (1)
        and  a
        ret  z
 
@@ -702,11 +703,11 @@ l_0613:
 
 l_0639_not_two_ship:
        xor  a
-       ld   (ds_cpu0_task_actv + 0x14),a          ; 0
-       ld   (ds_cpu0_task_actv + 0x15),a          ; 0
-       ld   (ds_cpu1_task_actv + 0x05),a          ; 0  (cpu1:f_05EE)
-       ld   (ds_99B9_star_ctrl + 0x00),a          ; 0  (1 when ship on screen)
-       ld   (ds_9200_glbls + 0x17),a              ; 0
+       ld   (ds_cpu0_task_actv + 0x14),a          ; 0 ... f_1F85 (input and fighter movement)
+       ld   (ds_cpu0_task_actv + 0x15),a          ; 0 ... f_1F04 (fire button input)
+       ld   (ds_cpu1_task_actv + 0x05),a          ; 0 ... f_05EE (this task, fighter hit-detection)
+       ld   (ds_99B9_star_ctrl + 0x00),a          ; 0 ... 1 when fighter on screen
+       ld   (ds_9200_glbls + 0x17),a              ; 0 ... no_restart_stg (not docked fighters)
 
 ; handle ship collision (single-ship player)
 ; HL == &sprite_posn_base[0x62] ... ship (1) position
@@ -717,14 +718,16 @@ l_0639_not_two_ship:
 ;;   called from f_05EE to handle Ship 2 collision.
 ;;   continues from f_05EE to handle ship 1 collision
 ;; IN:
-;;   HL == &sprite_posn_base[0x60]  ...ship2 position (if call c_0649)
+;;   HL == &sprite_posn_base[0x60]  ... ship2 position (if call c_0649)
 ;;   HL == &sprite_posn_sfr[0x60] ... (if jp  l_064F)
+
+;;   E == object index of fighter1 or fighter2
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 c_0649:
        ex   de,hl
-       ld   h,#>ds_sprite_posn
+       ld   h,#>ds_sprite_posn                    ; read directly from SFRs (not buffer RAM)
        set  7,l
        ld   a,(hl)
 
@@ -741,12 +744,12 @@ l_064F:
        dec  l
        ld   (hl),#0x20
        ld   h,#>b_8800
-       ld   (hl),#8                               ; .state, change disposition from $80 to "exploding"
+       ld   (hl),#8                               ; .state, disposition from $80 to "exploding"
        inc  l
        ld   (hl),#0x0F                            ; mctrl_q index used for explosion counter
        dec  l
        ld   h,#>ds_sprite_ctrl
-       ld   (hl),#0x0C
+       ld   (hl),#0x08 | 0x04                     ; dblh, dblw
        xor  a
        ld   (ds_plyr_actv +_b_2ship),a            ; 0
 
@@ -754,11 +757,11 @@ l_064F:
        dec  a
        ld   (b_9AA0 + 0x19),a                     ; sound-fx count/enable registers, "bang" sound (not in Attract Mode)
 
-; if ship-input-movement is active
-       ld   a,(ds_9200_glbls + 0x17)              ; flag ... ship-input-movement is active
+; if no_restart_stg  ret ...
+       ld   a,(ds_9200_glbls + 0x17)              ; no_restart_stg is set if docked fighters
        and  a
        ret  nz
-; else
+; ... else  set restart_stg_flag
        inc  a
        ld   (ds_9200_glbls + 0x13),a              ; 1  ... restart stage flag (ship-input-movement flag not active )
        ret
@@ -768,52 +771,52 @@ l_064F:
 ;;  Description:
 ;;   Sets up collision detection.
 ;; IN:
-;;  HL == &sprite_posn_base[offset]
-;;        ...where offset is either SHIP1 (or SHIP2)
+;;  L == sprite_posn_base[] ... offset (FIGHTER1 or FIGHTER2)
 ;; OUT:
-;;  ...
+;;  E == preserved offset passed as argument in L
 ;;-----------------------------------------------------------------------------
 c_0681_ship_collisn_detectn_runner:
        xor  a
-       ld   (b8_ship_collsn_detectd_status),a     ; :=0 ... initialize flag
+       ld   (b8_ship_collsn_detectd_status),a     ; 0 ... fighter hit notif
 
        ld   h,#>b_8800
        ld   a,(hl)
        ld   h,#>ds_sprite_posn
-       cp   #8                                    ; ship is in status 08 if it is already terminally ill...
+       cp   #8                                    ; fighter disposition 08 if already dooomed ...
        ret  z                                     ; ... so gtf out!
 
-       ld   a,(hl)
+       ld   a,(hl)                                ; sprite.pos.x
        ld   ixl,a
        inc  l
        ld   b,(hl)                                ; get row bits 0:7
        ld   h,#>ds_sprite_ctrl                    ; get row bit-8
        ld   a,(hl)
-       rrca
-       rr   b
-       ld   ixh,b
+       rrca                                       ; y<8> -> Cy
+       rr   b                                     ; Cy -> b<7>
+       ld   ixh,b                                 ; y<15:8> of fixed-point
        dec  l
-       ld   e,l
+       ld   e,l                                   ; preserved object/index of fighter passed as argument in L
 
-; if ( cpu0:f_2916 ! active ) {
+; if ( cpu0:f_2916  active ) ...
        ld   a,(ds_cpu0_task_actv + 0x08)          ; cpu0:f_2916 ...supervises attack waves
        and  a
        jr   z,l_06A8
-; } else {
-;      attack wave active, set these parameters...
-       ld   l,#0x38                               ; clone (bonus) bees and transients
-       ld   b,#0x04                               ; 4 of them
+; ... then ...
+       ; only transients can do collision in attack wave
+       ld   l,#0x38                               ; transients
+       ld   b,#0x04
        jr   l_06AC_
-; }
+
+; ... else ...not attack wave, set parameters to check all
 l_06A8:
-;      attack wave NOT active, set these parameters...
-       ld   l,#0x00                               ; bugs
-       ld   b,#0x30                               ; $30 of them
+       ld   l,#0x00                               ; check objects $00 - $5E
+       ld   b,#0x30
+
 l_06AC_:
        call c_06B7_ship_collsn_detecn
 
        ld   l,#0x68                               ; bombs
-       ld   b,#0x08                               ; 8 of them
+       ld   b,#0x08
        call c_06B7_ship_collsn_detecn
 
        ret
@@ -823,32 +826,37 @@ l_06AC_:
 ;;  Description:
 ;;   Do ship collision detection.
 ;; IN:
-;;  L==starting offset from 9200 in HL
+;;  L==starting object/index of alien or bomb
 ;;  B==repeat count ($08 or $30)
-;;  IX==
+;;  ixl == fighter x<7:0>
+;;  ixh == fighter y<15:8> of fixed-point
 ;; OUT:
 ;;  b8_ship_collsn_detectd_status
 ;;-----------------------------------------------------------------------------
 c_06B7_ship_collsn_detecn:
 while_06B7:
-       ld   h,#>b_9200_obj_collsn_notif
+       ld   h,#>b_9200_obj_collsn_notif           ; sprt_hit_notif
        ld   a,(hl)
        ld   h,#>b_8800
        or   (hl)
        rlca
        jr   c,l_06F0
+
        ld   a,(hl)
        and  #0xFE
        cp   #4
        jr   z,l_06F0
+
        ld   h,#>ds_sprite_posn
        ld   a,(hl)
        and  a
        jr   z,l_06F0
-       sub  ixl
+
+       sub  ixl                                   ; x<7:0>
        sub  #7
-       add  a,#0x0D
+       add  a,#13
        jr   nc,l_06F0
+
        inc  l
        ld   a,(hl)
        ld   h,#>ds_sprite_ctrl
@@ -862,9 +870,9 @@ while_06B7:
        jr   nc,l_06F0
 
        ld   a,#1
-       ld   (b8_ship_collsn_detectd_status),a     ; 1 ... ship collision occured
+       ld   (b8_ship_collsn_detectd_status),a     ; 1 ... fighter hit notif
 
-       or   a                                     ; clears H and C flags?
+       or   a                                     ; nz if fighter hit
        ex   af,af'
        jp   j_07C2                                ; handle collision
 l_06F0:
@@ -1094,11 +1102,14 @@ l_076A_while_object:
        dec  a
        and  #0xFE
        ex   af,af'                                ; object status to j_07C2
+
        ld   a,(ds_plyr_actv +_b_2ship)
        and  a
+
        ld   a,(hl)                                ; sprite.sX
 
        jr   nz,l_07A4                             ; and  a
+
        sub  ixl                                   ; sprite.sX -= rocket.sX
        sub  #6
        add  a,#0x0B
@@ -1139,7 +1150,7 @@ l_07B9_pre_hdl_collsn:
 ;; IN:
 ;;   L == offset/index of destroyed bug, or a bomb
 ;;   E == offset/index of rocket sprite + 1
-;;   E == object key + 0, e.g. 9B62 (the fighter ship)
+;;   E == offset/index + 0, e.g. 9B62 (the fighter ship)
 ;;   A' == object status
 ;; OUT:
 ;;  ...
@@ -1164,7 +1175,7 @@ j_07C2:
        jr   z,l_0815_bomb_hit_ship
 
 ; if rocket or ship collided with bug
-       ex   af,af'                                ; un-stash parameter (1 if moving bug)
+       ex   af,af'                                ; un-stash parameter ... 1 if moving bug (hit by rocket or fighter)
        jr   nz,l_081E_hdl_flyng_bug               ; will come back to $07DB or l_07DF
 
 ; else if rocket hit stationary bug
@@ -1395,7 +1406,7 @@ f_08D3:
        ld   ix,#ds_bug_motion_que
 
        ld   a,#0x0C
-       ld   (b_bug_que_idx),a                     ; $0C ... nbr of queue structures
+       ld   (b_bug_que_idx),a                     ; 12 ... nbr of queue structures
 
        ld   hl,#b_bugs_flying_cnt                 ; capture the (previous) count and zero the current count
        ld   a,(hl)
@@ -1427,6 +1438,7 @@ for__pool_idx:
 ; HL==8830, *HL==04, 8831==40
        jp   nz,case_0E49_make_object_inactive     ; sets object state to $80
 
+
 mctl_fltpn_dspchr:
 ; load a new flight segment if this one timed out, otherwise go directly to flite path handler and continue with same data-set
        dec  0x0D(ix)                              ; check for expiration of this data-set
@@ -1442,7 +1454,7 @@ j_090E_flite_path_init:
        ld   a,(hl)                                ; data_set[n + 0]
 
 ; get next token and check if ordinary data or state-selection
-; if (token < 0xEF)
+; if (token < 0xEF) ... then skip processing of jp-table
        cp   #0xEF
        jp   c,l_0BDC_flite_pth_load               ; if token < $ef, continue to flight-path handler
 
@@ -1521,7 +1533,7 @@ case_0968:  ; $0E
        ld   d,#>db_obj_home_posn_RC               ; home_posn_rc[ ix($10) ]
        ld   a,(de)                                ; row position index
        ld   e,a
-       ld   d,#>ds_home_posn_abs
+       ld   d,#>ds_hpos_loc_orig
        inc  e
        ld   a,(de)                                ; msb, absolute row pix coordinate
        add  a,#0x20
@@ -1685,7 +1697,7 @@ l_0A38:
 ; don't actually need to load from l and h here ;)
        ld   0x08(ix),l                            ; pointer.b0
        ld   0x09(ix),h                            ; pointer.b1
-       jp   l_0BFF                                ; save pointer and goto _flite_pth_cont
+       jp   l_0BFF_flite_pth_skip_load            ; save pointer and goto _flite_pth_cont
 
 ; capturing boss starts dive
 case_0A53:  ; $0B
@@ -1744,7 +1756,7 @@ case_0AA0:  ; $04
        inc  l
        ld   l,(hl)                                ; column index
 
-       ld   h,#>ds_home_posn_loc
+       ld   h,#>ds_hpos_loc_t
        ld   b,(hl)                                ; x offset
        inc  l
        ld   e,(hl)                                ; x coordinate (ds_hpos_loc_orig)
@@ -1845,7 +1857,7 @@ l_0B30:
        pop  hl
        ld   a,#9
        rst  0x10                                  ; HL += A
-       jp   l_0BFF                                ; save pointer and goto _flite_pth_cont
+       jp   l_0BFF_flite_pth_skip_load            ; save pointer and goto _flite_pth_cont
 
 ; creatures that are returning to base: moths or bosses from top of screen,
 ; bees from bottom of loop-around, and "transients"
@@ -1867,7 +1879,7 @@ case_0B4E:  ; $03
        ld   0x06(ix),e                            ; origin home position y (bits 15:8)
        ld   0x07(ix),#0                           ; origin home position x (bits 15:8)
        set  5,0x13(ix)                            ; bee or boss dive
-       jp   l_0BFF                                ; save pointer and goto _flite_pth_cont
+       jp   l_0BFF_flite_pth_skip_load            ; save pointer and goto _flite_pth_cont
 
 ; red alien flew through bottom of screen to top, heading for home
 ; yellow alien flew under bottom of screen and now turns for home
@@ -1880,7 +1892,7 @@ case_0B5F:  ; $06
        ld   d,#>db_obj_home_posn_RC               ; home_posn_rc[ ix($10) + 1 ] ... column position index
        ld   a,(de)
        ld   e,a
-       ld   d,#>ds_home_posn_org                  ; col pix coordinate, lsb only
+       ld   d,#>ds_hpos_spcoords                  ; col pix coordinate, lsb only
        ld   a,(de)
        bit  0,c                                   ; check if flip-screen
        jr   z,l_0B76
@@ -1985,11 +1997,14 @@ l_0BF7:
        ld   a,(hl)                                ; data[ n + 2 ] ... to (ix)0x0D
        inc  hl
        ld   0x0D(ix),a                            ; expiration counter from data[ n + 2 ]
-l_0BFF:
+
+l_0BFF_flite_pth_skip_load:
        ld   0x08(ix),l                            ; pointer.b0
        ld   0x09(ix),h                            ; pointer.b1
 
+
 ; process this time-step of flite path, continue processing on this data-set
+; check home positions
 l_0C05_flite_pth_cont:
        bit  6,0x13(ix)                            ; if set, check if home
        jr   z,l_0C2D_flite_pth_step
