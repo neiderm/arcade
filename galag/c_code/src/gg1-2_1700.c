@@ -539,26 +539,19 @@ void f_1B65(void)
 
     // l_1B75: check the queue for boss+wing mission (4 groups of 3 bytes) ...
     // parameters are queue'd by 'case boss launcher'
-    B = 0; // ld   b,#4
+    B = 4; // ld   b,#4
     L = 0; // ld   hl,#b_92C0 + 0x0A
     // l_1B7A:
-    while (B < 4)
+    while (B > 0)
     {
         A = b_92C0_A[L]; // valid object index if slot active, otherwise $FF
-#ifdef HELP_ME_DEBUG
-if (1) // boss launcher not implemented yet
-#else
-        if (0xFF == A) // jr   nz,l_1B8B
-#endif
-        {
-            L += 3; // index to _92C0_A
-            B += 1;
-        }
-        else
+
+        if (0 == A) // jr   nz,l_1B8B
         {
             // l_1B8B: launching element of boss+wing mission
+
             b_92C0_A[L] = 0xFF; // $FF disables the slot
-            sprt_mctl_objs[A].state &= ~0x80; // res  7,e
+            sprt_mctl_objs[A].state &= ~INACTIVE; // res  7,e
 
             if (1 != sprt_mctl_objs[A].state) // disposition resting/inactive
             {
@@ -583,7 +576,12 @@ if (1) // boss launcher not implemented yet
 
             return;
         }
-    } // end while
+        else
+        {
+            L += 3; // index to _92C0_A
+            B -= 1;
+        }
+    } // end while ... djnz l_1B7A
 
     // insert a small delay
     if (0 != (ds3_92A0_frame_cts[0] & 0x0F))
@@ -591,6 +589,13 @@ if (1) // boss launcher not implemented yet
         return;
     }
     // else ... jr   z,l_1BA8
+
+
+    // l_1BB4:
+    if (b_bugs_flying_nbr >= ds_new_stage_parms[4]) // max_flying_bugs_this_rnd
+    {
+        return; // maximum nbr of bugs already flying
+    }
 
     // l_1BA8: check each bomber type for ready status i.e. boss, red, yellow, red
     L = 0; // ld   hl,#b_92C0 + 0x00 ... boss is slot 0
@@ -605,22 +610,14 @@ if (1) // boss launcher not implemented yet
         B -= 1; // djnz l_1BAD ... argument to "switch" to select type of alien launched?
     }
 
-    if (0 == B) return;
+    if (0 == B) return; // all through loop and none are ready
 
-    // l_1BB4:
-    if (b_bugs_flying_nbr >= ds_new_stage_parms[4]) // max_flying_bugs_this_rnd
-    {
-        // maximum nbr of bugs already flying
-        // set slot counter back to 1 since it can't be processed right now
-        b_92C0_0[L] += 1; // inc  (hl)
-        return;
-    }
 
     // l_1BC0: launch another bombing excursion
-    b_92C0_0[L] = b_92C0_0[L + 4]; // set  2,l etc.
+    b_92C0_0[L] = b_92C0_0[L + 4]; // set  2,l ... reset counter
 
     // B from loop l_1bad above decremented from 3
-    A = B - 1; // dec  a
+    A = B - 1; // dec  a ... offset for 0 based indexing of switch
 
     switch (A)
     {
@@ -647,11 +644,10 @@ if (1) // boss launcher not implemented yet
         //l_1BDF:
         while (B > 0)
         {
-            // load bonus-bee parameter
-
             // test clone-attack parameter && object_status
             //jr   nz,l_1BEB_next
-            if (1 == sprt_mctl_objs[L].state /* && L != bonus_bee_index */) // disposition == resting
+
+            if (STAND_BY == sprt_mctl_objs[L].state /* && L != bonus_bee_index */) // disposition == resting
             {
                 // ld   a,c ; unstash A ... offset_to_bonus_bee
                 // l_1BF0_found_one:
@@ -1033,7 +1029,7 @@ static void rckt_sprite_init(void)
     // pointer to rocket attribute
     *pushDE = A | C; // bit7=orientation, bit6=flipY, bit5=flipX, 1:2=displacement
 
-    sprt_mctl_objs[E].state = 6; // disposition: active rocket object
+    sprt_mctl_objs[E].state = BOMB; // disposition: active rocket object
 
     b_9AA0[0x0F] = 1; // sound-fx count/enable, shot-sound
 
