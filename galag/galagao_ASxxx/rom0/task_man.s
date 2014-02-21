@@ -123,7 +123,7 @@ d_TxtScore:
 ;;     1C           08 10 18 20 28 2A 22 1A 12 0A
 ;;     1E           0C 14 1C 24 2C 2E 26 1E 16 0E
 ;;
-;;  organization of row and column pixel position LUTs (ds_home_posn_org etc.):
+;;  organization of row and column pixel position LUTs (fmtn_hpos):
 ;;
 ;;      |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
 ;;
@@ -178,7 +178,7 @@ c_sctrl_playfld_clr:
 ; end
 
 ;;=============================================================================
-;; c_new_stg_game_only()
+;; gctl_stg_splash_scrn()
 ;;  Description:
 ;;   clears a stage (on two-player game, runs at the first turn of each player)
 ;;   Increments stage_ctr (and dedicated challenge stage %4 indicator)
@@ -187,7 +187,7 @@ c_sctrl_playfld_clr:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-c_new_stg_game_only:
+gctl_stg_splash_scrn:
 
 ; plyr_state_active.stage_ctr++
        ld   hl,#ds_plyr_actv +_b_stgctr           ; ++
@@ -247,9 +247,9 @@ l_01BF:
 ;;=============================================================================
 ;; c_01C5_new_stg_game_or_demo()
 ;;  Description:
-;;   Continue c_new_stg_game_only, or called in the demo to allow skipping
+;;   Continue new_stg_game_only, or called in the demo to allow skipping
 ;;   of the "STAGE X" text.
-;;   If Rack Advance set, continues looping back through c_new_stg_game_only
+;;   If Rack Advance set, continues looping back through new_stg_game_only
 ;;   If Rack Advance not set, it does a normal return.
 ;; IN:
 ;;  ...
@@ -316,7 +316,8 @@ l_0220:
        ld   c,#0x0B
        ld   hl,#m_tile_ram + 0x03A0 + 0x10
        call c_string_out                          ; erase "stage X" text"
-       jp   c_new_stg_game_only                   ; start over again
+
+       jp   gctl_stg_splash_scrn                  ; start over again
 
 
 ;;=============================================================================

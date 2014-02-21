@@ -9,9 +9,9 @@
 ;;  j_Game_start:
 ;;      Initializes game state. Starts with Title Screen, or "Press Start"
 ;;      screen if credit available.
-;;  j_060F_new_stage:
+;;  gctl_plyr_start_stg_init:
 ;;      Sets up each new stage.
-;;  jp_045E_While_Game_Running:
+;;  jp_045E_While_Game_Run:
 ;;      Continous loop once the game is started, until gameover.
 ;;
 ;;  The possible modes of operation are (from the Bally Manual):
@@ -31,7 +31,7 @@
 
 
 ;;=============================================================================
-;; j_Game_init()
+;; gctl_runtime_init()
 ;;  Description:
 ;;   Once per machine-reset following hardware initialization.
 ;;   Put screen and other significant memory structures into known state prior
@@ -156,7 +156,7 @@ l_032A:
 
 
 ;;=============================================================================
-;; j_Game_start()
+;; gctl_main()
 ;;  Description:
 ;;    Performs initialization, and does a one-time check for credits
 ;;    (monitoring credit count and updating "GameState" is otherwise handled
@@ -348,7 +348,8 @@ l_0414_while_tmr_3:
        ld   (ds_plyr_actv +_b_mcfg_bonus),a
        ld   (ds_plyr_susp +_b_mcfg_bonus),a
 
-       jp   j_060F_new_stage                      ; does not return, jp's to Game Loop
+; this is equivalent to "call new_stg_game_only" + "jp plyr_setup"
+       jp   gctl_plyr_start_stg_init              ; does not return, jp's to Game Loop
 ; end j_Game_start
 
 ;;=============================================================================
@@ -402,7 +403,7 @@ d_attrmode_sptiles_ships:
 
 
 ;;=============================================================================
-;; jp_045E_While_Game_Running()
+;; gctl_game_runner()
 ;;  Description:
 ;;   background super-loop following game-start
 ;; IN:
@@ -410,11 +411,11 @@ d_attrmode_sptiles_ships:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-jp_045E_While_Game_Running:
-l_045E_while_play_game:
-       call c_0728_score_and_bonus_mgr
-       call c_080B_monitor_stage_start_or_restart_conditions
-       jr   l_045E_while_play_game
+gctl_game_runner:
+l_045E_while:
+       call gctl_supv_score
+       call gctl_supv_stage
+       jr   l_045E_while
 
 
 ;;=============================================================================
@@ -490,7 +491,7 @@ d_0495:
 
 
 ;;=============================================================================
-;; jp_049E_handle_stage_start_or_restart()
+;; gctl_stg_restart_hdlr()
 ;;  Description:
 ;;   Starting a new round or re-starting a round due to one of the following events:
 ;;   - single ship destroyed
@@ -502,7 +503,7 @@ d_0495:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-jp_049E_handle_stage_start_or_restart:
+gctl_stg_restart_hdlr:
 
 ; return is by jp ... pop the push'd return address of call c_080B_monitor_stage_start_
        pop  hl
@@ -512,24 +513,23 @@ jp_049E_handle_stage_start_or_restart:
 
 ; wait for ship explosion or bug explosion or for a landing captured ship
 l_04A4_do_wait_explosion_tmr:
-;{{{
-;  if ( !captured_ship_landing ) {{
-       ld   a,(ds_cpu0_task_actv + 0x1D)         ; ==1  ....f_2000 (destroyed boss that captured ship)
+
+;  if ( captured_ship_landing_task_en ) ...
+       ld   a,(ds_cpu0_task_actv + 0x1D)         ; f_2000 (destroyed boss that captured ship)
        and  a
        jr   z,l_04C1_while_wait_explosion_tmr
-;  }}
-;  else {{
+;  ... then ...
 ;      ship in play is destroyed, but the "landing" ship remains in play.
        xor  a
        ld   (ds_9200_glbls + 0x13),a              ; 0 ... restart stage flag
        inc  a
-       ld   (ds_cpu1_task_actv + 0x05),a          ; 1  (cpu1:f_05EE)
+       ld   (ds_cpu1_task_actv + 0x05),a          ; 1  (f_05EE: fighter collision detection task)
 
-;    if ( num_bugs > 0 ) {
+;    if ( num_bugs > 0 ) return
        ld   a,(b_bugs_actv_nbr)
        and  a
-       jp   nz,jp_045E_While_Game_Running         ; continue round w/ second (docked) ship... return to Game Runner Loop
-;    } else {
+       jp   nz,gctl_game_runner                   ; continue round w/ second (docked) ship... return to Game Runner Loop
+
 ;      bug_ct == 0... last bug destroyed by collision w active ship
 ;      ... wait for captured ship to land before starting new stage
 
@@ -539,43 +539,38 @@ l_04B9_while_captd_ship_landing:
        and  a
        jr   nz,l_04B9_while_captd_ship_landing
 
-       jr   j_04DC_new_stage_setup                ; jp's to j_0632_round_start_
-;    }
-;  }}
+       jr   l_04DC_break
 
 l_04C1_while_wait_explosion_tmr:
-;  if ( timer_3 > 0 ) {
+;  if ( timer_3 > 0 )
        ld   a,(hl)                                ; hl==_game_tmr_3? waiting on 4 count delay time for explosion
        and  a
        jr   nz,l_04A4_do_wait_explosion_tmr
-;  }
-;}}}
 
-       call c_0728_score_and_bonus_mgr
+       call gctl_supv_score
+
+; plyr_state_actv.b_nbugs = b_bugs_actv_nbr
        ld   a,(b_bugs_actv_nbr)
        ld   (ds_plyr_actv +_b_nbugs),a
 
 ; check for "not (normal) end of stage conditions":
 
-; if ( restart stage flag || bugs_actv_nbr>0 ) {{
+; if ( restart stage flag || bugs_actv_nbr>0 )
        ld   c,a                                   ; A==bugs remaining in round (could be 0 if ship hit last one)
        ld   a,(ds_9200_glbls + 0x13)              ; restart stage flag (could not be here if nbr_bugs > 0 && flag==0 )
        or   c
        jr   nz,l_04E2_terminate_or_gameover
-; }} else {{
-;    if ( is_challenge_stage ) {
+
        ld   a,(ds_plyr_actv +_b_not_chllg_stg)    ; ==(stg_ctr+1)%4 ...i.e. 0 if challenge stage
        and  a
-       jp   z,j_0650_handle_end_challeng_stg      ; jp's back to 04DC_new_stage_setup
-;    }
+       jp   z,j_0650_handle_end_challeng_stg      ; jp's back to 04DC_
 
-; label here for break from while_captd_ship_landing, or return jp from handle_end_challeng_stg
-j_04DC_new_stage_setup:
+l_04DC_break:
 
 ; end of stage ... "normal"
-       call c_new_stg_game_only
-       jp   gctl_fghtr_rdy         ; jp  _045E_While_Game_Running
-; }}
+       call gctl_stg_splash_scrn
+       jp   gctl_fghtr_rdy                        ; jp's to gctl_game_runner
+
 
 ;;=============================================================================
 ;; l_04E2_terminate_or_gameover()
@@ -588,27 +583,23 @@ j_04DC_new_stage_setup:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 l_04E2_terminate_or_gameover:
-; if ( active_plyr_state.num_resv_ships-- > 0 ) {{
+; if ( active_plyr_state.num_resv_ships-- > 0 )
        ld   hl,#ds_plyr_actv +_b_nships
        ld   a,(hl)
        dec  (hl)
        and  a
        jp   nz,j_0579_terminate_active_plyr       ; active ship terminated but not game over
-; }}
-; else {{
-; do game over stuff for active player
-;   if ( !two_plyr_game ) {
+; then ... do game-over stuff for active player
+;   if ( two_plyr_game ) {
        ld   a,(b8_99B3_two_plyr_game)
        and  a
        jr   z,l_04FD_end_of_game
-;   }  else  {
-;   two player game
+;   ... then  handle two player game-over
        ld   hl,#m_tile_ram + 0x0240 + 0x0E
        ld   a,(ds_plyr_actv +_b_plyr_nbr)         ; 0==plyr1, 1==plyr2
        add  a,#4
        ld   c,a                                   ; index into string table
        call c_string_out                          ; "PLAYER X" (for "PLAYER X GAME OVER")
-;   }
 
 l_04FD_end_of_game:
        ld   c,#2                                  ; C=string_out_pe_index
@@ -709,16 +700,15 @@ j_0579_terminate_active_plyr:
        ld   a,(b8_99B3_two_plyr_game)
        and  a
        jp   z,j_0604_plyr_respawn_1P
-; } else if ( susp plyr resv ship ct == -1 ) {
+; } else if ( susp plyr resv ship ct == -1 )
        ld   a,(ds_plyr_susp +_b_nships)           ; -1 if no resv ships remain
        inc  a
-       jp   z,j_0612_plyr_setup                   ; allow actv plyr respawn if susp plyr out of ships
-; } else
+       jp   z,gctl_plyr_startup                   ; allow actv plyr respawn if susp plyr out of ships
+;  || ( stage_rst_flag != 1)
 ; note: stage_rst_flag == 0 would also test true but that would make no sense here
-; if ( stage_rst_flag == 2) {
        ld   a,(ds_9200_glbls + 0x13)              ; restart stage flag
        dec  a
-       jp   nz,j_0612_plyr_setup                  ; allows active plyr to respawn on capture ship event
+       jp   nz,gctl_plyr_startup                  ; allows active plyr to respawn on capture ship event
 ; }
 ; else { do player change }
 
@@ -794,7 +784,7 @@ l_05D1:
 ;  if ( active_plyr.bug_ct == 0 ) {{
        ld   a,(ds_plyr_actv +_b_nbugs)
        and  a
-       jr   z,j_060F_new_stage                    ; ends up at _plyr_setup
+       jr   z,gctl_plyr_start_stg_init            ; ends up at _plyr_setup
 ;  }}
 ;  else {{
        ld   c,#3                                  ; C=string_out_pe_index
@@ -816,7 +806,7 @@ l_05FD:
        and  a
        jr   nz,l_05FD
 ;   }
-       jp   j_0612_plyr_setup                     ; reloaded suspended plyr, bug nest reloaded... ready!
+       jp   gctl_plyr_startup                     ; reloaded suspended plyr, bug nest reloaded... ready!
 ; }}
 
 
@@ -829,10 +819,10 @@ j_0604_plyr_respawn_1P:
 ;  if ( active_plyr.bug_count > 0 ) {
        ld   a,(ds_plyr_actv +_b_nbugs)
        and  a
-       jr   nz,j_061E_plyr_respawn
+       jr   nz,gctl_plyr_respawn_wait
 ;  } else {
-       call c_new_stg_game_only                   ; new stage setup, shows "STAGE X"
-       jr   j_061E_plyr_respawn
+       call gctl_stg_splash_scrn                  ; new stage setup, shows "STAGE X"
+       jr   gctl_plyr_respawn_wait
 ;  }
 
 
@@ -840,15 +830,15 @@ j_0604_plyr_respawn_1P:
 ; New stage setup for player changeover, or at start of new game loop.
 ; If on a new game, PLAYER 1 text has been erased.
 ; Only evident purpose for the label is to allow "jr   z,new_stage"
-j_060F_new_stage:
-       call c_new_stg_game_only                 ; shows "STAGE X" and does setup
+gctl_plyr_start_stg_init:
+       call gctl_stg_splash_scrn                  ; shows "STAGE X" and does setup
 
 
 ;;=============================================================================
 ; Setup a new player... every time the player is changed on a 2P game or once
 ; at first ship of new 1P game. Shows Player 1 (2) text on stage restart.
 ;
-j_0612_plyr_setup:
+gctl_plyr_startup:
        ld   a,(ds_plyr_actv +_b_plyr_nbr)         ; 0==plyr1, 1==plyr2
        add  a,#4                                  ; P1 text is index 4, P2 is index 5
        ld   c,a                                   ; index into string table
@@ -857,7 +847,7 @@ j_0612_plyr_setup:
 
 ;;=============================================================================
 
-j_061E_plyr_respawn:
+gctl_plyr_respawn_wait:
        call c_player_respawn                      ; "credit X" is wiped and reserve ships appear on lower left of screen
 
 ; ds4_game_tmrs[2] was set to 120 by new_stg_game_or_demo
@@ -892,7 +882,7 @@ gctl_fghtr_rdy:
        ld   hl,#m_tile_ram + 0x03A0 + 0x0E
        call c_string_out                          ; erase "PLAYER 1"
 
-       jp   jp_045E_While_Game_Running            ; resume background super loop
+       jp   gctl_game_runner                      ; resume background super loop
 
 
 ;;=============================================================================
@@ -996,7 +986,7 @@ l_06BA:
        ld   hl,#ds_bug_collsn_hit_mult + 0x0F     ; challenge bonus score += 10000
        add  a,(hl)
        ld   (hl),a
-       call c_0728_score_and_bonus_mgr            ; add bonus to player score
+       call gctl_supv_score                       ; add bonus to player score
        call c_tdelay_3
        call c_tdelay_3
 
@@ -1010,7 +1000,7 @@ l_06BA:
 
        ld   c,#0x0B                               ; index into string table
        rst  0x30                                  ; string_out_pe (erase "PERFECT !")
-       jp   j_04DC_new_stage_setup
+       jp   l_04DC_break
 
 
 ;;=============================================================================
@@ -1075,7 +1065,7 @@ d_0725:
        .db 0x02,0x02,0x02
 
 ;;=============================================================================
-;; c_0728_score_and_bonus_mgr()
+;; gctl_supv_score()
 ;;  Description:
 ;;
 ;; IN:
@@ -1083,7 +1073,7 @@ d_0725:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-c_0728_score_and_bonus_mgr:
+gctl_supv_score:
 ;  if ( activ_plyr_state.plyr_1or2 == plyr1 )
        ld   a,(ds_plyr_actv +_b_plyr_nbr)         ; 0==plyr1, 1==plyr2
        and  a
@@ -1292,7 +1282,7 @@ d_scoreman_inc_lut:
        .db 0x50,0x08,0x08,0x08,0x05,0x08,0x15,0x00
 
 ;;=============================================================================
-;; c_080B_monitor_stage_start_or_restart_conditions()
+;; gctl_supv_stage()
 ;;  Description:
 ;;   from _0461 game runner inf loop.
 ;;   Checks for conditions indicating start of new stage or restart of
@@ -1305,7 +1295,7 @@ d_scoreman_inc_lut:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-c_080B_monitor_stage_start_or_restart_conditions:
+gctl_supv_stage:
 
 ;  if ( num_bugs == 0  &&  !f_2916 active )  ... 9AA0[0] = 0
        ld   a,(ds_cpu0_task_actv + 0x08)          ; f_2916 (supervises attack waves)
@@ -1316,7 +1306,7 @@ c_080B_monitor_stage_start_or_restart_conditions:
 ; then ...
        ld   (b_9AA0 + 0x00),a                     ; 0 ... sound-fx count/enable registers, pulsing formation sound effect
 
-       jp   jp_049E_handle_stage_start_or_restart ; cleared the round ... num_bugs_on_screen ==0 || !f_2916_active
+       jp   gctl_stg_restart_hdlr                 ; cleared the round ... num_bugs_on_screen ==0 || !f_2916_active
 
 ; else ... check if a restart-stage condition has been flagged
 l_081B:
@@ -1328,7 +1318,7 @@ l_081B:
        xor  a
        ld   (ds_plyr_actv +_b_atk_wv_enbl),a      ; 0 ... restart_stage_flag has been set
 
-       jp   jp_049E_handle_stage_start_or_restart ; restart_stage_flag has been set
+       jp   gctl_stg_restart_hdlr                 ; restart_stage_flag has been set
 
 
 ;;=============================================================================
@@ -1410,7 +1400,7 @@ l_0865:
        and  a
        jr   z,l_0888
 
-; then ... set default start values for bomber launch timers in for continuous bombing state
+; then ... set default start values for bomber launch timers in continuous bombing state
 ; this will also happen momentarily at start of round until bugs_actv_nbr exceeds ds_new_stage_parms[0x07]
        ld   hl,#b_92C0 + 0x04                     ; memset( b_92C0_4, 2, 3 )
        ld   a,#2
