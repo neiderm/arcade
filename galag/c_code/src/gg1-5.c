@@ -698,7 +698,7 @@ static void hit_det_fghtr_hdlr(uint8 fghtr_obj_offs, uint8 no_restart_stg)
 
     if (0 == no_restart_stg) // stage must restart if not docked fighters
     {
-//        glbls9200.restart_stage = 1;
+        glbls9200.restart_stage = 1;
         // ret
     }
     // else ... ret  nz
@@ -721,7 +721,7 @@ static uint8 hit_notif_fghtr(uint8 fghtr_obj_offs)
 
     if (ROGUE_FGHTR == sprt_mctl_objs[fghtr_obj_offs].state)
     {
-        return; // ret  z
+        return 0; // ret  z
     }
 
     ixl = mrw_sprite.posn[fghtr_obj_offs].b0; // x
@@ -805,7 +805,7 @@ static uint8 hit_det_fghtr(uint8 fghtr_idx, uint8 fx, uint8 fy, uint8 start_offs
                             // AF==1 if moving alien
                             // nz if fighter hit
                             hit_detect(1, fghtr_idx, coffs); // jp   j_07C2
-                            return;
+                            return hit_notif ;
                         }
                     }
                 }

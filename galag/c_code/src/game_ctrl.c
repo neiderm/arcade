@@ -63,12 +63,15 @@ static void gctl_plyr_respawn_wait(void);
 static void gctl_1up2up_displ(uint8);
 static void gctl_fghtr_rdy(void);
 static void gctl_1up2up_blink(uint8 const *, uint16, uint8);
-static void gctl_score_upd(void);
+static void gctl_supv_score(void);
 static void gctl_score_digit_incr(uint16, uint8);
-static void gctl_bg_stg_restart_supv();
+static void gctl_supv_stage();
 static void gctl_chllng_stg_end(void);
 static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8, uint8);
 
+static void gctl_plyr_respawn_1P(void);
+static void gctl_plyr_terminate(void);
+void gctl_plyr_startup(void);
 
 /*=============================================================================
 ;; c_sctrl_sprite_ram_clr()
@@ -250,7 +253,7 @@ int gctl_main(void)
     glbls9200.flying_bug_attck_condtn = 0; // 1 at demo mode, 3 at game start, and now 0
 
     j_string_out_pe(1, -1, 0x13); // "(c) 1981 NAMCO LTD"
-    j_string_out_pe(1, -1, 1); // "PUSH START BUTTON"
+    j_string_out_pe(1, -1, 0x01); // "PUSH START BUTTON"
 
     if (0xFF != mchn_cfg.bonus[0]) // ... else l_While_Ready
     {
@@ -308,7 +311,7 @@ int gctl_main(void)
     gctl_plyr_init(); // setup number of lives and scores
     c_game_or_demo_init();
 
-    j_string_out_pe(1, -1, 4); //  "PLAYER 1" (always starts with P1 no matter what!)
+    j_string_out_pe(1, -1, 0x04); //  "PLAYER 1" (always starts with P1 no matter what!)
 
     // busy loop -leaves "Player 1" text showing while some of the opening theme music plays out
     ds4_game_tmrs[3] = 8;
@@ -398,8 +401,8 @@ void gctl_game_runner(void)
 {
     while (1) // jr   l_045E_while_play_game
     {
-        gctl_score_upd();
-        gctl_bg_stg_restart_supv();
+        gctl_supv_score();
+        gctl_supv_stage();
 
         // I don't remember what actually causes the game to recycle, but
         // here we  allow an escape from the superloop
@@ -496,13 +499,34 @@ static const uint8 gctl_score_initd[] =
 ;;===========================================================================*/
 void gctl_stg_restart_hdlr(void)
 {
-    // set a time to wait while ship exploding
+    // set a time to wait while (if) fighter exploding
     ds4_game_tmrs[3] = 4;
 
     // l_04A4_do_wait_explosion_tmr:
     do
     {
-        // if ( captured_ship_landing ) ...
+        if (0 != task_actv_tbl_0[0x1D]) // f_2000: destroyed boss that captured fighter
+        {
+            // fighter destroyed, wait for arriving free'd fighter to resume play
+
+            glbls9200.restart_stage = 0;
+            task_actv_tbl_0[0x05] = 1; // f_05EE: fighter collision detection task
+
+            if (b_bugs_actv_nbr > 0)
+            {
+                return;
+                //       jp   nz,gctl_game_runner                   ; continue round w/ second (docked) ship... return to Game Runner Loop
+            }
+
+            // l_04B9_while_:
+            while (0 != task_actv_tbl_0[0x1D])
+            {
+                _updatescreen(1);
+            } // jr   nz,l_04B9_while_captd_ship_landing
+
+            goto l_04DC_break; //  jr   l_04DC_break
+
+        } // jr   z,l_04C1_while_wait_explosion_tmr
 
         _updatescreen(1); // todo: check retval for ESC key
 
@@ -510,30 +534,109 @@ void gctl_stg_restart_hdlr(void)
     }
     while (ds4_game_tmrs[3] > 0);
 
-    gctl_score_upd();
+    gctl_supv_score();
 
     // count of remaining aggressors according to object state dispatcher
     plyr_state_actv.b_nbugs = b_bugs_actv_nbr;
 
-    // check for "not (normal) end of stage conditions":
+    // handle specific situations ...
 
-    // if ( restart stage flag || bugs_actv_nbr>0 ) {{
-    //   jr   nz,l_04E2_terminate_or_gameover
+    // player terminated?
+    if (0 != glbls9200.restart_stage || b_bugs_actv_nbr > 0)
+    {
+        gctl_plyr_terminate();
+        //   jr   nz,gctl_plyr_terminate
+
+        return; // jp   gctl_game_runner (from gctl_fghtr_rdy)
+    }
+
+    // challenge stage? (I can't remember what puts us here on challenge stage)
     if (0 == plyr_state_actv.not_chllng_stg)
     {
         // jp's back to 04DC_new_stage_setup
         gctl_chllng_stg_end();
     }
 
-    //j_04DC_new_stage_setup
+l_04DC_break:
+    // end of stage
 
-    // end of stage ... "normal"
     gctl_stg_splash_scrn();
-
-    // jp   j_0632_gctl_fghtr_rdy         ; jp   jp_045E_gctl_game_runner
-    gctl_fghtr_rdy();
+    gctl_fghtr_rdy();  // jp   j_0632_gctl_fghtr_rdy
     // jp   jp_045E_gctl_game_runner
+
+    // (returns from gctl_supv_stage and then return to gctl_game_runner
 }
+/*===========================================================================*/
+
+static void gctl_plyr_terminate(void)
+{
+    if ( plyr_state_actv.num_ships-- == 0 )
+    {
+        // ... do game-over stuff for active player
+        if (0 != gctl_two_plyr_game)
+        {
+            // ... handle two player game-over
+            // ld   hl,#m_tile_ram + 0x0240 + 0x0E
+        }
+
+        //l_04FD_end_of_game:
+
+        j_string_out_pe(1, -1, 0x02); // "GAME OVER"
+        c_tdelay_3();
+        c_tdelay_3();
+
+        while (0 != task_actv_tbl_0[0x18]){;} // f_2222 (Boss starts tractor beam)
+
+
+        memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C); // 12 objects
+
+        c_sctrl_sprite_ram_clr();
+        c_sctrl_playfld_clr();
+
+       //l_0562:
+       c_sctrl_playfld_clr(); // clear screen at end of game
+
+
+       // if 1 player game, we are done, else if 2 plyr game, check if suspended plyr resv ship count >= 0.
+       if (0 != gctl_two_plyr_game)
+       {
+       }
+       else // if ( susp plyr resv ships == -1 )
+       {
+       }
+       // else if ( stage_rst_flag > 1 )
+       //{
+       // jr   nz,j_058E_handle_plyr_changeover
+       //}
+
+       //jp   z,j_06DE_end_game_halt                ; return if 1 plyr game
+       return;
+
+    } // jp   nz,j_0579_terminate_active_plyr
+
+// j_0579_terminate_active_plyr:
+    if (0 == gctl_two_plyr_game)
+    {
+        gctl_plyr_respawn_1P(); //  jp   z,j_0604_plyr_respawn_1P
+
+        //...jr gctl_plyr_respawn_wait/gctl_fghtr_rdy/jp gctl_game_runner
+
+        // Needs to be return'd immediately from gctl_stg_restart_hdlr()
+        // and gctl_fghtr_rdy
+        return;
+    }
+    else if ( -1 == plyr_state_susp.num_ships  // if susp plyr out of ships
+              || 1 != glbls9200.restart_stage )
+    {
+// allow actv plyr respawn if susp plyr out of ships or on capture ship event
+        gctl_plyr_startup();
+    }
+    // else ... j_058E_handle_plyr_changeover:
+// j_058E_handle_plyr_changeover:
+
+
+}
+
 
 /*=============================================================================
 ; Prepare "respawn" for 1 player game.
@@ -541,9 +644,9 @@ void gctl_stg_restart_hdlr(void)
 ; stage setup needs done.
 ; Out of term_actv_plyr (if not 2p game)
 ;;--------------------------------------------------------------------------- */
-void gctl_plyr_respawn_1P(void)
+static void gctl_plyr_respawn_1P(void)
 {
-    if (0 == plyr_state_actv.b_nbugs ) gctl_stg_splash_scrn();
+    if (0 == plyr_state_actv.b_nbugs) gctl_stg_splash_scrn();
 
     gctl_plyr_respawn_wait();
 }
@@ -580,9 +683,6 @@ void gctl_plyr_startup(void)
 
     // respawn always followed by fghtr_rdy
     gctl_plyr_respawn_wait();
-    gctl_fghtr_rdy();
-
-    return;
 }
 
 /*=============================================================================
@@ -611,8 +711,7 @@ static void gctl_plyr_respawn_wait(void)
 
     c_tdelay_3();
 
-    return;
-    // j_0632_gctl_fghtr_rdy:
+    gctl_fghtr_rdy();
 }
 
 /*=============================================================================
@@ -664,7 +763,7 @@ static void gctl_chllng_stg_end(void)
 
     c_tdelay_3();
 
-    j_string_out_pe(1, -1, 8); // "NUMBER OF HITS"
+    j_string_out_pe(1, -1, 0x08); // "NUMBER OF HITS"
 
     // DE = adjusted offset into tile ram on return
     DE = c_text_out_i_to_d(b_bug_flyng_hits_p_round, 0x0100 + 0x10);
@@ -673,7 +772,7 @@ static void gctl_chllng_stg_end(void)
 
     if (40 != b_bug_flyng_hits_p_round) // jr   z,l_0699_hit_all
     {
-        DE = j_string_out_pe(1, -1, 9); // BONUS"
+        DE = j_string_out_pe(1, -1, 0x09); // BONUS"
 
         c_tdelay_3();
 
@@ -727,7 +826,7 @@ static void gctl_chllng_stg_end(void)
 
     // l_06BA:
     ds_bug_collsn[0x0F] += A;
-    gctl_score_upd();
+    gctl_supv_score();
     c_tdelay_3();
     c_tdelay_3();
 
@@ -743,14 +842,14 @@ static void gctl_chllng_stg_end(void)
 }
 
 /*=============================================================================
-;;  gctl_score_upd
+;;  gctl_supv_score
 ;;  Description:
 ;;    Update score
 ;;    Red == 50
 ;;    Yellow == 80
 ;;    (x2 if flying)
 ;;----------------------------------------------------------------------------*/
-static void gctl_score_upd(void)
+static void gctl_supv_score(void)
 {
     r16_t AF;
     uint8 A, B, C, E, L, IXL;
@@ -882,7 +981,7 @@ static void gctl_score_upd(void)
 /*=============================================================================
 ;; gctl_score_digit_incr()
 ;;  Description:
-;;   handle score inrement (gctl_score_upd)
+;;   handle score inrement (gctl_supv_score)
 ;; IN:
 ;;  A == gctl_point_fctrs[B-1]
 ;;        twice on 1 update, 1st is low nibble, 2nd is high nibble
@@ -939,7 +1038,7 @@ static void gctl_score_digit_incr(uint16 hl, uint8 a)
 
 
 /*=============================================================================
-;; Base-factors of points awareded for enemy hits, applied to multiples
+;; Base-factors of points awarded for enemy hits, applied to multiples
 ;; reported via _bug_collsn[]. Values are BCD-encoded, and ordered by object
 ;; color group, i.e. as per _bug_collsn.
 ;; Indexing is reversed, probably to take advantage of djnz.
@@ -957,35 +1056,29 @@ static const uint8 gctl_point_fctrs[] =
 ;;  Description:
 ;;   supervises stage restart condition.
 ;;   0 enemies remaining indicates condition for new-stage start.
-;;   Otherwise, 'restart_stage_flag" may indicate that the active
+;;   Otherwise, "restart_stage_flag" may indicate that the active
 ;;   fighter has been destroyed or captured requiring a stage re-start.
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void gctl_bg_stg_restart_supv(void)
+static void gctl_supv_stage(void)
 {
-    // f_2916 (supervises attack waves)
-    if (0 == task_actv_tbl_0[0x08] && 0 == b_bugs_actv_nbr) // count of remaining aggressors according to object state dispatcher
+    if (0 == task_actv_tbl_0[0x08]  // f_2916 (supervises attack waves)
+           && 0 == b_bugs_actv_nbr) // count of remaining aggressors according to object state dispatcher
     {
-        // jr   nz,l_081B
-
         // cleared the round
-        b_9AA0[0x00] = 0; // sound-fx count/enable registers, pulsing formation sound effect
-
-        // jp   jp_049E_handle_stage_start_
+        b_9AA0[0x00] = 0; // sound-fx count/enable regs, pulsing formation effect
+        // z80 did not return to here (jp'd and pop'd the stack)
     }
-    else
+    else if (0 != glbls9200.restart_stage) // 0x13, restart stage flag
     {
         // fighter destroyed or captured?
-        if (0 == glbls9200.restart_stage) // 0x13, restart stage flag
-        {
-            return;
-        }
-        // probably a stage-restart is pending
-        plyr_state_actv.b_atk_wv_enbl = 0;
+        plyr_state_actv.b_atk_wv_enbl = 0; // restart_stage_flag has been set
+        // z80 did not return to here (jp'd and pop'd the stack)
     }
+    else  return;
 
     gctl_stg_restart_hdlr();
 }
