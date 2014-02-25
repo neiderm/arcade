@@ -31,11 +31,10 @@
 
 
 ;;=============================================================================
-;; gctl_runtime_init()
+;; por_inits()
 ;;  Description:
-;;   Once per machine-reset following hardware initialization.
-;;   Put screen and other significant memory structures into known state prior
-;;   to executing into "main function".
+;;   Once per poweron/reset (following hardware inits) do inits for screen and
+;;   etc. prior to invoking "main".
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -156,7 +155,7 @@ l_032A:
 
 
 ;;=============================================================================
-;; gctl_main()
+;; g_main()
 ;;  Description:
 ;;    Performs initialization, and does a one-time check for credits
 ;;    (monitoring credit count and updating "GameState" is otherwise handled
@@ -195,7 +194,6 @@ j_Game_start:
 
 ; array of object movement structures etc.
        rst  0x28                                  ; memset(_9100_game_data,0,$F0)
-
        call c_sctrl_sprite_ram_clr                ; clear sprite mem etc.
        call c_1230_init_taskman_structs
 
@@ -222,10 +220,10 @@ l_0380:
        ld   (ds_cpu0_task_actv + 0x02),a         ; 1 ... f_17B2 (control demo mode)
 
 ; while (game_state == ATTRACT_MODE) { ; }
-l_038D_While_Attract_Mode:
+l_038D_:
        ld   a,(b8_9201_game_state)                ; while (ATTRACT_MODE)
        dec  a
-       jr   z,l_038D_While_Attract_Mode
+       jr   z,l_038D_
 
 ; GameState == Ready ... reinitialize everthing
        call c_1230_init_taskman_structs
@@ -249,7 +247,7 @@ l_game_state_ready:
 ; if ( 0xFF == mchn_cfg_bonus[0] ) goto l_While_Ready
        ld   a,(w_mchn_cfg_bonus + 0)
        cp   #0xFF
-       jr   z,l_While_Ready
+       jr   z,j_0003D8_wrdy
 
        ld   e,a                                   ; E=bonus score digit
        ld   c,#0x1B                               ; C=string_out_pe_index
@@ -258,7 +256,7 @@ l_game_state_ready:
 ; if ( 0xFF == mchn_cfg_bonus[1] ) goto l_While_Ready
        ld   a,(w_mchn_cfg_bonus + 1)
        cp   #0xFF
-       jr   z,l_While_Ready
+       jr   z,j_0003D8_wrdy
 
        and  #0x7F
        ld   e,a                                   ; E=bonus score digit
@@ -268,17 +266,18 @@ l_game_state_ready:
 ; if bit 7 is set, the third bonus award does not apply
        ld   a,(w_mchn_cfg_bonus + 1)
        bit  7,a
-       jr   nz,l_While_Ready
+       jr   nz,j_0003D8_wrdy
        and  #0x7F
        ld   e,a                                   ; E=bonus score digit
        ld   c,#0x1D                               ; C=string_out_pe_index
        call c_game_bonus_info_show_line
 
 ; while (game_state == READY_TO_PLAY_MODE)
-l_While_Ready:
+j_0003D8_wrdy:
+l_0003D8:
        ld   a,(b8_9201_game_state)                ; while (READY)
        cp   #2                                    ; READY_TO_PLAY_MODE
-       jr   z,l_While_Ready
+       jr   z,l_0003D8
 
 ; /****  start button was hit ******************/
 
@@ -312,7 +311,7 @@ l_While_Ready:
        ld   (ds_cpu0_task_resrv + 0x12),a         ; 1 ... f_1D76, star ctrl
 
 ; do one-time inits
-       call c_game_init                           ; setup number of lives and show player score(s) '00'
+       call gctl_game_init                        ; setup number of lives and show player score(s) '00'
        call c_game_or_demo_init
 
        ld   c,#4                                  ; C=string_out_pe_index
@@ -348,9 +347,9 @@ l_0414_while_tmr_3:
        ld   (ds_plyr_actv +_b_mcfg_bonus),a
        ld   (ds_plyr_susp +_b_mcfg_bonus),a
 
-; this is equivalent to "call new_stg_game_only" + "jp plyr_setup"
-       jp   gctl_plyr_start_stg_init              ; does not return, jp's to Game Loop
-; end j_Game_start
+       jp   gctl_plyr_start_stg_init              ; does not return, jp's to _game_runner
+
+; end
 
 ;;=============================================================================
 ;; c_game_bonus_info_show_line()
@@ -419,7 +418,7 @@ l_045E_while:
 
 
 ;;=============================================================================
-;; c_game_init()
+;; gctl_plyr_init()
 ;;  Description:
 ;;   Reset score displays etc. for 1 player and/or 2 player.
 ;; IN:
@@ -428,37 +427,36 @@ l_045E_while:
 ;;  ...
 ;;
 ;;-----------------------------------------------------------------------------
-c_game_init:
+gctl_game_init:
 ;  get nbr of ships from machine config
        ld   a,(b_mchn_cfg_nships)
        ld   (ds_plyr_actv +_b_nships),a           ; mchn_cfg_nships
        ld   (ds_plyr_susp +_b_nships),a           ; mchn_cfg_nships
 
-; tiles are drawn moving right to left.
-;; Here is the top row layout again to help visualize:
-;;    2 bytes |                                     | 2 bytes (not visible)
-;;   ----------------------------------------------------
-;;   .3DF     .3DD                              .3C2  .3C0     <- Row 0
-;;   .3FF     .3FD                              .3E2  .3E0     <- Row 1
+;  tiles drawn right to left ... top row layout:
+;     2 bytes |                                     | 2 bytes (not visible)
+;    ----------------------------------------------------
+;    .3DF     .3DD                              .3C2  .3C0     <- Row 0
+;    .3FF     .3FD                              .3E2  .3E0     <- Row 1
 
 ; Two 0's + 4 spaces + 1 non-visible space on the left
        ld   de,#m_tile_ram + 0x03E0 + 0x18        ; player 1 score, rightmost of "00"
        ld   hl,#d_0495                            ; "00"
-       call c_0486_game_init_putc
+       call gctl_init_puts
 
        ld   de,#m_tile_ram + 0x03E0 + 0x03        ; player 2 score (rightmost column is .3C2)
        ld   hl,#d_0495                            ; "00"
 
-; if ( two_plyr_game )  c_game_init_putc ... draw 2 0's and 5 spaces in plyr 2 score
+; if ( two_plyr_game )  _putc ... draw 2 0's and 5 spaces in plyr 2 score
        ld   a,(b8_99B3_two_plyr_game)
        and  a
-       jr   nz,c_0486_game_init_putc
+       jr   nz,gctl_init_puts
 ; else  hl+=2  ... advance src pointer past "00", draw 7 spaces and erase player 2 score
        inc  hl
        inc  hl
 
 ;;=============================================================================
-;; c_game_init_putc
+;; gctl_game_init_putc
 ;;  Description:
 ;;   we saved 4 bytes of code space by factoring out the part that copies 7
 ;;   characters. Then we wasted about 50 uSec by repeating the erase 2UP!
@@ -468,7 +466,7 @@ c_game_init:
 ;; OUT:
 ;;
 ;;-----------------------------------------------------------------------------
-c_0486_game_init_putc:
+gctl_init_puts:
 
 ; erase score
        ld   c,#7                                  ; doesn't initialize B but maybe it should!
@@ -512,12 +510,12 @@ gctl_stg_restart_hdlr:
        ld   (hl),#4
 
 ; wait for ship explosion or bug explosion or for a landing captured ship
-l_04A4_do_wait_explosion_tmr:
+l_04A4_wait:
 
 ;  if ( captured_ship_landing_task_en ) ...
        ld   a,(ds_cpu0_task_actv + 0x1D)         ; f_2000 (destroyed boss that captured ship)
        and  a
-       jr   z,l_04C1_while_wait_explosion_tmr
+       jr   z,l_04C1_while
 ;  ... then ...
 ;      ship in play is destroyed, but the "landing" ship remains in play.
        xor  a
@@ -533,19 +531,19 @@ l_04A4_do_wait_explosion_tmr:
 ;      bug_ct == 0... last bug destroyed by collision w active ship
 ;      ... wait for captured ship to land before starting new stage
 
-l_04B9_while_captd_ship_landing:
+l_04B9_while:
 ; while ( task active )
        ld   a,(ds_cpu0_task_actv + 0x1D)         ; f_2000 (destroyed boss that captured ship)
        and  a
-       jr   nz,l_04B9_while_captd_ship_landing
+       jr   nz,l_04B9_while
 
        jr   l_04DC_break
 
-l_04C1_while_wait_explosion_tmr:
+l_04C1_while:
 ;  if ( timer_3 > 0 )
        ld   a,(hl)                                ; hl==_game_tmr_3? waiting on 4 count delay time for explosion
        and  a
-       jr   nz,l_04A4_do_wait_explosion_tmr
+       jr   nz,l_04A4_wait
 
        call gctl_supv_score
 
@@ -559,11 +557,11 @@ l_04C1_while_wait_explosion_tmr:
        ld   c,a                                   ; A==bugs remaining in round (could be 0 if ship hit last one)
        ld   a,(ds_9200_glbls + 0x13)              ; restart stage flag (could not be here if nbr_bugs > 0 && flag==0 )
        or   c
-       jr   nz,l_04E2_terminate_or_gameover
+       jr   nz,gctl_plyr_terminate
 
        ld   a,(ds_plyr_actv +_b_not_chllg_stg)    ; ==(stg_ctr+1)%4 ...i.e. 0 if challenge stage
        and  a
-       jp   z,j_0650_handle_end_challeng_stg      ; jp's back to 04DC_
+       jp   z,gctl_chllng_stg_end                 ; jp's back to 04DC_
 
 l_04DC_break:
 
@@ -573,7 +571,7 @@ l_04DC_break:
 
 
 ;;=============================================================================
-;; l_04E2_terminate_or_gameover()
+;; gctl_plyr_terminate()
 ;;  Description:
 ;;   Handle terminated player
 ;;   Bramch off to GameOver or TerminateActivePlayer and change player.
@@ -582,19 +580,19 @@ l_04DC_break:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-l_04E2_terminate_or_gameover:
+gctl_plyr_terminate:
 ; if ( active_plyr_state.num_resv_ships-- > 0 )
        ld   hl,#ds_plyr_actv +_b_nships
        ld   a,(hl)
        dec  (hl)
        and  a
-       jp   nz,j_0579_terminate_active_plyr       ; active ship terminated but not game over
+       jp   nz,j_0579_terminate                   ; active ship terminated but not game over
 ; then ... do game-over stuff for active player
-;   if ( two_plyr_game ) {
+;   if ( 0 != two_plyr_game ) ...
        ld   a,(b8_99B3_two_plyr_game)
        and  a
        jr   z,l_04FD_end_of_game
-;   ... then  handle two player game-over
+;   ... then ... handle two player game-over
        ld   hl,#m_tile_ram + 0x0240 + 0x0E
        ld   a,(ds_plyr_actv +_b_plyr_nbr)         ; 0==plyr1, 1==plyr2
        add  a,#4
@@ -607,13 +605,12 @@ l_04FD_end_of_game:
        call c_tdelay_3
        call c_tdelay_3
 
-;   while {
-       ld   hl,#ds_cpu0_task_actv + 0x18         ; wait for 0 (if f_2222 disabled)
-l_0509:
+       ld   hl,#ds_cpu0_task_actv + 0x18         ; f_2222 (Boss starts tractor beam) wait for task inactive
+l_0509_while:
        ld   a,(hl)
        and  a
-       jr   nz,l_0509
-;   }
+       jr   nz,l_0509_while
+
        rst  0x28                                  ; memset(_9100_game_data,0,$F0)
        call c_sctrl_sprite_ram_clr
        call c_sctrl_playfld_clr
@@ -686,20 +683,16 @@ l_0562:
 ;      I'm not sure what we gain by checking this.. it still ends up in handle_plyr_change...
        ld   a,(ds_9200_glbls + 0x13)              ; check if active plyr (final) ship captured (restart stage flag == 2)
        dec  a
-       jr   nz,j_058E_handle_plyr_changeover
+       jr   nz,j_058E_plyr_chg
 ;   }
 ;   else
 ;    { terminate_active_plyr }
-; }}
 
-;;=============================================================================
-
-; Player terminated!
-j_0579_terminate_active_plyr:
+j_0579_terminate:
 ; if ( !two_plyr_game ) {
        ld   a,(b8_99B3_two_plyr_game)
        and  a
-       jp   z,j_0604_plyr_respawn_1P
+       jp   z,j_0604_plyr_respawn_1P              ; will finally jp gctl_game_runner
 ; } else if ( susp plyr resv ship ct == -1 )
        ld   a,(ds_plyr_susp +_b_nships)           ; -1 if no resv ships remain
        inc  a
@@ -712,13 +705,11 @@ j_0579_terminate_active_plyr:
 ; }
 ; else { do player change }
 
-;;=============================================================================
-
-j_058E_handle_plyr_changeover:
+j_058E_plyr_chg:
 ; if ( nr of bugs == 0 ) {{
        ld   a,(b_bugs_actv_nbr)
        and  a
-       jr   z,l_059A_prepare_for_stage_restart
+       jr   z,l_059A_prep
 ; }} else {{
 ;    while ( nbr_flying_bugs > 0 ) {
 l_0594:
@@ -729,7 +720,7 @@ l_0594:
 ; }}
 
 ; set up for active player nest to retreat
-l_059A_prepare_for_stage_restart:
+l_059A_prep:
        xor  a
        ld   (b8_99B4_bugnest_onoff_scrn_tmr),a    ; 0 ( timer/counter while nest retreating)
        inc  a
@@ -833,8 +824,7 @@ j_0604_plyr_respawn_1P:
 gctl_plyr_start_stg_init:
        call gctl_stg_splash_scrn                  ; shows "STAGE X" and does setup
 
-
-;;=============================================================================
+;;-----------------------------------------------------------------------------
 ; Setup a new player... every time the player is changed on a 2P game or once
 ; at first ship of new 1P game. Shows Player 1 (2) text on stage restart.
 ;
@@ -845,7 +835,7 @@ gctl_plyr_startup:
        ld   hl,#m_tile_ram + 0x0260 + 0x0E        ; not position encoded, this one is 1C left and 2R up
        call c_string_out                          ; puts PLAYER X ("1" or "2") .
 
-;;=============================================================================
+;;-----------------------------------------------------------------------------
 
 gctl_plyr_respawn_wait:
        call c_player_respawn                      ; "credit X" is wiped and reserve ships appear on lower left of screen
@@ -864,11 +854,9 @@ l_062C:
 ; new ship appears on screen and stars start moving ... should about take care of the music
        call c_tdelay_3
 
-;;=============================================================================
+;;-----------------------------------------------------------------------------
 ; new round starting or round re-starting after active player switch.
-
 gctl_fghtr_rdy:
-
        ld   a,#1
        ld   (ds_cpu0_task_actv + 0x15),a          ; 1 ... f_1F04 (fire button input)
        ld   (ds_cpu1_task_actv + 0x05),a          ; 1 ... cpu1:f_05EE (hit-detection)
@@ -886,7 +874,7 @@ gctl_fghtr_rdy:
 
 
 ;;=============================================================================
-;; j_0650_handle_end_challeng_stg()
+;; gctl_chllng_stg_end()
 ;;  Description:
 ;;    Handle challenge stage book-keeping prior to doing the "normal"
 ;;    new_stage_setup.
@@ -896,7 +884,7 @@ gctl_fghtr_rdy:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-j_0650_handle_end_challeng_stg:
+gctl_chllng_stg_end:
 
        ld   a,(b_bug_flyng_hits_p_round)
        ld   e,a
@@ -1288,7 +1276,7 @@ d_scoreman_inc_lut:
 ;;   Checks for conditions indicating start of new stage or restart of
 ;;   stage-in-progress.
 ;;   0 bugs remaining indicates that a new-stage start is in order. (also 9008?)
-;;   Otherwise, the 'restart_stage_flag" may indicate that the players active
+;;   Otherwise, the "restart_stage_flag" may indicate that the players active
 ;;   ship has been terminated or captured requiring a stage re-start.
 ;; IN:
 ;;  ...
@@ -1297,24 +1285,23 @@ d_scoreman_inc_lut:
 ;;-----------------------------------------------------------------------------
 gctl_supv_stage:
 
-;  if ( num_bugs == 0  &&  !f_2916 active )  ... 9AA0[0] = 0
+;  if ( num_bugs == 0  &&  !f_2916 active ) ...
        ld   a,(ds_cpu0_task_actv + 0x08)          ; f_2916 (supervises attack waves)
        ld   b,a
        ld   a,(b_bugs_actv_nbr)
        or   b
-       jr   nz,l_081B                             ; nbr of bugs > 0, so check for restart_stage event
+       jr   nz,l_081B
 ; then ...
        ld   (b_9AA0 + 0x00),a                     ; 0 ... sound-fx count/enable registers, pulsing formation sound effect
 
        jp   gctl_stg_restart_hdlr                 ; cleared the round ... num_bugs_on_screen ==0 || !f_2916_active
 
-; else ... check if a restart-stage condition has been flagged
 l_081B:
-; if ( rst_stage_flag ) ...
+; else if ( rst_stage_flag ) ...
        ld   a,(ds_9200_glbls + 0x13)              ; restart stage flag
        and  a
        ret  z                                     ; not the end of the stage, and not restart_stage event
-; ...
+; then ...
        xor  a
        ld   (ds_plyr_actv +_b_atk_wv_enbl),a      ; 0 ... restart_stage_flag has been set
 
