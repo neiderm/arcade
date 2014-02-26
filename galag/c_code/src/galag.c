@@ -295,14 +295,11 @@ int _updatescreen(int blocking)
   Main entry point for game executive.
 
  ***************************************************************************/
-int bugs_exec(void)
+int g_exec(void)
 {
     io_input[0] = 1; // tmp
     io_input[0] = 0; // tmp
 
-    // probably need to break this into smaller functions, i.e. :
-    // RAM_test() ... ...halt CPU #2 and #3 .. cpu #3 nmi Z80_IGNORE_INT
-    // romtest_mgr() ... enable sub CPUs
     cpu0_init();
     cpu1_init();
     cpu2_init();

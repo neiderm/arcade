@@ -91,8 +91,8 @@ void cpu_run(void)
 	}
 
 #ifdef BUGS
-extern void bugs_exec(void);
-bugs_exec();
+extern void g_exec(void);
+g_exec();
 #else // BUGS
 
 reset:
