@@ -94,17 +94,16 @@ void c_sctrl_sprite_ram_clr(void)
 }
 
 /*=============================================================================
-;; gctl_runtime_init()
+;; g_init()
 ;;  Description:
-;;   Once per machine-reset following hardware initialization.
-;;   Put screen and other significant memory structures into known state prior
-;;   to executing into "main function".
+;;   Once per poweron/reset (following hardware inits) do inits for screen and
+;;   etc. prior to invoking "main".
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------*/
-void gctl_runtime_init(void)
+void g_init(void) // j_Game_init
 {
     // ld   sp,#stk_cpu0_init
 

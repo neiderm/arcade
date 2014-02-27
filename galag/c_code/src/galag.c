@@ -317,7 +317,7 @@ int g_exec(void)
 
     if (0 != cpu0_post() )  return 0; // check for ESC
 
-    gctl_runtime_init();
+    g_init();
 
     if (0 != gctl_main()) goto getout;
 
