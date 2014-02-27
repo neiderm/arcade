@@ -3,8 +3,6 @@
  **  gg1-4.s (gg1-4.2l)
  **
  **  Hi-score dialog, power-on memory tests, and service-mode menu functions
- **  combined into gg1-4 and removed files reset.s and svc_mode.s
- **  from branch "sdasz80_03172012".
  **
  *******************************************************************************/
 #include "galag.h"
@@ -24,10 +22,22 @@ void cpu0_init(void)
     cpu1_task_en[0] = 0x07; // skips to f_05BE in CPU-sub task-table
 }
 
-/*
- *
- */
-void svc_test_mgr(void)
+/*=============================================================================
+;;  Description: machine power-on/self-test
+;;   RAM and ROM tests (do not know if graphic patterns will be too fast to see?).
+;;   'RAM OK' and 'ROM OK' actually shown right side up, but flip screen gets
+;;   set because of the check that is done on the IO input value.
+;;   Service-mode menus not implemented and also video-ram test pattern is
+;;   shoved in here as well.
+;;
+;;   In C code, the following must be broken out of cpu0_init if it depends
+;;   on cpu1_init  and/or cpu2_init.
+;; IN:
+;;  ...
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+uint8 cpu0_post(void)
 {
     uint16 HL, DE, BC;
 
@@ -41,11 +51,7 @@ void svc_test_mgr(void)
     ds3_92A0_frame_cts[0] = 0;
     while (ds3_92A0_frame_cts[0] < 2)
     {
-        int usres;
-        if (0 != (usres = _updatescreen(0))) // 1=blocking
-        {
-            /* goto getout; */ // 1=blocking
-        }
+        _updatescreen(1); // verify that CPU-sub1 is alive
     }
 
 
@@ -136,11 +142,12 @@ void svc_test_mgr(void)
     ds3_92A0_frame_cts[0] = 0;
     while (ds3_92A0_frame_cts[0] < 0x80)
     {
-        int usres;
-        if (0 != (usres = _updatescreen(0))) // 1=blocking
+        BC = _updatescreen(1); // before checking Test-switch.
+        if (0 != BC)
         {
-            /* goto getout; */ // 1=blocking
+            return BC;
         }
     }
+    return 0; //        jp   j_Game_init ... g_init
 }
 

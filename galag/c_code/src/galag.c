@@ -40,7 +40,7 @@ extern void galaga_vh_screenrefresh(struct osd_bitmap *bitmap);
 extern void pengo_sh_update(void);
 
 // entry points into the galag C code
-void svc_test_mgr(void);
+uint8 cpu0_post(void);
 void cpu0_init(void);
 void cpu1_init(void);
 void cpu1_init(void);
@@ -123,7 +123,9 @@ static void vblank_work(void)
 {
     // Execute the "CPU0" Vblank interrupt (RST38).
     if (irq_acknowledge_enable_cpu0)
+    {
         cpu0_rst38();
+    }
 
     // Execute the other sub-CPU's if they are enabled.
 
@@ -131,7 +133,9 @@ static void vblank_work(void)
 
     // if ( ! galaga_halt_w )
     if (irq_acknowledge_enable_cpu1)
+    {
         cpu1_rst38();
+    }
 
     // CPU2 has 2 interrupts per frame (NMI)
     if (nmi_acknowledge_enable_cpu2)
@@ -293,7 +297,14 @@ int _updatescreen(int blocking)
 /***************************************************************************
 
   Main entry point for game executive.
-
+  Take care of any one time reset functions as needed for the platform
+  prior to jumping into "Background task" of CPU0 in g_main.
+  CPU1 and CPU2 background tasks are empty inf loops and don't need simulated.
+  Interrupt processing for all 3 CPU processes happens during update function
+  called during busy loops in CPU0 background task. Triggering of "ISRs" is
+  sychronized to simulated 60hz time reference. Premise is that a "modern" CPU
+  will take very little time to process all the code in the background task, so
+  most time will be spent in the update, waiting for 1/60th-second to expire.
  ***************************************************************************/
 int g_exec(void)
 {
@@ -304,7 +315,7 @@ int g_exec(void)
     cpu1_init();
     cpu2_init();
 
-    svc_test_mgr();
+    if (0 != cpu0_post() )  return 0; // check for ESC
 
     gctl_runtime_init();
 
