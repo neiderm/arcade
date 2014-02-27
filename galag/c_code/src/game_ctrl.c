@@ -66,13 +66,15 @@ static void gctl_fghtr_rdy(void);
 static void gctl_1up2up_blink(uint8 const *, uint16, uint8);
 static void gctl_supv_score(void);
 static void gctl_score_digit_incr(uint16, uint8);
-static void gctl_supv_stage();
+static int gctl_supv_stage();
 static void gctl_chllng_stg_end(void);
 static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8, uint8);
 static void gctl_plyr_start_stg_init(void);
 static void gctl_plyr_respawn_1P(void);
-static void gctl_plyr_terminate(void);
+static int gctl_plyr_terminate(void);
 static void gctl_plyr_startup(void);
+static int gctl_game_runner(void);
+
 
 /*=============================================================================
 ;; c_sctrl_sprite_ram_clr()
@@ -178,14 +180,14 @@ void g_init(void) // j_Game_init
 }
 
 /*=============================================================================
-;; gctl_main()
+;; g_main()
 ;;  Description:
 ;;    Initialization, and one-time check for credits (monitoring credit count
 ;;    and updating "GameState" is otherwise handled by a 16mS task). If credits
 ;;    available at startup, updates "GameState" and skips directly to Ready
 ;;    mode, otherwise stays in Attract mode.
 ;;
-;;    When all fighters are destroyed, jp's back to gctl_main.
+;;    When all fighters are destroyed, jp's back to g_main.
 ;;
 ;;    A bug in z80 code, credit count remains on-screen for a short time after
 ;;    P1/P2 start button hit ... count is updated but displayed credit not refreshed.
@@ -335,7 +337,9 @@ int g_main(void)
     // jp   gctl_plyr_start_stg_init
     gctl_plyr_start_stg_init();
 
-      return gctl_game_runner();//  return 0;
+    // blocks here unless broken off by ESC key or gameover
+    return gctl_game_runner();
+
 }
 
 /*=============================================================================
@@ -398,7 +402,7 @@ static const uint8 gctl_bonus_fightr_tiles[][4] =
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-void gctl_game_runner(void)
+static int gctl_game_runner(void)
 {
     while (1) // jr   l_045E_while_play_game
     {
@@ -412,6 +416,7 @@ void gctl_game_runner(void)
             break;
         }
     }
+    return 0; // pull the plug!
 }
 
 /*=============================================================================
@@ -491,6 +496,7 @@ static const uint8 gctl_score_initd[] =
 /*---------------------------------------------------------------------------*/
 
 
+
 /*=============================================================================
 ;;
 ;; jp (ret) to jp_045E_gctl_game_runner
@@ -498,7 +504,7 @@ static const uint8 gctl_score_initd[] =
 ;;    j_0632_gctl_fghtr_rdy
 ;;       jp_045E_gctl_game_runner
 ;;===========================================================================*/
-void gctl_stg_restart_hdlr(void)
+static int gctl_stg_restart_hdlr(void)
 {
     // set a time to wait while (if) fighter exploding
     ds4_game_tmrs[3] = 4;
@@ -515,8 +521,8 @@ void gctl_stg_restart_hdlr(void)
 
             if (b_bugs_actv_nbr > 0)
             {
-                return;
-                //       jp   nz,gctl_game_runner                   ; continue round w/ second (docked) ship... return to Game Runner Loop
+                return(0);
+                // jp   nz,gctl_game_runner  ; continue round w/ second (docked) ship... return to Game Runner Loop
             }
 
             // l_04B9_while_:
@@ -545,10 +551,10 @@ void gctl_stg_restart_hdlr(void)
     // player terminated?
     if (0 != glbls9200.restart_stage || b_bugs_actv_nbr > 0)
     {
-        gctl_plyr_terminate();
+        return gctl_plyr_terminate();
         //   jr   nz,gctl_plyr_terminate
 
-        return; // jp   gctl_game_runner (from gctl_fghtr_rdy)
+        // jp   gctl_game_runner (from gctl_fghtr_rdy)
     }
 
     // challenge stage? (I can't remember what puts us here on challenge stage)
@@ -566,10 +572,20 @@ l_04DC_break:
     // jp   jp_045E_gctl_game_runner
 
     // (returns from gctl_supv_stage and then return to gctl_game_runner
+    return(0); //returns gctl_plyr_terminate above
 }
-/*===========================================================================*/
 
-static void gctl_plyr_terminate(void)
+/*=============================================================================
+;; gctl_plyr_terminate()
+;;  Description:
+;;   Handle terminated player
+;;   Bramch off to GameOver or TerminateActivePlayer and change player.
+;; IN:
+;;  ...
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+static int gctl_plyr_terminate(void)
 {
     if ( plyr_state_actv.num_ships-- == 0 )
     {
@@ -611,7 +627,7 @@ static void gctl_plyr_terminate(void)
        //}
 
        //jp   z,j_06DE_end_game_halt                ; return if 1 plyr game
-       return;
+       return 1;
 
     } // jp   nz,j_0579_terminate_active_plyr
 
@@ -624,7 +640,7 @@ static void gctl_plyr_terminate(void)
 
         // Needs to be return'd immediately from gctl_stg_restart_hdlr()
         // and gctl_fghtr_rdy
-        return;
+        return 0;
     }
     else if ( -1 == plyr_state_susp.num_ships  // if susp plyr out of ships
               || 1 != glbls9200.restart_stage )
@@ -635,7 +651,7 @@ static void gctl_plyr_terminate(void)
     // else ... j_058E_handle_plyr_changeover:
 // j_058E_handle_plyr_changeover:
 
-
+    return 0;
 }
 
 
@@ -1064,7 +1080,7 @@ static const uint8 gctl_point_fctrs[] =
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void gctl_supv_stage(void)
+static int gctl_supv_stage(void)
 {
     if (0 == task_actv_tbl_0[0x08]  // f_2916 (supervises attack waves)
            && 0 == b_bugs_actv_nbr) // count of remaining aggressors according to object state dispatcher
@@ -1079,9 +1095,9 @@ static void gctl_supv_stage(void)
         plyr_state_actv.b_atk_wv_enbl = 0; // restart_stage_flag has been set
         // z80 did not return to here (jp'd and pop'd the stack)
     }
-    else  return;
+    else  return(0);
 
-    gctl_stg_restart_hdlr();
+    return gctl_stg_restart_hdlr();
 }
 
 /*=============================================================================
@@ -1185,7 +1201,9 @@ static uint8 gctl_bmbr_enbl_tmrs_set(uint8 A, uint8 C, uint8 L)
 }
 
 /*---------------------------------------------------------------------------*/
-static const uint8 gctl_bmbr_enbl_tmrdat[][4] ={
+static const uint8 gctl_bmbr_enbl_tmrdat[][4] =
+{
+//d_0909:
     { 0x03, 0x03, 0x01, 0x01},
     { 0x03, 0x03, 0x03, 0x01},
     { 0x07, 0x03, 0x03, 0x01},
