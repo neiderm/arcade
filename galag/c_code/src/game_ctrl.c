@@ -229,11 +229,11 @@ int g_main(void)
         task_actv_tbl_0[2] = 1; // f_17B2 (control demo mode)
 
         // l_038D_While_Attract_Mode
-        while (glbls9200.game_state == ATTRACT_MODE)
+        while (ATTRACT_MODE == glbls9200.game_state)
         {
-            if (0 != _updatescreen(1)) // 1 == blocking wait for vblank
+            if (0 != _updatescreen(1)) // while ATTRACT_
             {
-                return 1;
+                return 0;
             }
         }
 
@@ -279,9 +279,9 @@ int g_main(void)
     // l_While_Ready:
     while (READY_TO_PLAY_MODE == glbls9200.game_state)
     {
-        if (0 != _updatescreen(1)) // 1 == blocking wait for vblank
+        if (0 != _updatescreen(1)) // while READY_
         {
-            return 1;
+            return 0;
         }
     }
 
@@ -319,9 +319,9 @@ int g_main(void)
     ds4_game_tmrs[3] = 8;
     while (ds4_game_tmrs[3] > 0)
     {
-        if (0 != _updatescreen(1)) // 1 == blocking wait for vblank
+        if (0 != _updatescreen(1)) // opening theme music playing
         {
-            return 1;
+            return 0;
         }
     }
 
@@ -528,14 +528,14 @@ static int gctl_stg_restart_hdlr(void)
             // l_04B9_while_:
             while (0 != task_actv_tbl_0[0x1D])
             {
-                _updatescreen(1);
+                _updatescreen(1); // wait for arriving free'd fighter
             } // jr   nz,l_04B9_while_captd_ship_landing
 
             goto l_04DC_break; //  jr   l_04DC_break
 
         } // jr   z,l_04C1_while_wait_explosion_tmr
 
-        _updatescreen(1); // todo: check retval for ESC key
+        _updatescreen(1); // wait for explosion
 
         // l_04C1_while_wait_explosion_tmr:
     }
@@ -817,7 +817,7 @@ static void gctl_chllng_stg_end(void)
         {
             while (0 != (0x0F & ds3_92A0_frame_cts[0]))
             {
-                _updatescreen(1); // todo: check retval for ESC key
+                _updatescreen(1); // "PERFECT !"
             }
 
             C = 0x0B; // index into string table (27 spaces)
@@ -831,7 +831,7 @@ static void gctl_chllng_stg_end(void)
 
             while (0 == (0x0F & ds3_92A0_frame_cts[0]))
             {
-                _updatescreen(1); // todo: check retval for ESC key
+                _updatescreen(1); // _chllng_stg_end
             }
         }
         while (--B > 0); // djnz l_069B_while_b
@@ -1069,7 +1069,7 @@ static const uint8 gctl_point_fctrs[] =
 };
 
 /*=============================================================================
-;; c_080B_monitor_stage_start_or_re()
+;; c_080B_()
 ;;  Description:
 ;;   supervises stage restart condition.
 ;;   0 enemies remaining indicates condition for new-stage start.
