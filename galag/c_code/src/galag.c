@@ -323,8 +323,6 @@ int g_exec(void)
 
     gctl_plyr_start_stg_init();
 
-    gctl_plyr_startup();
-
     // blocks here unless broken off by ESC key
     gctl_game_runner();
 

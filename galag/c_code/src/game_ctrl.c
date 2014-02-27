@@ -71,7 +71,7 @@ static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8, uint8);
 
 static void gctl_plyr_respawn_1P(void);
 static void gctl_plyr_terminate(void);
-void gctl_plyr_startup(void);
+static void gctl_plyr_startup(void);
 
 /*=============================================================================
 ;; c_sctrl_sprite_ram_clr()
@@ -664,7 +664,7 @@ void gctl_plyr_start_stg_init(void)
 {
     gctl_stg_splash_scrn(); // shows "STAGE X" and does setup
 
-    // gctl_plyr_startup
+    gctl_plyr_startup();
 }
 
 /*=============================================================================
@@ -675,7 +675,7 @@ void gctl_plyr_start_stg_init(void)
 ;;   Out of "new_stage" or "plyr_changeover"
 ;;
 ;;----------------------------------------------------------------------------*/
-void gctl_plyr_startup(void)
+static void gctl_plyr_startup(void)
 {
     // P1 text is index 4, P2 is index 5
     c_string_out(0x0260 + 0x0E, plyr_state_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
