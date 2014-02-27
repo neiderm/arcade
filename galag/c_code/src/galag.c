@@ -45,8 +45,7 @@ void cpu0_init(void);
 void cpu1_init(void);
 void cpu1_init(void);
 void g_init(void);
-int gctl_main(void);
-void gctl_game_runner(void);
+int g_main(void);
 
 // MAME variables
 extern struct RunningMachine *Machine;
@@ -306,6 +305,8 @@ int _updatescreen(int blocking)
  ***************************************************************************/
 int g_exec(void)
 {
+    int mstate = 1;
+
     io_input[0] = 1; // tmp
     io_input[0] = 0; // tmp
 
@@ -317,14 +318,7 @@ int g_exec(void)
 
     g_init();
 
-    if (0 != gctl_main()) goto getout;
-
-
-    // blocks here unless broken off by ESC key
-    gctl_game_runner();
+    g_main();
 
     return 0;
-
-getout:
-    return 1;
 }

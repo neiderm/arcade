@@ -55,6 +55,7 @@ static const uint8 gctl_str_000[];
 static const uint8 gctl_point_fctrs[];
 static const uint8 gctl_bmbr_enbl_tmrdat[][4];
 
+
 // function prototypes
 static void gctl_plyr_init(void);
 static void gctl_score_init(uint8, uint16);
@@ -194,7 +195,7 @@ void g_init(void) // j_Game_init
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------*/
-int gctl_main(void)
+int g_main(void)
 {
     sfr_A007 = 0; // flip_screen_port (not_flipped) ...unimplemented in MAME?
     glbls9200.flip_screen = 0; // not_flipped
@@ -334,7 +335,7 @@ int gctl_main(void)
     // jp   gctl_plyr_start_stg_init
     gctl_plyr_start_stg_init();
 
-    return 0;
+      return gctl_game_runner();//  return 0;
 }
 
 /*=============================================================================
