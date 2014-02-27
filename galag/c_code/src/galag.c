@@ -47,8 +47,6 @@ void cpu1_init(void);
 void g_init(void);
 int gctl_main(void);
 void gctl_game_runner(void);
-void gctl_plyr_start_stg_init(void);
-void gctl_plyr_startup(void);
 
 // MAME variables
 extern struct RunningMachine *Machine;

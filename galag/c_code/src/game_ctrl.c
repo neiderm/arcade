@@ -68,7 +68,7 @@ static void gctl_score_digit_incr(uint16, uint8);
 static void gctl_supv_stage();
 static void gctl_chllng_stg_end(void);
 static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8, uint8);
-
+static void gctl_plyr_start_stg_init(void);
 static void gctl_plyr_respawn_1P(void);
 static void gctl_plyr_terminate(void);
 static void gctl_plyr_startup(void);
@@ -661,7 +661,7 @@ static void gctl_plyr_respawn_1P(void)
 ;;   If on a new game, PLAYER 1 text has been erased.
 ;;
 ;;--------------------------------------------------------------------------- */
-void gctl_plyr_start_stg_init(void)
+static void gctl_plyr_start_stg_init(void)
 {
     gctl_stg_splash_scrn(); // shows "STAGE X" and does setup
 
