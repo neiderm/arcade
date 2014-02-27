@@ -44,7 +44,7 @@ uint8 cpu0_post(void);
 void cpu0_init(void);
 void cpu1_init(void);
 void cpu1_init(void);
-void gctl_runtime_init(void);
+void g_init(void);
 int gctl_main(void);
 void gctl_game_runner(void);
 void gctl_plyr_start_stg_init(void);
@@ -321,7 +321,6 @@ int g_exec(void)
 
     if (0 != gctl_main()) goto getout;
 
-    gctl_plyr_start_stg_init();
 
     // blocks here unless broken off by ESC key
     gctl_game_runner();

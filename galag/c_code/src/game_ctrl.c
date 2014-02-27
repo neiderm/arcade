@@ -332,6 +332,7 @@ int gctl_main(void)
     plyr_state_susp.mcfg_bonus0 = mchn_cfg.bonus[0];
 
     // jp   gctl_plyr_start_stg_init
+    gctl_plyr_start_stg_init();
 
     return 0;
 }
