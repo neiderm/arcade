@@ -318,7 +318,10 @@ int g_exec(void)
 
     g_init();
 
-    g_main();
+    while(mstate)
+    {
+        mstate = g_main();
+    } // while
 
     return 0;
 }
