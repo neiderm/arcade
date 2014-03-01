@@ -404,19 +404,22 @@ static const uint8 gctl_bonus_fightr_tiles[][4] =
 ;;---------------------------------------------------------------------------*/
 static int gctl_game_runner(void)
 {
-    while (1) // jr   l_045E_while_play_game
+    int rv;
+
+    do  // l_045E_while_
     {
         gctl_supv_score();
-        gctl_supv_stage();
 
-        // I don't remember what actually causes the game to recycle, but
-        // here we  allow an escape from the superloop
-        if (0 != _updatescreen(1)) // 1 == blocking wait for vblank
+        rv = gctl_supv_stage();
+
+        if (0 != rv)
         {
-            break;
+            return 1; // game over
         }
-    }
-    return 0; // pull the plug!
+
+    } while (0 == _updatescreen(1));  // jr   l_045E_while_
+
+    return 0; // ESC key ... pull the plug!
 }
 
 /*=============================================================================
