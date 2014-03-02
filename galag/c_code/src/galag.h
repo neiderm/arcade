@@ -184,7 +184,7 @@ typedef enum
     SCORE_BITM,     // showing score bitmap
     BOMB,           // special state if sprite used as bomb
     SPAWNING,       // precedes pattern control
-    ROGUE_FGHTR,    // shot rogue fighter
+    ROGUE_FGHTR,    // non-pilot controlled fighter (rogue or exploding)
     HOMING,         // moving to specific point location i.e. homing or diving attack
     INACTIVE = 0x80 // (also for fighter)
 }
@@ -224,8 +224,17 @@ typedef struct
     uint8 b10; // index to sprt_mctl_objs[]
     uint8 b11; // step X coord
     uint8 b12; // step Y coord
-    uint8 b13; // status flags
-
+    uint8 b13; // status flags ...
+    /*
+        0x01 check for activated state
+        0x02
+        0x04
+        0x08
+        0x10
+        0x20 check for yellow-alien or boss dive
+        0x40 heading home (formation offset)
+        0x80 if set then negate data
+    */
 } mctl_pool_t;
 
 /*
@@ -400,12 +409,12 @@ void c_sctrl_playfld_clr(void);
 void gctl_stg_splash_scrn(void);
 
 /* gg1-2.c */
-void c_new_level_tokens(uint8);
+void gctl_stg_tokens(uint8);
 void c_1230_init_taskman_structs(void);
 void sprite_tiles_display(uint8 const *);
 void c_133A_show_ship(void);
 void gctl_plyr_respawn_fghtr(void);
-void gctl_stg_new_fmtn_hpos_init(uint8);
+void gctl_stg_fmtn_hpos_init(uint8);
 void c_game_or_demo_init(void);
 void c_tdelay_3(void);
 void bmbr_setup_fltq_boss(uint8, uint16);
