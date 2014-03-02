@@ -48,6 +48,7 @@ static uint8 flv_data[0x1000];
 
 static uint8 mctl_actv_cnt;
 
+
 // function prototypes
 static void rckt_hitd(uint8, uint8, uint8);
 static void rckt_man(uint8);
@@ -62,7 +63,7 @@ static uint16 mctl_div_16_8(uint16, uint8);
 static uint8 hit_detect(uint8, uint8, uint8);
 static uint8 hit_det_fghtr(uint8, uint8, uint8, uint8, uint8);
 static uint8 hit_notif_fghtr(uint8);
-static void hit_det_fghtr_hdlr(uint8, uint8);
+static void hit_det_fghtr_hdlr(uint8, uint8, uint8);
 
 
 /*
@@ -428,7 +429,7 @@ uint16 flv_0B46_set_ptr(uint16 u16hl)
 /*=============================================================================
 ;; cpu1_init()
 ;;  Description:
-;;
+;;    irq_acknowledge_enable_cpu1 has no effect in C code
 ;; IN:
 ;;
 ;; OUT:
@@ -475,7 +476,7 @@ void cpu1_init(void)
                ei
      */
 
-    irq_acknowledge_enable_cpu1 = 1; // sfr_6821
+    irq_acknowledge_enable_cpu1 = 1; // sfr_6821 ... enable cpu1_rst38 (cpu1 reset)
 
 
     // shouldn't be here
@@ -544,7 +545,8 @@ void cpu1_rst38(void)
            and  #0x02                                 ; freeze_ctrl_dsw (6j)
            jp   z,l_0575                              ; if paused, goto 0575 // done
      */
-    irq_acknowledge_enable_cpu1 = 0; // sfr_6821
+    // the DI/EI pair doesn't actually do anything in C code
+    irq_acknowledge_enable_cpu1 = 0; // sfr_6821 ... disable cpu1_rst38 (rst38)
 
     // frame_cntr++
     ds3_92A0_frame_cts[0]++;
@@ -590,7 +592,7 @@ void cpu1_rst38(void)
         }
     }
 
-    irq_acknowledge_enable_cpu1 = 1; // sfr_6821
+    irq_acknowledge_enable_cpu1 = 1; // sfr_6821 ... enable cpu1_rst38 (rst38)
 }
 
 
@@ -633,6 +635,7 @@ void f_05BF(void)
 ;;----------------------------------------------------------------------------*/
 void f_05EE(void)
 {
+    uint8 tmpSx;
     uint8 hit_notif = 0;
 
     if ( 0 == task_actv_tbl_0[0x14]) // f_1F85 (input and ship movement)
@@ -649,7 +652,8 @@ void f_05EE(void)
     // l_0613: else ... !two_ship
 
     if (0 == mrw_sprite.cclr[SPR_IDX_SHIP + 0].b0) return; // ret  z
-#if 0
+#if 0 //
+    tmpSx = mrw_sprite.posn[SPR_IDX_SHIP + 0].b0; // stash fighter sX because it will be 0'd by hit_notif_fghtr
     hit_notif = hit_notif_fghtr(SPR_IDX_SHIP + 0); // ship_collisn_detectn_runner
 #endif
     if (0 == hit_notif) return; // ret  z
@@ -664,7 +668,7 @@ void f_05EE(void)
     task_actv_tbl_0[0x05] = 0; // f_05EE (this task, fighter hit-detection)
     //ld   (ds_99B9_star_ctrl + 0x00),a  ; 0 ... 1 when fighter on screen
 
-    hit_det_fghtr_hdlr(SPR_IDX_SHIP + 0, 0); // not docked fighters, pass flag to allow stage restart
+    hit_det_fghtr_hdlr(tmpSx, SPR_IDX_SHIP + 0, 0); // not docked fighters, pass flag to allow stage restart
 }
 
 /*=============================================================================
@@ -673,6 +677,7 @@ void f_05EE(void)
 ;;   handle a collision detected on fighter
 ;;   continues from f_05EE to handle ship 1 collision
 ;; IN:
+;;   oldSx: previous value of fighterX (z80 read directly from sprite SFRs)
 ;;   HL == &sprite_posn_base[0x60]  ... ship2 position (if call hit_det_fghtr_hdlr)
 ;;   HL == &sprite_posn_sfr[0x60] ... (if jp  l_064F)
 
@@ -680,9 +685,9 @@ void f_05EE(void)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void hit_det_fghtr_hdlr(uint8 fghtr_obj_offs, uint8 no_restart_stg)
+static void hit_det_fghtr_hdlr(uint8 oldSx, uint8 fghtr_obj_offs, uint8 no_restart_stg)
 {
-    mrw_sprite.posn[fghtr_obj_offs].b0 -= 8; // x<7:0>
+    mrw_sprite.posn[fghtr_obj_offs].b0 = oldSx - 8; // x<7:0> (read directly from SFRs because j_07C2 has already 0'd it)
     mrw_sprite.posn[fghtr_obj_offs].b1 -= 8; // y<7:0>
     mrw_sprite.cclr[fghtr_obj_offs].b1 = 0x0B; // color
     mrw_sprite.cclr[fghtr_obj_offs].b0 = 0x20; // explosion tile
@@ -939,7 +944,7 @@ static void rckt_man(uint8 de)
     // j_07C2 (odd, i.e. offset to b1)
     //   ld   e,l
 
-    else if (0 != task_actv_tbl_0[0x1D]) // ... else _call_hit_detection_all
+    else if (0 != task_actv_tbl_0[0x1D])
     {
         // ld   hl,#ds_sprite_posn + 0x08             ; skip first 4 objects...
         // ld   b,#0x30 - 4
@@ -1127,7 +1132,9 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
 /*=============================================================================
 ;; j_07C2()
 ;;  Description:
-;;   handle sprite collisions
+;;   collisions are detected from the reference of the rocket or fighter.
+;;   This function is common to both rocket and fighter hit detection, and
+;;   handles the other side of the transaction.
 ;; IN:
 ;;   AF == (sprt_mctl_objs[hl].state  - 1) & 0xFE
 ;;   L == object key, e.g. usually a bug was hit, but could be a bomb
@@ -1143,8 +1150,8 @@ static uint8 hit_detect(uint8 AF, uint8 E, uint8 HL)
 {
     uint8 A, C;
 
-    mrw_sprite.posn[E].b1 = 0; // ld   (de),a
-    mrw_sprite.ctrl[E].b1 = 0; // ld   (de),a
+    mrw_sprite.posn[E].b0 = 0; // ld   (de),a ... sX<7:0>
+    mrw_sprite.ctrl[E].b0 = 0; // ld   (de),a
 
     // inc  l
 
@@ -1636,7 +1643,6 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
             {
                 r16_t tmpA;
                 uint8 A;
-
                 // setup horizontal limits for targetting
                 if (mrw_sprite.posn[SPR_IDX_SHIP].b0 < 0x1E) // cp   #0x1E
                 {
@@ -1657,6 +1663,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     tmpA.word = 0xF0 - tmpA.word + 0x01;
                 }
 
+                // (fighterX - alienX) / 4
                 // l_0A1E: subtract mctl.X<15:8> i.e. sprite.x<7:1>
                 tmpA.word >>= 1; // srl  a
                 tmpA.word -= mctl_mpool[mpidx].cx.pair.b1;
