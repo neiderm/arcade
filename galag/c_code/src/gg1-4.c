@@ -9,18 +9,6 @@
 
 mchn_cfg_t mchn_cfg;
 
-/*
- *
- */
-void cpu0_init(void)
-{
-    // goes in c_svc_updt_dsply()
-    mchn_cfg.bonus[0] = 0x02;
-    mchn_cfg.bonus[1] = 0x06;
-
-    // enable f_05BE in CPU-sub1 (empty task) ... disabled in game_ctrl start
-    cpu1_task_en[0] = 0x07; // skips to f_05BE in CPU-sub task-table
-}
 
 /*=============================================================================
 ;;  Description: machine power-on/self-test
@@ -41,10 +29,25 @@ uint8 cpu0_post(void)
 {
     uint16 HL, DE, BC;
 
+// jp_RAM_test:
+
+    // enable f_05BE in CPU-sub1 (empty task) ... disabled in game_ctrl start
+    cpu1_task_en[0] = 0x07; // skips to f_05BE in CPU-sub task-table
+
+//jp   j_romtest_mgr
+
+//j_Test_menu_init:
+
+// call c_svc_updt_dsply
+
+    // goes in c_svc_updt_dsply()
+    mchn_cfg.bonus[0] = 0x02;
+    mchn_cfg.bonus[1] = 0x06;
+
+
     // Initialize scheduler table before interrupts are enabled (otherwise
     // task scheduler could infinite loop!)
     task_actv_tbl_0[0] = 0x20; // only task 0 (empty task) can be called
-
 
 
     // wait 02 frames to verify that CPU-sub1 is alive and updating the frame counter
@@ -55,12 +58,12 @@ uint8 cpu0_post(void)
     }
 
 
-    // setup interrupt mode and toggle the latch
-    irq_acknowledge_enable_cpu0 = 1;
-
     //  setup IO command params for bang sound
     //        ld   (0x7100),a    ; IO cmd ($A8 -> bang sound)
     c_io_cmd_wait();
+
+    // setup interrupt mode and toggle the latch
+    irq_acknowledge_enable_cpu0 = 1; // enable cpu0_rst38 (_post)
 
 
     // wait 8 frames (while test sound??)
@@ -75,8 +78,14 @@ uint8 cpu0_post(void)
 
     // jp   nc,j_Test_menu_proc
 
+    // synchronize with next frame transition.
+    //  while ( frame_cts[0] == prev_frame_cts[0] )
+
     // dips would be read here
     mchn_cfg.rank = 3; // default to 3->easy
+
+
+    // j_36BA_Machine_init:
 
     HL = 0;
 

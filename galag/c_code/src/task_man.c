@@ -227,14 +227,15 @@ void c_sctrl_playfld_clr(void)
 ;;  Description:
 ;;   clears a stage (on two-player game, runs at the first turn of each player)
 ;;   Increments stage_ctr (and dedicated challenge stage %4 indicator)
+;;   Blocks on busy-loop.
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
+;;   Need to return int to handle ESC
 ;;-----------------------------------------------------------------------------*/
 void gctl_stg_splash_scrn(void)
 {
-    int usres;
     uint8 Cy;
 
     plyr_state_actv.stage_ctr += 1;
@@ -245,7 +246,7 @@ void gctl_stg_splash_scrn(void)
     if (0 != plyr_state_actv.not_chllng_stg)
     {
         uint16 HL;
-        HL = j_string_out_pe(1, -1, 6); // string_out_pe "STAGE "
+        HL = j_string_out_pe(1, -1, 0x06); // string_out_pe "STAGE "
 
         // Print "X" of STAGE X. ...HL == $81B0
         c_text_out_i_to_d(plyr_state_actv.stage_ctr, HL);
@@ -256,7 +257,7 @@ void gctl_stg_splash_scrn(void)
     else
     {
         // l_01A2_set_challeng_stg:
-        j_string_out_pe(1, -1, 7); // "CHALLENGING STAGE"
+        j_string_out_pe(1, -1, 0x07); // "CHALLENGING STAGE"
 
         b_9AA0[0x0D] = 1; // sound-fx count/enable registers, start challenge stage
 
@@ -281,13 +282,11 @@ void gctl_stg_splash_scrn(void)
     c_new_level_tokens(Cy); // A' == 0 if challenge stg, else non-zero (stage_ct + 1)
 
     // l_01BF:
-    while (ds4_game_tmrs[2])
+    while (0 != ds4_game_tmrs[2])
     {
-        // doesn't bother with allowing getout on ESC
-        if (0 != (usres = _updatescreen(1))) // 1 == blocking wait for vblank
-        {
-            /* goto getout; */ // 1=blocking
-        }
+        // can't getout on ESC during part of the intro music
+        // if (0 != _updatescreen(1))
+        _updatescreen(1); // _stg_splash_scrn
     }
 
     gctl_stg_new_env_init();
@@ -420,5 +419,20 @@ static uint8 d_strSCORE[] =
 {
     0x17, 0x0A, 0x16, 0x0C, 0x18
 };
-/*-----------------------------------------------------------------------------*/
 
+/*=============================================================================
+;; RESET()
+;;  Description:
+;;   jp here from z80 reset vector
+;; IN:
+;;  ...
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+void cpu0_init(void)
+{
+//       ld   hl,#ds10_99E0_mchn_data               ; clear $10 bytes
+
+//       jp   jp_RAM_test (post)
+
+}
