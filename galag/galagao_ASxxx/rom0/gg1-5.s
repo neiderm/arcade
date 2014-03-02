@@ -666,12 +666,12 @@ f_05EE:
        and  a
        jr   z,l_0613
 
-       call c_0681_ship_collisn_detectn_runner    ; HL == &sprite_posn_base[0x60]  ...ship2 position
+       call hitd_fghtr_notif                      ; HL == &sprite_posn_base[0x60]  ...ship2 position
        ld   a,(b8_ship_collsn_detectd_status)     ; fighter hit notif (2)
        and  a
        jr   z,l_0613
 ;60c
-       call c_0649                                ; handle ship 2 collision
+       call hitd_fghtr_hit                        ; handle ship 2 collision
        xor  a
        ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 0
 
@@ -682,7 +682,7 @@ l_0613:
        and  a
        ret  z
 
-       call c_0681_ship_collisn_detectn_runner    ; HL == sprite_posn_base + 0x62 ... fighter (1) position (only L significant)
+       call hitd_fghtr_notif                      ; HL == sprite_posn_base + 0x62 ... fighter (1) position (only L significant)
        ; L passed to c_0681_ship_collisn_detect preserved in E
        ld   a,(b8_ship_collsn_detectd_status)     ; fighter hit notif (1)
        and  a
@@ -710,24 +710,23 @@ l_0639_not_two_ship:
        ld   (ds_9200_glbls + 0x17),a              ; 0 ... no_restart_stg (not docked fighters)
 
 ; handle ship collision (single-ship player)
-; HL == &sprite_posn_base[0x62] ... ship (1) position
+; hitd_fghtr_hit(tmpSx, SPR_IDX_SHIP + 0, 0)
 
 ;;=============================================================================
-;; c_0649()
+;; hitd_fghtr_hit()
 ;;  Description:
-;;   called from f_05EE to handle Ship 2 collision.
-;;   continues from f_05EE to handle ship 1 collision
+;;   handle a collision detected on fighter
 ;; IN:
-;;   HL == &sprite_posn_base[0x60]  ... ship2 position (if call c_0649)
+;;   HL == &sprite_posn_base[0x60]  ... ship2 position (if call hitd_fghtr_hit)
 ;;   HL == &sprite_posn_sfr[0x60] ... (if jp  l_064F)
 
 ;;   E == object index of fighter1 or fighter2
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-c_0649:
+hitd_fghtr_hit:
        ex   de,hl
-       ld   h,#>ds_sprite_posn                    ; read directly from SFRs (not buffer RAM)
+       ld   h,#>ds_sprite_posn                    ; read directly from SFRs (not buffer RAM) ... already 0'd by hitd_dspchr
        set  7,l
        ld   a,(hl)
 
@@ -767,15 +766,15 @@ l_064F:
        ret
 
 ;;=============================================================================
-;; c_0681_ship_collisn_detectn_runner()
+;; hitd_fghtr_notif()
 ;;  Description:
-;;   Sets up collision detection.
+;;   hit notification for fighter
 ;; IN:
 ;;  L == sprite_posn_base[] ... offset (FIGHTER1 or FIGHTER2)
 ;; OUT:
 ;;  E == preserved offset passed as argument in L
 ;;-----------------------------------------------------------------------------
-c_0681_ship_collisn_detectn_runner:
+hitd_fghtr_notif:
        xor  a
        ld   (b8_ship_collsn_detectd_status),a     ; 0 ... fighter hit notif
 
@@ -813,16 +812,16 @@ l_06A8:
        ld   b,#0x30
 
 l_06AC_:
-       call c_06B7_ship_collsn_detecn
+       call hitd_det_fghtr
 
        ld   l,#0x68                               ; bombs
        ld   b,#0x08
-       call c_06B7_ship_collsn_detecn
+       call hitd_det_fghtr
 
        ret
 
 ;;=============================================================================
-;; c_06B7_ship_collsn_detecn()
+;; hitd_det_fghtr()
 ;;  Description:
 ;;   Do ship collision detection.
 ;; IN:
@@ -833,7 +832,7 @@ l_06AC_:
 ;; OUT:
 ;;  b8_ship_collsn_detectd_status
 ;;-----------------------------------------------------------------------------
-c_06B7_ship_collsn_detecn:
+hitd_det_fghtr:
 while_06B7:
        ld   h,#>b_9200_obj_collsn_notif           ; sprt_hit_notif
        ld   a,(hl)
@@ -874,7 +873,7 @@ while_06B7:
 
        or   a                                     ; nz if fighter hit
        ex   af,af'
-       jp   j_07C2                                ; handle collision
+       jp   hitd_dspchr                           ; handle collision
 l_06F0:
        inc  l
        inc  l
@@ -895,14 +894,14 @@ l_06F0:
 f_06F5:
        ld   de,#b_92A0 + 0x04 + 0                 ; rocket "attribute"
        ld   hl,#ds_sprite_posn + 0x64             ; rocket
-       call c_0704_update_rockets
+       call rckt_man
 
        ld   de,#b_92A0 + 0x04 + 1                 ; rocket "attribute"
        ld   hl,#ds_sprite_posn + 0x66             ; rocket
-       ; call c_0704_update_rockets
+       ; call rckt_man
 
 ;;=============================================================================
-;; c_0704_update_rockets()
+;; rckt_man()
 ;;  Description:
 ;;   subroutine for f_06F5
 ;; IN:
@@ -913,7 +912,7 @@ f_06F5:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-c_0704_update_rockets:
+rckt_man:
 ; if (0 == mrw_sprite.posn[hl].b0) return
        ld   a,(hl)
        and  a
@@ -999,7 +998,7 @@ l_0738:
        cp   #0x138 >> 1                           ; 0x9C
        jr   nc,l_0760_disable_rocket_wposn        ; L is offset to sY, so first L--
 
-; index of object/sprite passed through to j_07C2 (odd, i.e. b1)
+; index of object/sprite passed through to hitd_dspchr (odd, i.e. b1)
        ld   e,l
 
 ; if ( task_active ) then ... else _call_hit_detection_all
@@ -1025,7 +1024,7 @@ l_0757_call_hit_detection_all:
        ld   b,#0x30
 
 l_075C_call_hit_detection:
-       call c_076A_rocket_hit_detection
+       call hitd_det_rckt
        ret
 
 ; terminate out of bounds sideways rockets
@@ -1041,12 +1040,12 @@ l_0763_disable_rocket:
        ret
 
 ;;=============================================================================
-;; c_076A_rocket_hit_detection()
+;; hitd_det_rckt()
 ;;  Description:
 ;;   collision detection... rocket fired from ship.
 ;; IN:
 ;;  E == LSB of pointer to object/sprite passed through to
-;;       j_07C2 (odd, i.e. offset to b1)
+;;       hitd_dspchr (odd, i.e. offset to b1)
 ;;  HL == pointer to sprite.posn[], starting object object to test ... 0, or
 ;;        +8 skips 4 objects... see explanation at l_0757.
 ;;  B == count ... $30, or ($30 - 4) as per explanation above.
@@ -1055,7 +1054,7 @@ l_0763_disable_rocket:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-c_076A_rocket_hit_detection:
+hitd_det_rckt:
 
 l_076A_while_object:
 
@@ -1101,7 +1100,7 @@ l_076A_while_object:
        ld   a,c                                   ; reload object status e.g. 8800[L]
        dec  a
        and  #0xFE
-       ex   af,af'                                ; object status to j_07C2
+       ex   af,af'                                ; object status to hitd_dspchr
 
        ld   a,(ds_plyr_actv +_b_2ship)
        and  a
@@ -1140,13 +1139,14 @@ l_07B9_pre_hdl_collsn:
        ld   (ds_plyr_actv +_w_hit_ct),hl
        ld   l,a
 
-; j_07C2
+; hitd_dspchr
 
 ;;=============================================================================
-;; j_07C2()
+;; hitd_dspchr()
 ;;  Description:
-;;   handle collision.
-;;   label for jp from c_06B7 for handling ship+bug collision
+;;   collisions are detected from the reference of the rocket or fighter - this
+;;   function is common to both rocket and fighter hit detection, and
+;;   dispatches the target appropriately.
 ;; IN:
 ;;   L == offset/index of destroyed bug, or a bomb
 ;;   E == offset/index of rocket sprite + 1
@@ -1157,11 +1157,11 @@ l_07B9_pre_hdl_collsn:
 ;; RETURN:
 ;;  get out by l_07B4_next_object or ret
 ;;-----------------------------------------------------------------------------
-j_07C2:
-       ld   d,#>ds_sprite_posn                    ; _sprite_posn[L] = 0
+hitd_dspchr:
+       ld   d,#>ds_sprite_posn                    ; _sprite_posn[L].b0 = 0 ... sX<7:0>
        xor  a
-       ld   (de),a                                ; e.g. 9365 = 0
-       ld   d,#>ds_sprite_ctrl                    ; _sprite_ctrl[L] = 0
+       ld   (de),a
+       ld   d,#>ds_sprite_ctrl                    ; _sprite_ctrl[L].b0 = 0
        ld   (de),a
 
        inc  l
