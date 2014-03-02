@@ -265,7 +265,7 @@ void gctl_stg_splash_scrn(void)
         w_bug_flying_hit_cnt = 8; // 8 for challenge stage (else 0 i.e. don't care)
     }
 
-    // set the timer to synchronize finish of c_new_level_tokens
+    // set the timer to synchronize finish of gctl_stg_tokens
     ds4_game_tmrs[2] = 3;
 
     glbls9200.flying_bug_attck_condtn = 3; // 3 (begin round ... use 3 for optimization, but merely needs to be !0)
@@ -279,14 +279,16 @@ void gctl_stg_splash_scrn(void)
 
     //  and  a ... if A != 0, clear Cy
     //  ex   af,af' ... Cy' == 1 if inhibit sound clicks
-    c_new_level_tokens(Cy); // A' == 0 if challenge stg, else non-zero (stage_ct + 1)
+    gctl_stg_tokens(Cy); // A' == 0 if challenge stg, else non-zero (stage_ct + 1)
 
     // l_01BF:
     while (0 != ds4_game_tmrs[2])
     {
         // can't getout on ESC during part of the intro music
-        // if (0 != _updatescreen(1))
-        _updatescreen(1); // _stg_splash_scrn
+        if (0 != _updatescreen(1))
+        {
+            _updatescreen(1); // _stg_splash_scrn
+        }
     }
 
     gctl_stg_new_env_init();
@@ -315,7 +317,7 @@ static void gctl_stg_new_env_init(void)
 
     ds4_game_tmrs[0] = 2;
 
-    gctl_stg_new_fmtn_hpos_init(0); // set origin coordinates of formation elements
+    gctl_stg_fmtn_hpos_init(0); // set origin coordinates of formation elements
 
     for (B = 0; B < 0x60; B += 2)
     {

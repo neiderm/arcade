@@ -28,13 +28,13 @@ const uint8 fmtn_hpos_orig[];
  ** static external definitions in this file
  */
 // variables
-static const uint8 task_enable_tbl_def[32];
+static const uint8 task_enable_def[32];
 
 // function prototypes
 static void c_build_token_1(uint8 *, uint16 *, uint8);
 static void c_build_token_2(uint8 *, uint16 *);
-static void draw_resv_ships(void);
-static void draw_resv_ship_tile(uint16, uint8 *, uint8);
+static void draw_resv_fghtrs(void);
+static void draw_resv_fghtr_tile(uint16, uint8 *, uint8);
 static void bmbr_setup_fltq(uint8, uint16, uint8);
 
 
@@ -158,7 +158,7 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
 
 
 /*=============================================================================
-;; c_new_level_tokens()
+;; gctl_stg_tokens()
 ;;  Description:
 ;;   new stage setup
 ;;     from c_new_stage, sound disable flag is set if challenge stage
@@ -170,7 +170,7 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------*/
-void c_new_level_tokens(uint8 sound_disable_flag)
+void gctl_stg_tokens(uint8 sound_disable_flag)
 {
     uint16 tmpBCdiv10result, tmpBCmod10result;
     uint16 tmp16;
@@ -295,7 +295,6 @@ void c_new_level_tokens(uint8 sound_disable_flag)
 ;;-----------------------------------------------------------------------------*/
 static void c_build_token_1(uint8 *pD, uint16 *pHL, uint8 sound_disable_flag)
 {
-    int usres;
     uint8 A;
 
     // check sound enable parameter ... ex   af,af'
@@ -305,9 +304,9 @@ static void c_build_token_1(uint8 *pD, uint16 *pHL, uint8 sound_disable_flag)
 
         while (A != ds3_92A0_frame_cts[0])
         {
-            if (0 != (usres = _updatescreen(0))) // 1=blocking
+            if (0 != _updatescreen(1)) // token_1 ... short wait, no ESC
             {
-                /* goto getout; */ // 1=blocking
+                // ESC key
             }
         }
 
@@ -393,16 +392,16 @@ void c_1230_init_taskman_structs(void)
 {
     uint8 bc;
 
-    // memcpy(task_en_actv, task_enable_tbl_def, 0x20)
-    for (bc = 0; bc < sizeof(task_enable_tbl_def); bc++)
+    // memcpy(task_en_actv, task_enable_def, 0x20)
+    for (bc = 0; bc < sizeof(task_enable_def); bc++)
     {
-        task_actv_tbl_0[bc] = task_enable_tbl_def[bc];
+        task_actv_tbl_0[bc] = task_enable_def[bc];
     }
 
-    // memcpy(task_resv_tbl_0, task_enable_tbl_def, 0x20);
-    for (bc = 0; bc < sizeof(task_enable_tbl_def); bc++)
+    // memcpy(task_resv_tbl_0, task_enable_def, 0x20);
+    for (bc = 0; bc < sizeof(task_enable_def); bc++)
     {
-        task_resv_tbl_0[bc] = task_enable_tbl_def[bc];
+        task_resv_tbl_0[bc] = task_enable_def[bc];
     }
 
     // kill the idle task at [0]
@@ -412,7 +411,7 @@ void c_1230_init_taskman_structs(void)
 
 /*=============================================================================*/
 // sizeof must == SZ_TASK_TBL
-static const uint8 task_enable_tbl_def[32] =
+static const uint8 task_enable_def[32] =
 {
 
     0x1F, //  f_0827
@@ -558,7 +557,7 @@ void sprite_tiles_display(uint8 const *p_sptiles_displ)
 ;; OUT:
 ;;  ...
 ;;----------------------------------------------------------------------------*/
-void gctl_stg_new_fmtn_hpos_init(uint8 IXL)
+void gctl_stg_fmtn_hpos_init(uint8 IXL)
 {
     uint8 B;
 
@@ -652,9 +651,10 @@ void c_tdelay_3(void)
 
     while (ds4_game_tmrs[3] > 0)
     {
-        // if (0 != _updatescreen(1)) // 1=blocking
-        //    return 1; // goto getout;
-        _updatescreen(1);
+        if (0 != _updatescreen(1)) // tdelay_3
+        {
+            // ESC key
+        }
     }
 }
 
@@ -718,9 +718,13 @@ void c_133A_show_ship(void)
 {
     while (0 != b_bugs_flying_nbr)
     {
+        if (0 != _updatescreen(1)) // waiting for aliens to stop moving
+        {
+            // ESC key
+        }
     }
 
-    draw_resv_ships();
+    draw_resv_fghtrs();
 
     // put the ship out there
     mrw_sprite.cclr[SPR_IDX_SHIP].b0 = 0x06; // code
@@ -744,7 +748,7 @@ void c_133A_show_ship(void)
 }
 
 /*=============================================================================
-;; draw_resv_ships()
+;; draw_resv_fghtrs()
 ;;  Description:
 ;;   Draws up to 6 reserve ships in the status area of the screen, calling
 ;;   the subroutine 4 times to build the ship icons from 4 tiles.
@@ -753,7 +757,7 @@ void c_133A_show_ship(void)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void draw_resv_ships(void)
+static void draw_resv_fghtrs(void)
 {
     uint16 HL;
     uint8 E, D;
@@ -763,23 +767,23 @@ static void draw_resv_ships(void)
     D = 0x49; // starting tile number
 
     HL = 0x0000 + 0x1D; // offset into tile ram
-    draw_resv_ship_tile(HL, &D, E);
+    draw_resv_fghtr_tile(HL, &D, E);
 
     HL--; // advance 1 column right
-    draw_resv_ship_tile(HL, &D, E);
+    draw_resv_fghtr_tile(HL, &D, E);
 
     HL += 32; // down 1 row
     HL += 1; // 1 column to the left
-    draw_resv_ship_tile(HL, &D, E);
+    draw_resv_fghtr_tile(HL, &D, E);
 
     HL -= 1; // advance 1 column right
-    draw_resv_ship_tile(HL, &D, E);
+    draw_resv_fghtr_tile(HL, &D, E);
 
     return;
 }
 
 /*=============================================================================
-;; draw_resv_ship_tile()
+;; draw_resv_fghtr_tile()
 ;;  Description:
 ;;   Each ship is composed of 4 tiles. This is called once for each tile.
 ;;   Each tile is replicated at the correct screen offset, allowing up to 6
@@ -794,7 +798,7 @@ static void draw_resv_ships(void)
 ;;     D: tile character (increment)
 ;;
 ;;---------------------------------------------------------------------------*/
-static void draw_resv_ship_tile(uint16 offset, uint8 *tilechr, uint8 nbr)
+static void draw_resv_fghtr_tile(uint16 offset, uint8 *tilechr, uint8 nbr)
 {
     uint16 tmpHL;
     uint8 A, B;
