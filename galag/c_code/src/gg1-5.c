@@ -50,7 +50,11 @@ static uint8 mctl_actv_cnt;
 
 
 // function prototypes
-static void rckt_hitd(uint8, uint8, uint8);
+static uint8 hitd_fghtr_notif(uint8);
+static void hitd_fghtr_hit(uint8, uint8, uint8);
+static uint8 hitd_det_fghtr(uint8, uint8, uint8, uint8, uint8);
+static void hitd_det_rckt(uint8, uint8, uint8);
+static uint8 hitd_dspchr(uint8, uint8, uint8);
 static void rckt_man(uint8);
 static void mctl_fltpn_dspchr(uint8);
 static void mctl_hpos_ck(uint8);
@@ -60,10 +64,6 @@ static void mctl_posn_set(uint8);
 static uint16 mctl_rotn_hp(uint16, uint8);
 static uint16 mctl_mul8(uint8, uint8);
 static uint16 mctl_div_16_8(uint16, uint8);
-static uint8 hit_detect(uint8, uint8, uint8);
-static uint8 hit_det_fghtr(uint8, uint8, uint8, uint8, uint8);
-static uint8 hit_notif_fghtr(uint8);
-static void hit_det_fghtr_hdlr(uint8, uint8, uint8);
 
 
 /*
@@ -627,7 +627,7 @@ void f_05BF(void)
 /*=============================================================================
 ;; f_05EE()
 ;;  Description:
-;;    Manage ship collision detection
+;;    Detect and handle ship collision with aliens and bombs
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -643,18 +643,16 @@ void f_05EE(void)
         return; // ret  z
     }
 
-
     // if two_ship ... jr   z,l_0613
 
-    // hit_det_fghtr_hdlr(SPR_IDX_SHIP + 0, 1); // pass flag to inhibit stage restart
+    // hitd_fghtr_hit(SPR_IDX_SHIP + 0, 1); // pass flag to inhibit stage restart
 
 
     // l_0613: else ... !two_ship
-
     if (0 == mrw_sprite.cclr[SPR_IDX_SHIP + 0].b0) return; // ret  z
-#if 0 //
+#if 1 //
     tmpSx = mrw_sprite.posn[SPR_IDX_SHIP + 0].b0; // stash fighter sX because it will be 0'd by hit_notif_fghtr
-    hit_notif = hit_notif_fghtr(SPR_IDX_SHIP + 0); // ship_collisn_detectn_runner
+    hit_notif = hitd_fghtr_notif(SPR_IDX_SHIP + 0); // ship_collisn_detectn_runner
 #endif
     if (0 == hit_notif) return; // ret  z
 
@@ -668,24 +666,23 @@ void f_05EE(void)
     task_actv_tbl_0[0x05] = 0; // f_05EE (this task, fighter hit-detection)
     //ld   (ds_99B9_star_ctrl + 0x00),a  ; 0 ... 1 when fighter on screen
 
-    hit_det_fghtr_hdlr(tmpSx, SPR_IDX_SHIP + 0, 0); // not docked fighters, pass flag to allow stage restart
+    hitd_fghtr_hit(tmpSx, SPR_IDX_SHIP + 0, 0); // not docked fighters, pass flag to allow stage restart
 }
 
 /*=============================================================================
-;; hit_det_fghtr_hdlr()
+;; hitd_fghtr_hit()
 ;;  Description:
 ;;   handle a collision detected on fighter
-;;   continues from f_05EE to handle ship 1 collision
 ;; IN:
 ;;   oldSx: previous value of fighterX (z80 read directly from sprite SFRs)
-;;   HL == &sprite_posn_base[0x60]  ... ship2 position (if call hit_det_fghtr_hdlr)
+;;   HL == &sprite_posn_base[0x60]  ... ship2 position (if call hitd_fghtr_hit)
 ;;   HL == &sprite_posn_sfr[0x60] ... (if jp  l_064F)
 
 ;;   E == object index of fighter1 or fighter2
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void hit_det_fghtr_hdlr(uint8 oldSx, uint8 fghtr_obj_offs, uint8 no_restart_stg)
+static void hitd_fghtr_hit(uint8 oldSx, uint8 fghtr_obj_offs, uint8 no_restart_stg)
 {
     mrw_sprite.posn[fghtr_obj_offs].b0 = oldSx - 8; // x<7:0> (read directly from SFRs because j_07C2 has already 0'd it)
     mrw_sprite.posn[fghtr_obj_offs].b1 -= 8; // y<7:0>
@@ -710,7 +707,7 @@ static void hit_det_fghtr_hdlr(uint8 oldSx, uint8 fghtr_obj_offs, uint8 no_resta
 }
 
 /*=============================================================================
-;; hit_notif_fghtr()
+;; hitd_fghtr_notif()
 ;;  Description:
 ;;   hit notification for fighter
 ;; IN:
@@ -718,7 +715,7 @@ static void hit_det_fghtr_hdlr(uint8 oldSx, uint8 fghtr_obj_offs, uint8 no_resta
 ;; OUT:
 ;;  E == preserved offset passed as argument in L
 ;;---------------------------------------------------------------------------*/
-static uint8 hit_notif_fghtr(uint8 fghtr_obj_offs)
+static uint8 hitd_fghtr_notif(uint8 fghtr_obj_offs)
 {
     r16_t tmp16;
     uint8 hit_notif1, hit_notif2; // use two separate variables to avoid the global ship_collsn_detectd_
@@ -751,18 +748,18 @@ static uint8 hit_notif_fghtr(uint8 fghtr_obj_offs)
         b = 0x30;
     }
     // l_06AC_
-    hit_notif1 = hit_det_fghtr(fghtr_obj_offs, ixl, ixh, l, b);
+    hit_notif1 = hitd_det_fghtr(fghtr_obj_offs, ixl, ixh, l, b);
 
     l = 0x68; // bombs
     b = 0x08;
 
-    hit_notif2 = hit_det_fghtr(fghtr_obj_offs, ixl, ixh, l, b);
+    hit_notif2 = hitd_det_fghtr(fghtr_obj_offs, ixl, ixh, l, b);
 
     return hit_notif1 | hit_notif2;
 }
 
 /*=============================================================================
-;; hit_det_fghtr()
+;; hitd_det_fghtr
 ;;  Description:
 ;;   hit detection for fighter
 ;; IN:
@@ -773,7 +770,7 @@ static uint8 hit_notif_fghtr(uint8 fghtr_obj_offs)
 ;; OUT:
 ;;  b8_ship_collsn_detectd_status
 ;;---------------------------------------------------------------------------*/
-static uint8 hit_det_fghtr(uint8 fghtr_idx, uint8 fx, uint8 fy, uint8 start_offset, uint8 number)
+static uint8 hitd_det_fghtr(uint8 fghtr_idx, uint8 fx, uint8 fy, uint8 start_offset, uint8 number)
 {
     uint8 coffs = start_offset;
     uint8 b = number;
@@ -809,7 +806,7 @@ static uint8 hit_det_fghtr(uint8 fghtr_idx, uint8 fx, uint8 fy, uint8 start_offs
                             // we're hit!
                             // AF==1 if moving alien
                             // nz if fighter hit
-                            hit_detect(1, fghtr_idx, coffs); // jp   j_07C2
+                            hitd_dspchr(1, fghtr_idx, coffs); // jp   j_07C2
                             return hit_notif ;
                         }
                     }
@@ -950,7 +947,7 @@ static void rckt_man(uint8 de)
         // ld   b,#0x30 - 4
         // jr   l_075C_call_hit_detection
 
-        rckt_hitd(hl, 0x08, 0x30 - 4);
+        hitd_det_rckt(hl, 0x08, 0x30 - 4);
     }
     else
     {
@@ -962,12 +959,12 @@ static void rckt_man(uint8 de)
 
     // l_075C_call_hit_detection
     // E=offset_to_rocket_sprite, hl=offset_to_object checked, b==count,
-        rckt_hitd(hl, 0x00, 0x30);
+        hitd_det_rckt(hl, 0x00, 0x30);
     }
 }
 
 /*=============================================================================
-;; rckt_hitd()
+;; hitd_det_rckt()
 ;;  Description:
 ;;   rocket hit detection
 ;; IN:
@@ -979,7 +976,7 @@ static void rckt_man(uint8 de)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
+static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
 {
     uint8 IXL, IXH;
     r16_t tmp16;
@@ -1051,7 +1048,7 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
                             // l_07B9_pre_hdl_collsn
 
 
-                            if ( 1 != hit_detect(AF, E, hl) )
+                            if ( 1 != hitd_dspchr(AF, E, hl) )
                             {
                                 return;
                             }
@@ -1103,7 +1100,7 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
                         // jr   c,l_07B9_pre_hdl_collsn
 
 
-                        if ( 1 != hit_detect(AF, E, hl) )
+                        if ( 1 != hitd_dspchr(AF, E, hl) )
                         {
                             return;
                         }
@@ -1132,9 +1129,9 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
 /*=============================================================================
 ;; j_07C2()
 ;;  Description:
-;;   collisions are detected from the reference of the rocket or fighter.
-;;   This function is common to both rocket and fighter hit detection, and
-;;   handles the other side of the transaction.
+;;   collisions are detected from the reference of the rocket or fighter - this
+;;   function is common to both rocket and fighter hit detection, and
+;;   dispatches the target appropriately.
 ;; IN:
 ;;   AF == (sprt_mctl_objs[hl].state  - 1) & 0xFE
 ;;   L == object key, e.g. usually a bug was hit, but could be a bomb
@@ -1146,7 +1143,7 @@ static void rckt_hitd(uint8 E, uint8 hl, uint8 B)
 ;;   0
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static uint8 hit_detect(uint8 AF, uint8 E, uint8 HL)
+static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
 {
     uint8 A, C;
 
