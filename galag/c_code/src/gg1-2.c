@@ -376,7 +376,7 @@ static void c_build_token_2(uint8 *D, uint16 *HL)
 }
 
 /*=============================================================================
-;; c_1230_init_taskman_structs()
+;; g_init_taskman_defs()
 ;;  Description:
 ;;   Initialize active player and reserve player kernel tables from defaults:
 ;;   - At reset
@@ -388,7 +388,7 @@ static void c_build_token_2(uint8 *D, uint16 *HL)
 ;; OUT:
 ;;  ...
 -----------------------------------------------------------------------------*/
-void c_1230_init_taskman_structs(void)
+void g_init_taskman_defs(void)
 {
     uint8 bc;
 

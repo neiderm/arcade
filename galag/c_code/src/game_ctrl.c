@@ -159,7 +159,7 @@ void g_init(void) // j_Game_init
     // display 1UP HIGH SCORE 20000 (1 time only after boot)
     gctl_1uphiscore_displ();
 
-    c_1230_init_taskman_structs();
+    g_init_taskman_defs();
 
     // data structures for 12 objects
     memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C);
@@ -217,7 +217,7 @@ int g_main(void)
     memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C /* 0xF0 */);
 
     c_sctrl_sprite_ram_clr();
-    c_1230_init_taskman_structs();
+    g_init_taskman_defs();
 
     // allow attract-mode festivities to be skipped if credit available
     if (gctl_credit_cnt == 0)
@@ -238,7 +238,7 @@ int g_main(void)
         }
 
         // GameState == Ready ... reinitialize everything
-        c_1230_init_taskman_structs();
+        g_init_taskman_defs();
         c_sctrl_playfld_clr();
         memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C /* 0xF0 */);
         c_sctrl_sprite_ram_clr();
@@ -334,8 +334,7 @@ int g_main(void)
     plyr_state_actv.mcfg_bonus0 = mchn_cfg.bonus[0];
     plyr_state_susp.mcfg_bonus0 = mchn_cfg.bonus[0];
 
-    // jp   gctl_plyr_start_stg_init
-    gctl_plyr_start_stg_init();
+    gctl_plyr_start_stg_init();  // jp   _start_stg_init
 
     // blocks here unless broken off by ESC key or gameover
     return gctl_game_runner();
@@ -401,6 +400,8 @@ static const uint8 gctl_bonus_fightr_tiles[][4] =
 ;;  ...
 ;; OUT:
 ;;  ...
+;; RETURN:
+;;  1 == game over
 ;;---------------------------------------------------------------------------*/
 static int gctl_game_runner(void)
 {
@@ -501,12 +502,17 @@ static const uint8 gctl_score_initd[] =
 
 
 /*=============================================================================
+;; gctl_stg_restart_hdlr()
+;;  Description:
+;;   called from _supv_stage
+;; IN:
+;;  ...
+;; OUT:
+;;  ...
+;; RETURNS:
+;;  1 if game-over (gctl_plyr_terminate)
 ;;
-;; jp (ret) to jp_045E_gctl_game_runner
-;; jp (ret) j_0632_gctl_fghtr_rdy
-;;    j_0632_gctl_fghtr_rdy
-;;       jp_045E_gctl_game_runner
-;;===========================================================================*/
+;;---------------------------------------------------------------------------*/
 static int gctl_stg_restart_hdlr(void)
 {
     // set a time to wait while (if) fighter exploding
@@ -524,22 +530,27 @@ static int gctl_stg_restart_hdlr(void)
 
             if (b_bugs_actv_nbr > 0)
             {
-                return(0);
+                return 0;
                 // jp   nz,gctl_game_runner  ; continue round w/ second (docked) ship... return to Game Runner Loop
             }
 
             // l_04B9_while_:
             while (0 != task_actv_tbl_0[0x1D])
             {
-                _updatescreen(1); // wait for arriving free'd fighter
-            } // jr   nz,l_04B9_while_captd_ship_landing
+                if ( 0 != _updatescreen(1) ) // wait for arriving free'd fighter
+                {
+                    // handle ESC
+                }
+            } // jr   nz,l_04B9_while_
 
             goto l_04DC_break; //  jr   l_04DC_break
 
         } // jr   z,l_04C1_while_wait_explosion_tmr
 
-        _updatescreen(1); // wait for explosion
-
+        if ( 0 != _updatescreen(1) ) // wait for explosion
+        {
+            // handle ESC
+        }
         // l_04C1_while_wait_explosion_tmr:
     }
     while (ds4_game_tmrs[3] > 0);
@@ -564,18 +575,19 @@ static int gctl_stg_restart_hdlr(void)
     if (0 == plyr_state_actv.not_chllng_stg)
     {
         // jp's back to 04DC_new_stage_setup
-        gctl_chllng_stg_end();
+        gctl_chllng_stg_end(); // blocks on busy-loops
     }
 
 l_04DC_break:
     // end of stage
 
-    gctl_stg_splash_scrn();
+    gctl_stg_splash_scrn(); // cleared stage ... short delay no ESC
     gctl_fghtr_rdy();  // jp   j_0632_gctl_fghtr_rdy
-    // jp   jp_045E_gctl_game_runner
 
-    // (returns from gctl_supv_stage and then return to gctl_game_runner
-    return(0); //returns gctl_plyr_terminate above
+
+    // returns gctl_plyr_terminate above
+    // returns from gctl_supv_stage and then return to gctl_game_runner
+    return 0; // jp   jp_045E_gctl_game_runner
 }
 
 /*=============================================================================
@@ -587,6 +599,8 @@ l_04DC_break:
 ;;  ...
 ;; OUT:
 ;;  ...
+;; RETURNS:
+;;  1 if game-over
 ;;---------------------------------------------------------------------------*/
 static int gctl_plyr_terminate(void)
 {
@@ -666,8 +680,10 @@ static int gctl_plyr_terminate(void)
 ;;--------------------------------------------------------------------------- */
 static void gctl_plyr_respawn_1P(void)
 {
-    if (0 == plyr_state_actv.b_nbugs) gctl_stg_splash_scrn();
-
+    if (0 == plyr_state_actv.b_nbugs)
+    {
+        gctl_stg_splash_scrn(); // blocks on busy-loop
+    }
     gctl_plyr_respawn_wait();
 }
 
@@ -679,11 +695,12 @@ static void gctl_plyr_respawn_1P(void)
 ;;   possibility of either player re-entering the game with 0 enemy count due
 ;;   to termination of last enemy of a stage by destruction of the fighter.
 ;;   If on a new game, PLAYER 1 text has been erased.
+;;   Need to return int to handle ESC and get out from _stg_splash_scrn
 ;;
 ;;--------------------------------------------------------------------------- */
 static void gctl_plyr_start_stg_init(void)
 {
-    gctl_stg_splash_scrn(); // shows "STAGE X" and does setup
+    gctl_stg_splash_scrn(); // shows "STAGE X" and does setup ... blocks on busy-loop
 
     gctl_plyr_startup();
 }
@@ -729,7 +746,7 @@ static void gctl_plyr_respawn_wait(void)
     }
     ds4_game_tmrs[2] = A;
 
-    c_tdelay_3();
+    c_tdelay_3(); // short delay for fighter respwn, no ESC
 
     gctl_fghtr_rdy();
 }
@@ -759,7 +776,8 @@ static void gctl_fghtr_rdy(void)
 /*=============================================================================
 ;; gctl_chllng_stg_end()
 ;;  Description:
-;;
+;;  Handle music and scoring of bonus-level ... blocks on busy-loops.
+;;  Needs to handle rvalue ... ESC doesn't work from here.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -1082,6 +1100,8 @@ static const uint8 gctl_point_fctrs[] =
 ;;  ...
 ;; OUT:
 ;;  ...
+;; RETURN:
+;;  1 == game over (gctl_stg_restart_hdlr)
 ;;---------------------------------------------------------------------------*/
 static int gctl_supv_stage(void)
 {

@@ -410,7 +410,7 @@ void gctl_stg_splash_scrn(void);
 
 /* gg1-2.c */
 void gctl_stg_tokens(uint8);
-void c_1230_init_taskman_structs(void);
+void g_init_taskman_defs(void);
 void sprite_tiles_display(uint8 const *);
 void c_133A_show_ship(void);
 void gctl_plyr_respawn_fghtr(void);
