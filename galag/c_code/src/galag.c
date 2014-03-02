@@ -113,13 +113,13 @@ void c_io_cmd_wait(void)
 
 /***************************************************************************
 
-  Execute periodic tasks
+  Simulate periodic tasks triggered on interrupts for all 3 CPUs
 
  ***************************************************************************/
 static void vblank_work(void)
 {
     // Execute the "CPU0" Vblank interrupt (RST38).
-    if (irq_acknowledge_enable_cpu0)
+    if (0 != irq_acknowledge_enable_cpu0) // rst38 enabled in cpu0_post
     {
         cpu0_rst38();
     }
@@ -128,14 +128,14 @@ static void vblank_work(void)
 
     // "CPU1" has a Vblank interrupt (RST38).
 
-    // if ( ! galaga_halt_w )
-    if (irq_acknowledge_enable_cpu1)
+    // galaga_halt_w
+    if (0 != irq_acknowledge_enable_cpu1) // rst38 enabled in cpu1_init
     {
         cpu1_rst38();
     }
 
     // CPU2 has 2 interrupts per frame (NMI)
-    if (nmi_acknowledge_enable_cpu2)
+    if (0 != nmi_acknowledge_enable_cpu2) // NMI enabled cpu2_init
     {
         cpu2_NMI();
         cpu2_NMI();
@@ -151,6 +151,8 @@ static void vblank_work(void)
         1 == blocking, i.e. read keys, doesn't return until vblank complete.
         0 == non-blocking, i.e. read keys but return if not vblank (not all
              that useful actually).
+             Turns out that when called from game_runner with 0 the fire key
+             doesn't work ... doesn't debounce. Read ESC key must be confined to vblank intervals?
 
  ***************************************************************************/
 int _updatescreen(int blocking)
@@ -303,7 +305,7 @@ int _updatescreen(int blocking)
   will take very little time to process all the code in the background task, so
   most time will be spent in the update, waiting for 1/60th-second to expire.
  ***************************************************************************/
-int g_exec(void)
+void g_exec(void)
 {
     int mstate = 1;
 
@@ -314,14 +316,13 @@ int g_exec(void)
     cpu1_init();
     cpu2_init();
 
-    if (0 != cpu0_post() )  return 0; // check for ESC
-
-    g_init();
-
-    while(mstate)
+    if (0 == cpu0_post() )   // check for ESC
     {
-        mstate = g_main();
-    } // while
+        g_init();
 
-    return 0;
+        while(mstate)
+        {
+            mstate = g_main();
+        } // while
+    }
 }
