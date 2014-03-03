@@ -210,6 +210,7 @@ int g_main(void)
     // clear the globals that share the $80 byte block ... it is implemented as
     // a struct so use a union of byte?
     //memset(b_9200, 0, 0x80);
+    glbls9200.flying_bug_attck_condtn = 0; // restarting after game-over ... should be 0 at demo
 
     ds_99B9_star_ctrl[5] = 6; // ?
 
