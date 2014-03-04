@@ -268,7 +268,7 @@ void gctl_stg_splash_scrn(void)
     // set the timer to synchronize finish of gctl_stg_tokens
     ds4_game_tmrs[2] = 3;
 
-    glbls9200.flying_bug_attck_condtn = 3; // 3 (begin round ... use 3 for optimization, but merely needs to be !0)
+    glbls9200.glbl_enemy_enbl = 3; // 3 (begin round ... use 3 for optimization, but merely needs to be !0)
 
     /*
       Set Cy to inhibit sound clicks for level tokens at challenge stage.

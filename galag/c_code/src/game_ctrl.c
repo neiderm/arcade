@@ -120,7 +120,7 @@ void g_init(void) // j_Game_init
 
     ds_99B9_star_ctrl[0] = 0; // 1 when ship on screen
 
-    // queue for boss+wing mission is only $0C bytes, so this initialization
+    // pool for boss+wing mission is only $0C bytes, so this initialization
     // would include b_CPU1_in_progress + b_CPU2_in_progress + 2 unused bytes
     memset(b_92C0_A, 0xff, 0x10);
 
@@ -210,7 +210,8 @@ int g_main(void)
     // clear the globals that share the $80 byte block ... it is implemented as
     // a struct so use a union of byte?
     //memset(b_9200, 0, 0x80);
-    glbls9200.flying_bug_attck_condtn = 0; // restarting after game-over ... should be 0 at demo
+    glbls9200.glbl_enemy_enbl = 0; // restarting after game-over ... should be 0 at demo
+    glbls9200.game_state = GAME_ENDED; // 0
 
     ds_99B9_star_ctrl[5] = 6; // ?
 
@@ -253,7 +254,7 @@ int g_main(void)
 
     // l_game_state_ready:
 
-    glbls9200.flying_bug_attck_condtn = 0; // 1 at demo mode, 3 at game start, and now 0
+    glbls9200.glbl_enemy_enbl = 0; // assert this in case demo was running
 
     j_string_out_pe(1, -1, 0x13); // "(c) 1981 NAMCO LTD"
     j_string_out_pe(1, -1, 0x01); // "PUSH START BUTTON"
@@ -628,6 +629,13 @@ static int gctl_plyr_terminate(void)
         c_sctrl_sprite_ram_clr();
         c_sctrl_playfld_clr();
 
+
+// l_0554: sync/wait for hi-score dlg music
+
+// l_055F: ... not sure how long the delay is
+//       halt                                       ; hi-score, finished name entry (wait for music to stop)
+//       jr   l_0554
+
        //l_0562:
        c_sctrl_playfld_clr(); // clear screen at end of game
 
@@ -683,7 +691,7 @@ static void gctl_plyr_respawn_1P(void)
 {
     if (0 == plyr_state_actv.b_nbugs)
     {
-        gctl_stg_splash_scrn(); // blocks on busy-loop
+        gctl_stg_splash_scrn(); // respawn_1P ... blocks on busy-loop
     }
     gctl_plyr_respawn_wait();
 }
@@ -701,7 +709,7 @@ static void gctl_plyr_respawn_1P(void)
 ;;--------------------------------------------------------------------------- */
 static void gctl_plyr_start_stg_init(void)
 {
-    gctl_stg_splash_scrn(); // shows "STAGE X" and does setup ... blocks on busy-loop
+    gctl_stg_splash_scrn(); // start_stg_init, shows "STAGE X" and does setup ... blocks on busy-loop
 
     gctl_plyr_startup();
 }

@@ -326,6 +326,7 @@ void objs_dispatcher(uint8 frame_ct)
 
                 // jp   l_2413 ... reset index to .b0 and continue
                 objs_dspch_ccnt += 1; // 2414
+
                 E += 4; // 2416
                 break;
 
@@ -411,16 +412,14 @@ void objs_dispatcher(uint8 frame_ct)
                 // _2488: stationary
             case STAND_BY:
                 L = E;
-
-                // use bit-1 of 4 Hz timer to animate nested aliens every 1/2
-                // second (selects tile code/offset 6 or 7 - fighters don't
-                // have any animation, so same tile bitmap in both 6 and 7)
+                // use bit-1 of 4 Hz timer to toggle tile-code 6 or 7 every 1/2
+                // second to animate standby enemy (fighter tile 6 and 7 same)
                 mrw_sprite.cclr[L].b0 &= ~0x01;
                 mrw_sprite.cclr[L].b0 |=
                     (0 != (ds3_92A0_frame_cts[2] & 0x02));
 
-                // if 0, then skip the rest but count object
-                if (0 != glbls9200.flying_bug_attck_condtn)
+                // if 0 ... nothing else to do, but count object
+                if (0 != glbls9200.glbl_enemy_enbl) // should be 0 at demo
                 {
                     // l_249B:
                     C = sprt_fmtn_hpos_ord_lut[ L + 0 ]; // row position index
@@ -432,9 +431,6 @@ void objs_dispatcher(uint8 frame_ct)
 
                     // jp   l_2413 ...  reset index to .b0 and continue
                     // dec  e  ; reset index/pointer to b0
-
-                    // l_2414_inc_active:
-                    //objs_dspch_ccnt++;
                 }
                 // l_2414_inc_active:
                 objs_dspch_ccnt += 1; // 2414

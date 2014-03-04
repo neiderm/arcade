@@ -65,13 +65,13 @@ typedef struct
 } mchn_cfg_t;
 
 /*
- * various globals ($9200[]} which probably don't make sense in a structure
+ * various globals lumped together in spare bytes of $9200[]
  */
 typedef struct
 {
     uint8 game_state; //               01
     uint8 demo_idx; //                 03
-    uint8 flying_bug_attck_condtn; //  0B
+    uint8 glbl_enemy_enbl; //          0B: global enable for enemy operations
     uint8 bug_nest_direction_lr; //    0F: 1:left, 0:right
     uint8 formatn_mv_signage; //       11: sign of formation pulse movement for snd mgr
     uint8 restart_stage; //            13: "end of attack" (all attackers go home)

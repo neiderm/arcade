@@ -146,7 +146,7 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     mctl_mpool[IX].b13 = rotn_flag | 0x01; // d
     mctl_mpool[IX].b0E = 0x1E; // bomb drop counter
 
-    if (0 == glbls9200.flying_bug_attck_condtn)
+    if (0 == glbls9200.glbl_enemy_enbl)
     {
         mctl_mpool[IX].b0F = 0; // bomb_drop_enbl_flags
     }

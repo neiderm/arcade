@@ -27,7 +27,7 @@ sprt_regs_t mrw_sprite;
 
 uint8 b_92A4_rockt_attribute[2]; // ref'd in gg1-5.c
 uint8 b_92C0_0[0x0A]; // idfk ...  (size <= 10)
-uint8 b_92C0_A[0x10]; // machine cfg params?
+uint8 b_92C0_A[0x10]; // pool for boss+wing mission
 
 
 /*
@@ -319,7 +319,7 @@ void f_17B2()
             else
             {
                 task_actv_tbl_0[0x05] = 1; // f_0857
-                j_string_out_pe(1, -1, 2); // string_out_pe ("GAME OVER")
+                j_string_out_pe(1, -1, 0x02); // string_out_pe ("GAME OVER")
             }
             break;
 
@@ -333,11 +333,14 @@ void f_17B2()
         case 0x0C: // l_1840
             // one time at end of demo, just before "HEROES" displayed, ship has been
             // erased from screen but remaining bugs may not have been erased yet.
+            glbls9200.glbl_enemy_enbl = 0;
             break;
 
         case 0x08: // l_1852
             // load fighter vectors for demo level (before capture)
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_bc;
+
+            glbls9200.glbl_enemy_enbl = 1;
             break;
 
             // in demo, as the last boss shot second time
@@ -362,7 +365,6 @@ void f_17B2()
                 ds4_game_tmrs[2] = 9;
                 return;
             }
-
             break;
 
             // ship just appeared in training mode (state active until f_1700 disables itself)
@@ -378,11 +380,9 @@ void f_17B2()
 
         case 0x03: // l_18D9
             // one time init for training mode ... 7 bugs etc.
-            B = 0;
-            while (B < 7)
+            for (B = 0; B < 7; B++)
             {
                 sprite_tiles_display(d_attrmode_sptiles_7 + B * 4);
-                B += 1;
             }
 
             plyr_state_actv.num_ships = 0;
@@ -396,10 +396,10 @@ void f_17B2()
 
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_tl; // fighter vectors for training level
 
-            memset(b_92C0_A, 0, 0x10);
+            memset(b_92C0_A, 0, 0x10); // pool for boss+wing mission
 
             plyr_state_actv.plyr_is_2ship = 0; // not 2 ship
-            glbls9200.flying_bug_attck_condtn = 0;
+            glbls9200.glbl_enemy_enbl = 0;
             plyr_state_actv.captur_boss_dive_flag = 1;
 
             task_actv_tbl_0[0x10] = 1; //  f_1B65 ... manage flying-bug-attack
@@ -512,12 +512,9 @@ void f_1A80(void)
 /*=============================================================================
 ;; f_1B65()
 ;;  Description:
-;;   Manage flying-bug-attack
-;;   In the demo, the task is first enabled as the 7 goblins appear in the
-;;   training mode screen. At that time, the 920B flag is 0.
-;;   The task starts again for diving attacks in the demo, the flag is then 1.
-;;
-;;   This is enabled at the end of f_2916 when the new-stage attack waves are complete.
+;;   Manage bomber attacks, enabled during demo in ship-movement phase, as well
+;;   as in training mode. Disabled at start of each round until all enemies are
+;;   are in home position, then enabled for the duration of the round.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -528,7 +525,10 @@ void f_1B65(void)
     r16_t pDE;
     uint8 A, B, L;
 
-    if (0 != glbls9200.flying_bug_attck_condtn
+    // this task would not be enabled during times that the global enable is
+    // 0 ... however if it WERE 0, it wouldn't be necessary to check if
+    // fighter-rescue is progressing ...
+    if (0 != glbls9200.glbl_enemy_enbl
             &&
             (0 == task_actv_tbl_0[0x15]) // f_1F04 (fire button input)
             &&
@@ -704,7 +704,7 @@ void f_1D76(void)
 ;;   collision detection is flagged in c_076A by setting the value to $81
 ;;
 ;;   this task is disabled only when the default task config is
-;;   re-loaded from ROM (c_1230_init_taskman_structs) just prior to the Top5
+;;   re-loaded from ROM (g_init_taskman_defs) just prior to the Top5
 ;;   screen shown in attract-mode.
 ;;
 ;; IN:
