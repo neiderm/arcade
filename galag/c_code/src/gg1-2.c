@@ -501,6 +501,7 @@ void c_game_or_demo_init(void)
 -----------------------------------------------------------------------------*/
 void sprite_tiles_display(uint8 const *p_sptiles_displ)
 {
+    r16_t tmp16;
     uint8 A, L;
 
     // index of object
@@ -527,16 +528,11 @@ void sprite_tiles_display(uint8 const *p_sptiles_displ)
 
     mrw_sprite.posn[ L ].b0 = p_sptiles_displ[2]; // posn.X
 
-    // Y coordinate: the table value is actually sprite.posn.Y<8..1> and
-    // the sla causes the Cy flag to pick up sprite.posn<8> ...
-    A = p_sptiles_displ[3] << 1; // sla  a
-    mrw_sprite.posn[ L ].b1 = A; // posn.y<0..7>
+    tmp16.word = p_sptiles_displ[3]; // posn.Y<8..1> from data
+    tmp16.word <<= 1;
+    mrw_sprite.posn[ L ].b1 = tmp16.pair.b0; // sla  a ... posn.y<7..0>
 
-    // ... sprite.posn<8>
-    // ld   a,#0
-    // rla
-    A = (p_sptiles_displ[3] >> 7) & 0x01;
-    mrw_sprite.ctrl[ L ].b1 = A;
+    mrw_sprite.ctrl[ L ].b1 = tmp16.pair.b1; // rla ... posn.y<8>
 
     return;
 }
