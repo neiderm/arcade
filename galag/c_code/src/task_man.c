@@ -330,7 +330,7 @@ static void gctl_stg_new_env_init(void)
 
     b_bug_flyng_hits_p_round = 0;
 
-    plyr_state_actv.captur_boss_enable = 0; // disable demo boss capture overide
+    plyr_state_actv.cboss_enable = 0; // disable demo boss capture overide
     plyr_state_actv.bonus_bee_launch_tmr = 0;
     plyr_state_actv.b_atk_wv_enbl = 0;
     plyr_state_actv.b_attkwv_ctr = 0;
@@ -339,7 +339,7 @@ static void gctl_stg_new_env_init(void)
 
     plyr_state_actv.bonus_bee_obj_offs = 1;
     plyr_state_susp.bonus_bee_obj_offs = 1;
-    plyr_state_susp.captur_boss_obj_offs = 1;
+    plyr_state_susp.cboss_obj_slot = 1;
 
     task_actv_tbl_0[0x0B] = 1; // f_1DB3 ... Update enemy status
     task_actv_tbl_0[0x08] = 1; // f_2916 ... Launches the attack formations

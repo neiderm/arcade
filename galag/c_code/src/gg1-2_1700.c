@@ -400,7 +400,7 @@ void f_17B2()
 
             plyr_state_actv.plyr_is_2ship = 0; // not 2 ship
             glbls9200.glbl_enemy_enbl = 0;
-            plyr_state_actv.captur_boss_dive_flag = 1;
+            plyr_state_actv.cboss_dive_flag = 1;
 
             task_actv_tbl_0[0x10] = 1; //  f_1B65 ... manage flying-bug-attack
             task_actv_tbl_0[0x0B] = 1; //  f_1DB3 ... checks enemy status at 9200
@@ -546,14 +546,15 @@ void f_1B65(void)
     {
         A = b_92C0_A[L]; // valid object index if slot active, otherwise $FF
 
-        if (0 == A) // jr   nz,l_1B8B
+        if (0xFF != A) // jr   nz,l_1B8B
         {
             // l_1B8B: launching element of boss+wing mission
 
             b_92C0_A[L] = 0xFF; // $FF disables the slot
-            sprt_mctl_objs[A].state &= ~INACTIVE; // res  7,e
 
-            if (1 != sprt_mctl_objs[A].state) // disposition resting/inactive
+            sprt_mctl_objs[A].state &= ~0x80; // res  7,e ... if set then negate rotation angle to (ix)0x0C
+
+            if (STAND_BY != sprt_mctl_objs[A].state) // disposition resting/inactive
             {
                 return; // ret  nz
             }
@@ -590,13 +591,6 @@ void f_1B65(void)
     }
     // else ... jr   z,l_1BA8
 
-
-    // l_1BB4:
-    if (b_bugs_flying_nbr >= ds_new_stage_parms[4]) // max_flying_bugs_this_rnd
-    {
-        return; // maximum nbr of bugs already flying
-    }
-
     // l_1BA8: check each bomber type for ready status i.e. boss, red, yellow, red
     L = 0; // ld   hl,#b_92C0 + 0x00 ... boss is slot 0
     B = 3; // ld   b,#3 ... boss is case 3-1=2
@@ -612,6 +606,14 @@ void f_1B65(void)
 
     if (0 == B) return; // all through loop and none are ready
 
+    // l_1BB4:
+    if (b_bugs_flying_nbr >= ds_new_stage_parms[4]) // jr   c,l_1BC0
+    {
+        // maximum nbr of bombers reached, set slot-counter back to 1 since
+        // it can't be processed right now and return
+        b_92C0_0[L] = 1; // inc  (hl)
+        return;
+    }
 
     // l_1BC0: launch another bombing excursion
     b_92C0_0[L] = b_92C0_0[L + 4]; // set  2,l ... reset counter
@@ -668,6 +670,14 @@ void f_1B65(void)
     }
     return;
 }
+
+/*=============================================================================
+;;  indices of 6 red aliens that rest under the 4 bosses.
+;;---------------------------------------------------------------------------*/
+static const uint8 d_wingmen_idxs[] =
+{
+    0x4A,0x52,0x5A,0x58,0x50,0x48
+};
 
 /*=============================================================================
 ;; f_1D32()

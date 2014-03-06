@@ -90,11 +90,11 @@ typedef struct
     uint8 not_chllng_stg; // stg_ctr+1%4 (0 if challenge stage)
     uint8 b_attkwv_ctr;
     uint8 plyr_is_2ship; // 1 ...player is two-ship
-    uint8 captur_boss_obj_offs; // both ships joined .... offset from 8800[] for active capturing boss
+    uint8 cboss_obj_slot; // both ships joined .... offset from 8800[] for active capturing boss
     //   0x09    ; set by cpu-b as capturing boss starts dive  (910D?)
     //   0x0A    ; related to ship-capture status
-    uint8 captur_boss_dive_flag; // 1 == capturing boss initiates his dive
-    uint8 captur_boss_enable; // only enable every other boss for capture
+    uint8 cboss_dive_flag; // 1 == capturing boss initiates his dive
+    uint8 cboss_enable; // only enable every other boss for capture
     uint8 bonus_bee_obj_offs; // offset of object that spawns the bonus bee
     //   0x0E    ; bonus "bee"... flashing color 'A' for bonus bee
     //   0x0F    ; bonus "bee"... flashing color 'B' for bonus bee
