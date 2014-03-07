@@ -302,8 +302,8 @@ int g_main(void)
 
     // Not sure about the intent of clearing $A0 bytes.. player data and resv data are only $80 bytes.
     // The structure at 98B0 is $30 bytes so it would not all be cleared (only $10 bytes)
-
-    // memset( player_data, 0, $a0 )
+    memset( (void *)&plyr_state_actv, 0, sizeof(t_struct_plyr_state));
+    memset( (void *)&plyr_state_susp, 0, sizeof(t_struct_plyr_state));
 
     b_9AA0[0x17] = 0; // enable CPU-sub2 process
     ds_99B9_star_ctrl[0] = 0; // star ctrl stop (1 when ship on screen)
@@ -1195,7 +1195,8 @@ void f_0857(void)
     A = gctl_bmbr_enbl_tmrs_set(ds_new_stage_parms[0], b_bugs_actv_nbr, 0);
     b_92C0_0[0x08] = A; // bomb drop enable timer loaded to bombers (0x0F)ix
 
-    if (1) //  if (0 != b_92AA_cont_bombing_flag)
+//    if (0 != bmbr_cont_flag)
+if (1)
     {
         // default inits for bomber activation timers
         b_92C0_0[0x04] = 2;
