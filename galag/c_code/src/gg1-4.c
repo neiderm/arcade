@@ -31,6 +31,10 @@ uint8 cpu0_post(void)
 
 // jp_RAM_test:
 
+    // a few variables may have residual values from RAM tests, put them here
+    ds_new_stage_parms[4] = 0xEA;
+    ds_new_stage_parms[5] = 0xEA;
+
     // enable f_05BE in CPU-sub1 (empty task) ... disabled in game_ctrl start
     cpu1_task_en[0] = 0x07; // skips to f_05BE in CPU-sub task-table
 
