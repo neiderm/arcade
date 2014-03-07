@@ -389,10 +389,13 @@ void f_17B2()
             task_actv_tbl_0[0x05] = 0; // f_0857
             c_133A_show_ship();
 
-            b_92C0_0[0x05] = 0xFF; // idfk
-            b_92C0_0[0x04] = 0x0D; // idfk
-            b_92C0_0[0x01] = 0xFF; // idfk
-            b_92C0_0[0x00] = 0x0D; // idfk
+            // set inits and override defaults of bomber timers (note f_0857 disabled above)
+            b_92C0_0[0x06] = 0xFF; // yellow alien default bomber timer
+            b_92C0_0[0x05] = 0xFF; // red alien default bomber timer
+            b_92C0_0[0x04] = 0x0D; // boss alien default bomber timer
+            b_92C0_0[0x02] = 0xFF; // bmbr timer yellow alien
+            b_92C0_0[0x01] = 0xFF; // bmbr timer red alien
+            b_92C0_0[0x00] = 0x0D; // bmbr timer boss
 
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_tl; // fighter vectors for training level
 
