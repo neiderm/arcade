@@ -776,6 +776,7 @@ l_1B00:
        inc  e
        ldi
        ldi
+; setup vector argument to c_1083
        ld   a,(ds_plyr_actv +_b_bbee_clr_b)
        sub  #4                                    ; convert color 4,5,or 6 to index from 0
        and  #0x0F                                 ; hmmmm.... we didn't do this before.. oh well
@@ -819,9 +820,9 @@ d_1B59:
        .db 0x0A,0xB8
        .db 0x14,0xBC
 d_1B5F:
-       .dw 0x04EA
-       .dw 0x0473
-       .dw 0x04AB
+       .dw db_04EA
+       .dw db_0473
+       .dw db_04AB
 
 ;;=============================================================================
 ;; f_1B65()
