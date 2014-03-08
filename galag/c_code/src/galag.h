@@ -53,6 +53,16 @@ typedef union
 } r16_t;
 
 /*
+ * bmbr boss slot
+ */
+typedef struct
+{
+    uint8 obj_idx;
+    uint8 unused; // even alignment probably forced anyway
+    uint16 vectr;
+} bmbr_boss_slot_t;
+
+/*
  * mchn cfg dipswitches
  */
 typedef struct
@@ -373,8 +383,8 @@ extern sprt_mctl_obj_t sprt_mctl_objs[];
 /* gg1-2_1700.c */
 extern sprt_regs_t mrw_sprite;
 extern uint8 b_92A4_rockt_attribute[];
-extern uint8 b_92C0_0[]; // idfk ...  (size <= 10)
-extern uint8 b_92C0_A[]; // machine cfg params?
+extern uint8 b_92C0_0[];
+extern bmbr_boss_slot_t bmbr_boss_pool[];
 
 /* gg1-3.c */
 extern mctl_pool_t mctl_mpool[];

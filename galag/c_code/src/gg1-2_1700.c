@@ -26,9 +26,8 @@
 sprt_regs_t mrw_sprite;
 
 uint8 b_92A4_rockt_attribute[2]; // ref'd in gg1-5.c
-uint8 b_92C0_0[0x0A]; // idfk ...  (size <= 10)
-uint8 b_92C0_A[0x10]; // pool for boss+wing mission
-
+uint8 b_92C0_0[0x0A]; // bmbr_timer_flags
+bmbr_boss_slot_t bmbr_boss_pool[4]; // index and movement vector
 
 /*
  ** static external definitions in this file
@@ -399,7 +398,7 @@ void f_17B2()
 
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_tl; // fighter vectors for training level
 
-            memset(b_92C0_A, 0, 0x10); // pool for boss+wing mission
+            memset(bmbr_boss_pool, 0xff, sizeof(bmbr_boss_slot_t) * 4);
 
             plyr_state_actv.plyr_is_2ship = 0; // not 2 ship
             glbls9200.glbl_enemy_enbl = 0;
@@ -525,7 +524,6 @@ void f_1A80(void)
 ;;---------------------------------------------------------------------------*/
 void f_1B65(void)
 {
-    r16_t pDE;
     uint8 A, B, L;
 
     // this task would not be enabled during times that the global enable is
@@ -547,34 +545,22 @@ void f_1B65(void)
     // l_1B7A:
     while (B > 0)
     {
-        A = b_92C0_A[L]; // valid object index if slot active, otherwise $FF
+        A = bmbr_boss_pool[L].obj_idx; // valid object index if slot active, otherwise $FF
 
         if (0xFF != A) // jr   nz,l_1B8B
         {
             // l_1B8B: launching element of boss+wing mission
 
-            b_92C0_A[L] = 0xFF; // $FF disables the slot
+            bmbr_boss_pool[L].obj_idx = 0xFF; // $FF disables the slot
 
-            sprt_mctl_objs[A].state &= ~0x80; // res  7,e ... if set then negate rotation angle to (ix)0x0C
+            A = bmbr_boss_pool[L].obj_idx & ~0x80; // res  7,e ... if set then negate rotation angle to (ix)0x0C
 
             if (STAND_BY != sprt_mctl_objs[A].state) // disposition resting/inactive
             {
                 return; // ret  nz
             }
 
-            //inc  l
-            //ld   e,(hl)
-            //inc  l
-            //ld   d,(hl)                                ; e.g. DE==0411
-            L += 1;
-            pDE.pair.b0 = b_92C0_A[L];
-            L += 1;
-            pDE.pair.b1 = b_92C0_A[L];
-
-            //ex   af,af'                                ; restore A (byte-0 of b_92C0_A[L + n*3] )
-            //ld   l,a
-            //ld   h,#>b_8800                            ; e.g. b_8800[$30]
-            bmbr_setup_fltq_boss(A, pDE.word); // L object index/offset, pDE is pointer to data
+            bmbr_setup_fltq_boss(A, bmbr_boss_pool[L].vectr); // L object index/offset, pDE is pointer to data
 
             b_9AA0[0x13] = 1; //  sound-fx count/enable registers, bug dive attack sound
 
@@ -582,7 +568,7 @@ void f_1B65(void)
         }
         else
         {
-            L += 3; // index to _92C0_A
+            L += 1; // inc  l  x3
             B -= 1;
         }
     } // end while ... djnz l_1B7A
@@ -628,20 +614,22 @@ void f_1B65(void)
     {
     case 0:
     case 1:
+    {
+        uint16 pDEflv;
         if (A == 0) // _1BD7
         {
             // set yellow launch params
             //l_1BD7:
             B = 20; // number of yellow aliens
             L = 0x08; // first object offset
-            pDE.word = _flv_d_atk_yllw;
+            pDEflv = _flv_d_atk_yllw;
         }
         else // if (A == 1) ... _1BF7
         {
             // set red launch params
             B = 16; // number of red aliens
             L = 0x40; // first object offset
-            pDE.word = _flv_d_atk_red;
+            pDEflv = _flv_d_atk_red;
             // jr   l_1BDF
         }
 
@@ -657,7 +645,7 @@ void f_1B65(void)
                 // ld   a,c ; unstash A ... offset_to_bonus_bee
                 // l_1BF0_found_one:
                 b_9AA0[0x13] = 1; // A (from C) !0 ... sound-fx count/enable registers, bug dive attack sound
-                bmbr_setup_fltq_drone(L, pDE.word); // offset, data ptr
+                bmbr_setup_fltq_drone(L, pDEflv); // offset, data ptr
                 return;
             }
             // l_1BEB_next:
@@ -665,6 +653,7 @@ void f_1B65(void)
             B -= 1; // djnz l_1BE3
         };
         break;
+    }
 
         // boss launcher ... only enable capture-mode for every other one ( %2 )
     case 2:
@@ -673,6 +662,21 @@ void f_1B65(void)
     }
     return;
 }
+
+
+/*=============================================================================
+;; j_1CAE()
+;;  Description:
+;; setup bonus scoring for this one
+;; IN:
+;;    e   - object/index of bomber
+;;    ixl -
+;;    iy  - pointer to flight vector data
+;;---------------------------------------------------------------------------*/
+void j_1CAE(uint8 e, uint8 ixl, uint16 iy )
+{
+}
+
 
 /*=============================================================================
 ;;  indices of 6 red aliens that rest under the 4 bosses.

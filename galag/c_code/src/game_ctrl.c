@@ -122,7 +122,7 @@ void g_init(void) // j_Game_init
 
     // pool for boss+wing mission is only $0C bytes, so this initialization
     // would include b_CPU1_in_progress + b_CPU2_in_progress + 2 unused bytes
-    memset(b_92C0_A, 0xff, 0x10);
+    memset(bmbr_boss_pool, 0xff, sizeof(bmbr_boss_slot_t) * 4);
 
     // galaga_interrupt_enable_1_w  seems to already be set, but we make sure anyway.
     sfr_6820 = 1; // (enable IRQ1)
