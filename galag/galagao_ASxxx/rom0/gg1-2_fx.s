@@ -351,11 +351,14 @@ l_18DB_while:
        ld   (ds_cpu0_task_actv + 0x05),a          ; 0 ... f_0857
        call c_133A                                ; show_ship
 
+; set inits and override defaults of bomber timers (note f_0857 disabled above)
        ld   hl,#0xFF0D
-       ld   (b_92C0 + 0x05),hl                    ; demo
-       ld   (b_92C0 + 0x04),hl                    ; demo
-       ld   (b_92C0 + 0x01),hl                    ; demo
-       ld   (b_92C0 + 0x00),hl                    ; demo
+       ; tmrs_init[0x06] = 0xFF
+       ld   (b_92C0 + 0x05),hl                    ; demo ... timrs[0x06] = $FF
+       ld   (b_92C0 + 0x04),hl                    ; demo ... timrs
+       ; tmrs[0x02] = 0xFF
+       ld   (b_92C0 + 0x01),hl                    ; demo ... timrs_ini[0x06] = $FF
+       ld   (b_92C0 + 0x00),hl                    ; demo ... timrs_ini
 
        ld   hl,#d_1928
        ld   (pdb_demo_fghtrvctrs),hl              ; &d_1928[0]
@@ -363,7 +366,7 @@ l_18DB_while:
 ; memset($92ca,$00,$10)
        xor  a
        ld   b,#0x10
-       ld   hl,#b_92C0 + 0x0A                     ; memset( ... , 0, $10 )
+       ld   hl,#bmbr_boss_pool                    ; memset( ... , 0, $10 )
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
 
        ld   (ds_plyr_actv +_b_2ship),a            ; 0: not 2 ship
@@ -802,7 +805,7 @@ l_1B00:
        or   c
        ld   (ds_plyr_actv +_b_bbee_clr_a),a
        ld   h,#>b_8800
-       call c_1083
+       call c_1083                                ; bomber setup, clone-attack mgr
 l_1B54_getout:
        xor  a
        ld   (ds_cpu0_task_actv + 0x04),a          ; 0: f_1A80 ... this task
@@ -823,12 +826,9 @@ d_1B5F:
 ;;=============================================================================
 ;; f_1B65()
 ;;  Description:
-;;   Manage bomber attacks
-;;   In the demo, the task is first enabled as the 7 goblins appear in the
-;;   training mode screen. At that time, the 920B flag is 0.
-;;   The task starts again for diving attacks in the demo, the flag is then 1.
-;;
-;;   This is enabled at the end of f_2916 when the new-stage attack waves are complete.
+;;   Manage bomber attacks, enabled during demo in fighter-movement phase, as
+;;   well as in training mode. Disabled at start of each round until all
+;;   enemies are in home position, then enabled for the duration of the round.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -851,17 +851,17 @@ f_1B65:
 ; check the queue for boss+wing mission ... parameters are queue'd by case boss launcher
 l_1B75:
        ld   b,#4
-       ld   hl,#b_92C0 + 0x0A                     ; check 4 groups of 3 bytes
+       ld   hl,#bmbr_boss_pool                    ; check 4 groups of 3 bytes
 l_1B7A:
        ld   a,(hl)                                ; .b0: valid object index if slot active, otherwise $FF
        inc  a                                     ; 0 if boss_wing_slots[n*4].b0 == $ff
-       jr   nz,l_1B8B                             ; if already active one then move on
-       inc  l                                     ; else advance pointer to next set and keep checking ...
+       jr   nz,l_1B8B                             ; if slot active, go launch it
+       inc  l
        inc  l
        inc  l
        djnz l_1B7A
 
-       ; insert a small delay
+       ; insert a 1/4 sec delay before trying next bomber
        ld   a,(ds3_92A0_frame_cts + 0)
        and  #0x0F
        jr   z,l_1BA8
@@ -871,7 +871,7 @@ l_1B7A:
 ; A == *HL + 1
 l_1B8B:
        ld   (hl),#0xFF                            ; 92CA[ n * 3 + 0 ] = $ff
-       dec  a                                     ; undo increment of boss_wing_slots[n]
+       dec  a                                     ; undo increment of boss_wing_slots[n].idx
        ld   d,#>b_8800
        ld   e,a                                   ; e.g. E=$30 (boss)   8834 (boss already has a captured ship)
        res  7,e                                   ; if set then negate rotation angle to (ix)0x0C
@@ -884,6 +884,7 @@ l_1B8B:
        dec  a
        ret  nz                                    ; exit if not available (demo)
 
+; pointer to object data (in cpu-sub1 code space)
        inc  l
        ld   e,(hl)                                ; e.g. 92CA[].b1, lsb of pointer to data
        inc  l
@@ -899,10 +900,7 @@ l_1B8B:
        ld   (b_9AA0 + 0x13),a                     ; 1 ... sound-fx count/enable registers, bug dive attack sound
        ret
 
-
 l_1BA8:
-; should check (b_bugs_flying_nbr >= ds_new_stage_parms[4]) here!
-
 ; check each bomber type for ready status i.e. yellow, red, boss
        ld   hl,#b_92C0 + 0x00                     ; 3 bytes, 1 byte for each slot, enumerates selection of red, yellow, or boss
        ld   b,#3
@@ -912,7 +910,7 @@ l_1BAD:
        inc  l
        djnz l_1BAD
 
-       ret
+       ret                                        ; none are ready
 
 l_1BB4:
 ; if (bugs_flying_nbr >= max_flying_bugs_this_rnd) then ...
@@ -922,9 +920,7 @@ l_1BB4:
        ld   a,(b_bugs_flying_nbr)
        cp   c
        jr   c,l_1BC0
-; bomber_rdy_tmr[n]++ && ret ... maximum nbr of bugs already flying
-; have to set slot counter back to 1 since it can't be processed right now
-; and we're too dumb to check at 1BA8
+; maximum nbr of bugs already flying set slot-counter back to 1 since it can't be processed right now
        inc  (hl)
        ret
 
@@ -963,7 +959,7 @@ case_1BD7:
 l_1BDF:
        ld   a,(ds_plyr_actv +_b_bbee_obj)         ; load bonus-bee parameter
        ld   c,a                                   ; stash A
-l_1BE3:
+l_1BE3_while:
 ; if ( disposition == STAND_BY ) && ...
        ld   a,(hl)                                ; obj_status[L].state
        dec  a
@@ -975,13 +971,13 @@ l_1BE3:
 l_1BEB_next:
        inc  l
        inc  l
-       djnz l_1BE3
+       djnz l_1BE3_while
 
        ret
 
 l_1BF0_found_one:
        ld   (b_9AA0 + 0x13),a                     ; from C, !0 ... sound-fx count/enable registers, bug dive attack sound
-       call c_1083
+       call c_1083                                ; bomber setup, red or yellow alien
        ret
 
 ; set red moth launch params
@@ -989,7 +985,7 @@ case_1BF7:
        ld   b,#16                                 ; number of red aliens
        ld   hl,#b_8800 + 0x40                     ; red moths $40-$5E
        ld   de,#db_flv_atk_red
-       jr   l_1BDF
+       jr   l_1BDF                                ; common to red and yellow alien
 
 ; boss launcher... only enable capture-mode for every other one ( %2 )
 case_1C01:
@@ -1008,13 +1004,13 @@ case_1C01:
        ld   de,#b_8800 + 0x30                     ; bosses start at $30 ... object/index of bomber to _1CAE
        ld   b,#0x04                               ; there are 4 of these evil creatures
 ; for each boss, first one that status==resting beomes capture-boss
-l_1C1B:
+l_1C1B_while:
        ld   a,(de)
        dec  a                                     ; if resting ... status == 1
        jr   z,l_1C24_boss_capture_enable
        inc  e                                     ; status bytes, evens ... i.e. 8830, 32, etc.
        inc  e
-       djnz l_1C1B
+       djnz l_1C1B_while
        ret
 
 l_1C24_boss_capture_enable:
@@ -1022,7 +1018,7 @@ l_1C24_boss_capture_enable:
        ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 1 ... capturing boss activated
        ld   a,e
        ld   (ds_plyr_actv +_b_cboss_obj),a
-       jp   j_1CAE                                ; parameters for boss+wing mission are setup
+       jp   j_1CAE                                ; parameters for boss+wing mission are setup, iy == &db_0454
 
 ; boss is diving/capturing ... look for a wingman.
 ; Get a moth index from d_1D2C, check if already flagged by plyr_state[0x0D].
@@ -1030,24 +1026,25 @@ l_1C30:
        ld   hl,#d_1D2C_wingmen
        ld   d,#>b_8800
        ld   bc,#6 * 256 + 0                       ; check 6 objects
-l_1C38:
+l_1C38_while:
        ld   e,(hl)
        inc  hl
        ld   a,(ds_plyr_actv +_b_bbee_obj)         ; check if bonus-bee
        cp   e
        jr   z,l_1C44
+; test if object_status = STAND_BY
        ld   a,(de)
-       dec  a
-       sub  #1
+       dec  a                                     ; one byte opcode ...
+       sub  #1                                    ; ... two bytes opcode, but sets Cy if A==0
 l_1C44:
        rl   c                                     ; shifts in a bit from Cy if object status was 1 (00 - 01 = FF)
-       djnz l_1C38
+       djnz l_1C38_while
 
        ld   ixl,#0
        ld   b,#4
        ld   ixh,c
 
-l_1C4F:
+l_1C4F_while:
        ld   a,c
        and  #0x07
        cp   #4
@@ -1056,18 +1053,18 @@ l_1C4F:
        call nc,c_1C8D                             ; this may pop the stack and return
 l_1C5B:
        rr   c
-       djnz l_1C4F
+       djnz l_1C4F_while
 
        inc  ixl
        ld   c,ixh                                 ; restore previous C
        ld   b,#4
 
-l_1C65:
+l_1C65_while:
        ld   a,c
        and  #0x07
        call nz,c_1C8D                             ; this may pop the stack and return
        rr   c
-       djnz l_1C65
+       djnz l_1C65_while
 
 ; got here by killing all the bosses
        inc  ixl
@@ -1146,10 +1143,10 @@ j_1CAE:
        rrca                                       ; bit-1 in Cy
        ld   a,e
        rla                                        ; Cy into bit-0
-       rrca                                       ; rotate bit-0 into bit-7
-       ld   (b_92C0 + 0x0A),a                     ; boss diving
+       rrca                                       ; restore A, with flag in Cy
+       ld   (bmbr_boss_pool),a                    ; object/index of bomber boss
        ex   af,af'
-       ld   (b_92C0 + 0x0A + 1),iy                ; boss diving
+       ld   (bmbr_boss_pool + 1),iy               ; flight vector of bomber boss
        inc  b
        ld   a,e
        and  #0x07
@@ -1168,15 +1165,15 @@ j_1CAE:
        ld   a,ixl
        cp   #2
        jr   z,l_1CE3
-       ld   de,#b_92C0 + 0x0A + 3                 ; 4 groups of 3 bytes
+       ld   de,#bmbr_boss_pool + 3                ; 4 groups of 3 bytes
        dec  a
        jr   z,l_1CE0
        call c_1D03                                ; DE==&boss_wing_slots[3] ... boss dives with wingman
 l_1CE0:
        call c_1D03                                ; DE==&boss_wing_slots[6] ... boss dives with wingman
 l_1CE3:
-       ld   a,(b_92C0 + 0x0A)                     ; boss diving
-       and  #0x07                                 ; mask off object/index of captured ships i.e. 00 04 06 02
+       ld   a,(bmbr_boss_pool)                    ; obj/index
+       and  #0x07                                 ; object/index of captured fighter i.e. 00 04 06 02
        ld   l,a
 ; check for 0
        ld   h,#>b_8800
@@ -1186,7 +1183,7 @@ l_1CE3:
 
        ld   c,l                                   ; object/index of captured ship e.g. $00, $02, $04, $06
 
-       ld   hl,#b_92C0 + 0x0A                     ; boss diving
+       ld   hl,#bmbr_boss_pool                    ; reset pointer, search for obj_idx==$FF
 l_1CF2:
        inc  l
        inc  l
@@ -1265,7 +1262,7 @@ l_1D16:
 ;;-----------------------------------------------------------------------------
 l_1D25:
        ld   de,#db_fltv_rogefgter
-       call c_1083
+       call c_1083                                ; rogue fighter
        ret
 
 ;;=============================================================================
@@ -1938,7 +1935,7 @@ l_1F71:
        pop  de                                    ; pointer to rocket attribute
        ld   (de),a
 
-       ld   h,#>b_8800                            ; code = 6 ... active rocket object
+       ld   h,#>b_8800                            ; disposition = 6 ... active rocket object
        ld   (hl),#6                               ; L == offsetof(rocket)
 
        ld   a,#1

@@ -58,9 +58,10 @@ j_Game_init:
        ld   (b_9215_flip_screen),a                ; 0 (not_flipped)
        ld   (ds_99B9_star_ctrl + 0),a             ; 0 ...1 when ship on screen
 
-;  memset($92ca,$ff,$10)
+; memset($92ca,$ff,$10) ... bmbr_boss_slots[] is only 12 bytes, so this initialization would
+; include b_CPU1_in_progress + b_CPU2_in_progress + 2 unused bytes
        dec  a                                     ; = $FF
-       ld   hl,#b_92C0 + 0x0A                     ; memset( ... , $FF, $10 )
+       ld   hl,#bmbr_boss_pool                    ; memset( ... , $FF, $10 )
        ld   b,#0x10
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
 
@@ -220,10 +221,10 @@ l_0380:
        ld   (ds_cpu0_task_actv + 0x02),a         ; 1 ... f_17B2 (control demo mode)
 
 ; while (game_state == ATTRACT_MODE) { ; }
-l_038D_:
+l_038D_while:
        ld   a,(b8_9201_game_state)                ; while (ATTRACT_MODE)
        dec  a
-       jr   z,l_038D_
+       jr   z,l_038D_while
 
 ; GameState == Ready ... reinitialize everthing
        call c_1230_init_taskman_structs
@@ -418,8 +419,9 @@ l_045E_while:
 
 
 ;;=============================================================================
-;; gctl_plyr_init()
+;; gctl_game_init()
 ;;  Description:
+;;   One-time setup for new game cycle.
 ;;   Reset score displays etc. for 1 player and/or 2 player.
 ;; IN:
 ;;  ...
@@ -614,6 +616,7 @@ l_0509_while:
        rst  0x28                                  ; memset(_9100_game_data,0,$F0)
        call c_sctrl_sprite_ram_clr
        call c_sctrl_playfld_clr
+
        ld   c,#0x15                               ; C=string_out_pe_index
        rst  0x30                                  ; string_out_pe ("-RESULTS-")
        ld   c,#0x16
@@ -1376,7 +1379,7 @@ f_0857:
 l_0865:
        ld   a,(b_bugs_actv_nbr)
        ld   c,a                                   ; parameter to c_08BE
-       ld   a,(ds_new_stage_parms + 0x00)
+       ld   a,(ds_new_stage_parms + 0x00)         ; set bomb drop enable flags
        ld   hl,#d_0909 + 0 * 4
        call c_08BE                                ; A==new_stage_parms[0], HL==d_0909, C==num_bugs_on_scrn
        ld   (b_92C0 + 0x08),a                     ; = c_08BE() ... bomb drop enable flags
@@ -1403,17 +1406,17 @@ l_0888:
        ld   a,(ds_new_stage_parms + 0x01)
        ld   hl,#d_0909 + 8 * 4                    ; offset the data pointer
        call c_08BE                                ; A==new_stage_parms[1], HL==d_0929, C==num_bugs_on_scrn
-       ld   (b_92C0 + 0x04),a                     ; =c_08BE()
+       ld   (b_92C0 + 0x04),a                     ; c_08BE() ... boss alien default bomber timer
 
        ld   a,(ds_new_stage_parms + 0x02)
        ld   hl,#d_08CD
        call c_08AD                                ; A==new_stage_parms[2], HL==d_08CD
-       ld   (b_92C0 + 0x05),a                     ; =c_08AD()
+       ld   (b_92C0 + 0x05),a                     ; c_08AD() ... red alien default bomber timer
 
        ld   a,(ds_new_stage_parms + 0x03)
        ld   hl,#d_08EB
        call c_08AD                                ; A==new_stage_parms[3], HL==d_08EB
-       ld   (b_92C0 + 0x06),a                     ; =c_08AD()
+       ld   (b_92C0 + 0x06),a                     ; c_08AD() ... yellow alien default bomber timer
 
        ret
 

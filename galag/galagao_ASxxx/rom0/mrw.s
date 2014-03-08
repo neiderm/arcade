@@ -411,8 +411,8 @@ b_92C0:
          .ds     $$01
          .ds     $$01  ; ?
 
-;_b_92CA
-; $0C bytes in 4 groups of 3 (l_1B75) ... slots for boss+wing missions
+bmbr_boss_pool:
+; 12 bytes in 4 groups of 3 ... slots for boss+wing missions
          .ds     $$0C
 
 b_CPU1_in_progress:
