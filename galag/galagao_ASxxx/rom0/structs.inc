@@ -30,11 +30,11 @@ _STRUCT  ; plyr_state
   _DS  _b_not_chllg_stg      1   ; 0x05  stg_ctr+1%4 (1 if not challenge stage)
   _DS  _b_attkwv_ctr         1   ; 0x06  atack_wave_ctr++
   _DS  _b_2ship              1   ; 0x07  1 ...player is two-ship
-  _DS  _b_cboss_obj          1   ; 0x08  offset from 8800[] for active capturing boss
+  _DS  _b_bmbr_boss_cobj     1   ; 0x08  object/index of active capturing boss
   _DS  _b_cboss_slot         1   ; 0x09  offset of slot used by capture boss, referenced by cpu0:f_21CB
   _DS  _b_captr_flag         1   ; 0x0A  related to ship-capture status
-  _DS  _b_cboss_dive_start   1   ; 0x0B  1 as capturing boss initiates his dive
-  _DS  _b_cboss_enbl         1   ; 0x0C  flag/counter ... we only enable every other boss for capture
+  _DS  _b_bmbr_boss_cflag    1   ; 0x0B  1 as capturing boss initiates his dive
+  _DS  _b_bmbr_boss_wingm    1   ; 0x0C  bomber boss wingman-enable toggled to select boss-bomber mode i.e. capture or wingman
   _DS  _b_bbee_obj           1   ; 0x0D  bonus "bee"... offset of object that spawns the bonus bee.
   _DS  _b_bbee_clr_a         1   ; 0x0E  bonus "bee"... flashing color 'A' for bonus bee
   _DS  _b_bbee_clr_b         1   ; 0x0F  bonus "bee"... flashing color 'B' for bonus bee

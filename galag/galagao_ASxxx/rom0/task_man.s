@@ -228,7 +228,7 @@ l_01AC:
        ld   a,#3
        ld   (ds4_game_tmrs + 2),a                 ; 3
 
-       ld   (ds_9200_glbls + 0x0B),a              ; 3 (begin round ... use 3 for optimization, but merely needs to be !0)
+       ld   (ds_9200_glbls + 0x0B),a              ; 3: enemy_enable, begin round, needs to be !0 (use 3 for optimization)
 
 ; if ( 0 != plyr_actv.b_not_chllg_stg ) Cy' = 0 ... set Cy to inhibit sound clicks for level tokens at challenge stage (1211)
        ld   a,(ds_plyr_actv +_b_not_chllg_stg)    ; parameter to sound manager passed through to c_build_token_1
@@ -282,17 +282,20 @@ l_01DF:
        ld   (ds_cpu0_task_actv + 0x09),a          ; 0  (f_1DE6 ... collective bug movement)
        ld   (ds_cpu0_task_actv + 0x10),a          ; 0  (f_1B65 ... Manage flying-bug-attack )
        ld   (ds_cpu0_task_actv + 0x04),a          ; 0  (f_1A80 ... bonus-bee manager)
-       ld   (b_bug_flyng_hits_p_round),a  ; 0
-       ld   (ds_plyr_actv +_b_cboss_enbl),a       ; 0: disable demo boss capture overide
+       ld   (b_bug_flyng_hits_p_round),a          ; 0
+
+       ld   (ds_plyr_actv +_b_bmbr_boss_wingm),a  ; 0: bomber boss wingman-enable will toggle to 1 on first boss-bomber launch
        ld   (ds_plyr_actv +_b_bbee_tmr),a         ; 0: bonus bee launch timer
        ld   (ds_plyr_actv +_b_atk_wv_enbl),a      ; 0: attack_wave_enable
        ld   (ds_plyr_actv +_b_attkwv_ctr),a       ; 0: atack_wave_ctr
+
        ld   (b8_99B0_X3attackcfg_ct),a            ; 0
        ld   (ds_plyr_actv +_b_nestlr_inh),a       ; 0: nest_lr_flag
        inc  a
        ld   (ds_plyr_actv +_b_bbee_obj),a         ; 1: bonus_bee_obj_offs
        ld   (ds_plyr_susp +_b_bbee_obj),a         ; 1
-       ld   (ds_plyr_actv +_b_cboss_obj),a        ; 1: captr_boss_obj_offs
+       ld   (ds_plyr_actv +_b_bmbr_boss_cobj),a   ; 1: invalidate the capture boss object
+
        ld   (ds_cpu0_task_actv + 0x0B),a          ; 1: f_1DB3 ... Update enemy status.
        ld   (ds_cpu0_task_actv + 0x08),a          ; 1: f_2916 ... Launches the attack formations
        ld   (ds_cpu0_task_actv + 0x0A),a          ; 1: f_2A90 ... left/right movement of collective while attack waves coming

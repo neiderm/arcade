@@ -29,7 +29,7 @@
 ;;  ...
 ;;-----------------------------------------------------------------------------
 f_2000:
-       ld   a,(ds_plyr_actv +_b_cboss_obj)        ; object locator for captured ship
+       ld   a,(ds_plyr_actv +_b_bmbr_boss_cobj)   ; object locator for captured ship
        ld   l,a
        ld   h,#>b_8800
        ld   a,(hl)
@@ -118,7 +118,7 @@ l_2075:
        cp   #3
        ret  nz
  ; both ships are now joined
-       ld   a,(ds_plyr_actv +_b_cboss_obj)        ; object locator for the captured ship
+       ld   a,(ds_plyr_actv +_b_bmbr_boss_cobj)   ; object locator for the captured ship
        ld   l,a
        ld   (hl),#0                               ; 0 out the sprite position of the captured ship object e.g. 9300, 9302 etc.
        inc  l
@@ -128,7 +128,7 @@ l_2075:
 
        ld   de,#ds_sprite_posn + 0x63             ; this is if ship (1) sprite code was 7
        xor  a
-       ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 0
+       ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 0 ... enable capture-mode selection
        jr   l_2097
 
 ; ship sprite code was 6
@@ -216,7 +216,7 @@ f_20F2:
        and  a
        ret  z
        ld   h,#>ds_sprite_posn
-       ld   a,(ds_plyr_actv +_b_cboss_obj)        ; object index of capturing boss i.e. 30 34 36 32
+       ld   a,(ds_plyr_actv +_b_bmbr_boss_cobj)   ; object index of capturing boss i.e. 30 34 36 32
        ld   e,a
        ld   d,h
        ld   a,(de)                                ; get capturing boss column position position
@@ -392,8 +392,8 @@ l_21C7:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 f_21CB:
-; if ( 9 == b_8800[ plyr_actv.captr_boss_id ] )
-       ld   hl,#ds_plyr_actv +_b_cboss_obj
+; if ( HOMING == b_8800[ plyr_actv.captr_boss_id ] )
+       ld   hl,#ds_plyr_actv +_b_bmbr_boss_cobj
        ld   e,(hl)
        ld   d,#>b_8800
        ld   a,(de)
@@ -443,7 +443,7 @@ l_21EC:
 l_221A:
        xor  a
        ld   (ds_cpu0_task_actv + 0x19),a          ; 0 (f_21CB)
-       ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 0
+       ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 0 ... enable capture-mode selection
        ret
 ; end 21CB
 
@@ -500,7 +500,7 @@ l_2257:
        ld   hl,#ds5_928A_captr_status + 0x01      ; check bit 7
        bit  7,(hl)
        jr   nz,l_226A
-       ld   a,(ds_plyr_actv +_b_cboss_obj)
+       ld   a,(ds_plyr_actv +_b_bmbr_boss_cobj)
        ld   e,a
        ld   d,#>b_8800
        ld   a,(de)
@@ -563,7 +563,7 @@ l_22AB:
        ld   (ds_cpu0_task_actv + 0x18),a          ; 0 (f_2222 ... this one)
        ld   (b_9AA0 + 0x05),a                     ; 0 ... sound-fx count/enable registers, capture beam sound active uno
        ld   (b_9AA0 + 0x06),a                     ; 0 ... sound-fx count/enable registers, capture beam sound active deux
-       ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 0
+       ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 0 ... enable capture-mode selection
        ret
 
 l_22C1:
@@ -608,9 +608,9 @@ l_22E3:
        ld   e,a
        ld   d,#>ds_bug_motion_que                 ; bug_flite_que[plyr.boss_slot].b0D = 1 ... token expiration on next step
        xor  a
-       ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 0
+       ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 0 ... enable capture-mode selection
        inc  a
-       ld   (ds_plyr_actv +_b_cboss_obj),a        ; 1
+       ld   (ds_plyr_actv +_b_bmbr_boss_cobj),a   ; 1 ... why 1?
        ld   (de),a                                ; bug_flite_que[plyr.cboss_slot].b0D = 1 ... token expiration on next step
        ret
 
@@ -921,7 +921,7 @@ case_2488:
        rrca
        rrca
        rl   (hl)
-       ld   a,(ds_9200_glbls + 0x0B)              ; if 0, then skip the rest but count object
+       ld   a,(ds_9200_glbls + 0x0B)              ; update stuff if enemy enable set
        and  a
        jp   z,l_2414_inc_active
 
@@ -1393,7 +1393,7 @@ l_2681_end_of_table:
        dec  e
 
 ; check capture-mode and two-ship status
-       ld   a,(ds_plyr_actv +_b_cboss_dive_start) ; 1 if capture-mode is active
+       ld   a,(ds_plyr_actv +_b_bmbr_boss_cflag)  ; 1 if capture-mode is active
        ld   b,a
        ld   a,(ds_plyr_actv +_b_2ship)
        dec  a

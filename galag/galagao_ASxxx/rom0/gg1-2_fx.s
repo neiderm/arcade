@@ -279,7 +279,7 @@ case_1840:
 ; one time init for demo (following training mode): just cleared the screen with "GAME OVER" shown
 case_1852:
        xor  a
-       ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 0
+       ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 0 ... enable capture-mode selection
        inc  a
        ld   (b_9AA0 + 0x17),a                     ; 1 ... sound_mgr_reset: non-zero causes re-initialization of sound mgr
        ld   (ds_plyr_actv +_b_stgctr),a           ; 1
@@ -294,7 +294,7 @@ case_1852:
        ld   a,#1
        ld   (ds_9200_glbls + 0x0B),a              ; 1 ... one time init for demo
        ld   (ds_plyr_actv +_b_atk_wv_enbl),a      ; 1 ... 0 when respawning player ship
-       ld   (ds_plyr_actv +_b_cboss_enbl),a       ; 1 ... for demo, force the first diving boss boss into capture mode
+       ld   (ds_plyr_actv +_b_bmbr_boss_wingm),a  ; 1 ... for demo, force the bomber-boss into wingman-mode
        inc  a
        ld   (ds_new_stage_parms + 0x04),a         ; 2 ... max_bombers (demo)
        ld   (ds_new_stage_parms + 0x05),a         ; 2 ... increases max bombers in certain conditions (demo)
@@ -372,7 +372,7 @@ l_18DB_while:
        ld   (ds_plyr_actv +_b_2ship),a            ; 0: not 2 ship
        ld   (ds_9200_glbls + 0x0B),a              ; 0: flying_bug_attck_condtn (demo)
        inc  a
-       ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 1 ...force this for training mode
+       ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 1 ... force bomber-boss wingman for training mode
        ld   (ds_cpu0_task_actv + 0x10),a          ; 1: f_1B65 ... Manage flying-bug-attack
        ld   (ds_cpu0_task_actv + 0x0B),a          ; 1: f_1DB3 ... Checks enemy status at 9200
        ld   (ds_cpu0_task_actv + 0x03),a          ; 1: f_1700 ... Ship-update in training/demo mode
@@ -523,7 +523,7 @@ l_19D2_fighter_captured:
        ld   a,#6                                  ; set time of countdown
        ld   (ds4_game_tmrs + 1),a                 ; 6 ...time to show fighter-captured-text
        ld   hl,#ds_sprite_posn + 0x62             ; ship (1) position
-       ld   a,(ds_plyr_actv +_b_cboss_obj)
+       ld   a,(ds_plyr_actv +_b_bmbr_boss_cobj)
        and  #7                                    ; captured ships are in same order as bosses, from 8800-8807
        ld   e,a
        ld   d,h
@@ -562,7 +562,7 @@ l_1A01_erase_text:
        ld   hl,#m_tile_ram + 0x03A0 + 0x11        ; "leftmost" column of row where "fighter captured" is displayed
        call c_string_out                          ; erase fighter capture text
 l_1A10:
-       ld   a,(ds_plyr_actv +_b_cboss_obj)
+       ld   a,(ds_plyr_actv +_b_bmbr_boss_cobj)
        ld   l,a
        and  #0x07                                 ; ships are in same order as bosses, from 8800-8807
        ld   e,a
@@ -638,15 +638,15 @@ l_1A58:
 
 l_1A6A_ship_in_position:
        xor  a
-       ld   (ds_cpu0_task_actv + 0x11),a          ; 0 (this task)
-       ld   (b_9AA0 + 0x09),a                     ; 0 ... sound-fx count/enable registers
+       ld   (ds_cpu0_task_actv + 0x11),a          ; 0: this task
+       ld   (b_9AA0 + 0x09),a                     ; 0: sound-fx count/enable registers
        ld   d,#>b_8800
        inc  a
-       ld   (de),a                                ; 1 ... b_8800[n] (stand-by position)
-       ld   (ds_plyr_actv +_b_cboss_obj),a        ; 1  .... e.g. was $32  i.e. object locator of capturing boss
-       ld   (ds_99B9_star_ctrl + 0x00),a          ; 1  (when ship on screen)
+       ld   (de),a                                ; 1: b_8800[n] (stand-by position)
+       ld   (ds_plyr_actv +_b_bmbr_boss_cobj),a   ; 1: invalidate the capture boss object (e.g. was $32)
+       ld   (ds_99B9_star_ctrl + 0x00),a          ; 1: when fighter on screen
        inc  a
-       ld   (ds_9200_glbls + 0x13),a              ; 2 ... restart-stage flag (fighter captured)
+       ld   (ds_9200_glbls + 0x13),a              ; 2: restart-stage flag (fighter captured)
        ret
 
 ;;=============================================================================
@@ -869,18 +869,18 @@ l_1B7A:
        ret
 
 ; launching element of boss+wing mission
-; A == *HL + 1
+; A == bmbr_boss_pool[L].obj_idx + 1
 l_1B8B:
-       ld   (hl),#0xFF                            ; 92CA[ n * 3 + 0 ] = $ff
+       ld   (hl),#0xFF                            ; bmbr_boss_pool[ n * 3 + 0 ] = $ff
        dec  a                                     ; undo increment of boss_wing_slots[n].idx
        ld   d,#>b_8800
        ld   e,a                                   ; e.g. E=$30 (boss)   8834 (boss already has a captured ship)
-       res  7,e                                   ; if set then negate rotation angle to (ix)0x0C
+       res  7,e                                   ; bit-7 was used to indicate negated rotation angle to (ix)0x0C
 
 ; stash A ... object/index from boss_wing_slots[n] (with bit-7 possibly set for negating rotation angle)
        ex   af,af'
 
-; if  (1 != obj_status[E].state) return ... disposition resting/inactivez
+; if (STAND_BY != obj_status[E].state) return ... disposition resting/inactivez
        ld   a,(de)                                ; .b0
        dec  a
        ret  nz                                    ; exit if not available (demo)
@@ -946,12 +946,12 @@ l_1BC0:
        jp   (hl)
 d_1BD1:
 ; jp table in order of bomber launch timers
-       .dw case_1BD7      ; yellow
-       .dw case_1BF7      ; red
-       .dw case_1C01      ; boss
+       .dw case_bmbr_yellow
+       .dw case_bmbr_red
+       .dw case_bmbr_boss
 
 ; set bee launch params
-case_1BD7:
+case_bmbr_yellow:
        ld   b,#20                                 ; number of yellow aliens
        ld   hl,#b_8800 + 0x08                     ; $08-$2E
        ld   de,#db_flv_atk_yllw
@@ -982,55 +982,57 @@ l_1BF0_found_one:
        ret
 
 ; set red moth launch params
-case_1BF7:
+case_bmbr_red:
        ld   b,#16                                 ; number of red aliens
        ld   hl,#b_8800 + 0x40                     ; red moths $40-$5E
        ld   de,#db_flv_atk_red
        jr   l_1BDF                                ; common to red and yellow alien
 
 ; boss launcher... only enable capture-mode for every other one ( %2 )
-case_1C01:
+case_bmbr_boss:
 ; if (boss is diving/capturing ) then goto 1C30
-       ld   a,(ds_plyr_actv +_b_cboss_dive_start) ; 1 if capture-mode is active
+       ld   a,(ds_plyr_actv +_b_bmbr_boss_cflag)  ; 1 if capture-mode is active / capture-mode selection suppressed
        and  a
        jr   nz,l_1C30
 ; if ( boss_capture_mode_toggle % 2 ) then goto 1C30
-       ld   hl,#ds_plyr_actv +_b_cboss_enbl       ; a capture boss can start every other cycle
+       ld   hl,#ds_plyr_actv +_b_bmbr_boss_wingm  ; toggle bomber boss wingman-enable
        inc  (hl)
        bit  0,(hl)
        jr   nz,l_1C30
 
+; capture-mode select: for each boss, first one that status==standby beomes capture-boss
        ld   ixl,2
        ld   iy,#db_0454
        ld   de,#b_8800 + 0x30                     ; bosses start at $30 ... object/index of bomber to _1CAE
        ld   b,#0x04                               ; there are 4 of these evil creatures
-; for each boss, first one that status==resting beomes capture-boss
+
 l_1C1B_while:
-       ld   a,(de)
-       dec  a                                     ; if resting ... status == 1
-       jr   z,l_1C24_boss_capture_enable
+       ld   a,(de)                                ; sprt_mctl_objs[de].state
+       dec  a                                     ; if disposition STAND_BY,  1->0
+       jr   z,l_1C24_is_standby
        inc  e                                     ; status bytes, evens ... i.e. 8830, 32, etc.
        inc  e
        djnz l_1C1B_while
        ret
 
-l_1C24_boss_capture_enable:
+l_1C24_is_standby:
        ld   a,#1
-       ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 1 ... capturing boss activated
+       ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 1 ... force next bomber-boss to wingman mode (suppress capture-boss select)
        ld   a,e
-       ld   (ds_plyr_actv +_b_cboss_obj),a
-       jp   j_1CAE                                ; parameters for boss+wing mission are setup, iy == &db_0454
+       ld   (ds_plyr_actv +_b_bmbr_boss_cobj),a   ; object/index of bomber to _1CAE ... bosses start at $30
+       jp   j_1CAE                                ; parameters for boss+wing mission are setup, iy == &db_0454 ... c_1C8D
 
-; boss is diving/capturing ... look for a wingman.
-; Get a moth index from d_1D2C, check if already flagged by plyr_state[0x0D].
+; alredy in capture-mode, or capture-mode select is suppressed this time ... look for a wingman
+; get red alien index, check if already flagged by plyr_state.clone_attkr_en
 l_1C30:
        ld   hl,#d_1D2C_wingmen
        ld   d,#>b_8800
-       ld   bc,#6 * 256 + 0                       ; check 6 objects
+       ld   bc,#6 * 256 + 0                       ; check 6 objects (B) and clear C
 l_1C38_while:
        ld   e,(hl)
        inc  hl
-       ld   a,(ds_plyr_actv +_b_bbee_obj)         ; check if bonus-bee
+; if "special attacker" skip test object_status STAND_BY
+       ld   a,(ds_plyr_actv +_b_bbee_obj)         ; check if wingman is already special-bomber
        cp   e
        jr   z,l_1C44
 ; test if object_status = STAND_BY
@@ -1041,22 +1043,24 @@ l_1C44:
        rl   c                                     ; shifts in a bit from Cy if object status was 1 (00 - 01 = FF)
        djnz l_1C38_while
 
-       ld   ixl,#0
+       ld   ixl,#0                                ; flag for 1st and 2nd loop?
        ld   b,#4
-       ld   ixh,c
+       ld   ixh,c                                 ; stash C ... bits set for each boss available in standby state
 
 l_1C4F_while:
+; if (4 != a && a >= 3)
        ld   a,c
        and  #0x07
        cp   #4
        jr   z,l_1C5B
        cp   #3
+       ; d == #>b_8800, e don't care
        call nc,c_1C8D                             ; this may pop the stack and return
 l_1C5B:
        rr   c
        djnz l_1C4F_while
 
-       inc  ixl
+       inc  ixl                                   ; ixl = 1
        ld   c,ixh                                 ; restore previous C
        ld   b,#4
 
@@ -1098,6 +1102,8 @@ l_1C83:
 ;;   for f_1B65
 ;; IN:
 ;;  B: 4,3,2,1 to select object/index of bomber
+;;  D: pre-loaded with lsb of pointer to objects array
+;;  IXL: pass thru to j_1CAE
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
@@ -1116,14 +1122,14 @@ l_1C94:
        sla  a
        add  a,#0x30                               ; boss objects are 30 34 36 32
        ld   e,a                                   ; object/index of bomber to _1CAE
-       ld   a,(de)
+       ld   a,(de)                                ; ; d == #>b_8800
        cp   #0x01                                 ; check for ready/available status
        ret  nz
 
        pop  hl                                    ; returns to task manager
 l_1CA0:
        ld   iy,#db_flv_0411
-       ld   a,(ds_9200_glbls + 0x0B)              ; data ptr boss launch: if (0), iy=$00F1, else iy=$0411
+       ld   a,(ds_9200_glbls + 0x0B)              ; enemy enable, select data ptr boss launch: if (0), iy=$00F1, else iy=$0411
        and  a
        jr   nz,j_1CAE
        ld   iy,#db_flv_00f1                       ; don't know when this one selected

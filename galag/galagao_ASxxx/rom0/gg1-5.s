@@ -178,7 +178,8 @@ db_flv_00d4:
 
 db_flv_00f1:
        .db 0x12,0x18,0x17,0x12,0x00,0x80,0xff
-       .db 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff
+; this is probably fill
+       .ds 8
 
 ; Copy of home position LUT from task_man.
 db_obj_home_posn_RC:
@@ -676,7 +677,7 @@ f_05EE:
 ;60c
        call hitd_fghtr_hit                        ; handle ship 2 collision
        xor  a
-       ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 0
+       ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 0 ... enable capture-mode selection
 
 l_0613:
 ; if ( ship position == 0 ) return
@@ -697,7 +698,7 @@ l_0613:
        jr   z,l_0639_not_two_ship
 
        xor  a
-       ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 0
+       ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 0 ... enable capture-mode selection
        ld   a,(ds_sprite_posn + 0x60)             ; get ship 2 position
        ld   (ds_sprite_posn + 0x62),a             ; ship_1_position = ship_2_position
        ld   a,(sfr_sprite_posn + 0x62)
@@ -1191,13 +1192,13 @@ l_07DB:
 
 l_07DF:
 ; if capture boss ...
-       ld   a,(ds_plyr_actv +_b_cboss_obj)
+       ld   a,(ds_plyr_actv +_b_bmbr_boss_cobj)
        sub  l
        jr   nz,l_07EC
 ; ... then ...
-       ld   (ds_plyr_actv +_b_cboss_dive_start),a ; 0  ... shot the boss that was starting the capture beam
+       ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 0: shot the boss that was starting the capture beam
        inc  a
-       ld   (ds_plyr_actv +_b_cboss_obj),a        ; 1  ... invalidate the capture boss object key
+       ld   (ds_plyr_actv +_b_bmbr_boss_cobj),a   ; 1: invalidate the capture boss object
 
 l_07EC:
 ; use the sprite color to get index to sound
@@ -1223,7 +1224,7 @@ l_07F8_:
        ld   a,c                                   ; sprite color
        cp   #7
        jr   nz,l_0808
-       ld   hl,#ds_plyr_actv +_b_cboss_dive_start ; 0
+       ld   hl,#ds_plyr_actv +_b_bmbr_boss_cflag  ; 0 ... enable capture-mode selection
        ld   (hl),#0
 
 l_0808:
@@ -1336,7 +1337,7 @@ l_0852:
        ld   (hl),#9                               ; color map 9 for white ship
        dec  l
        ld   a,l
-       ld   (ds_plyr_actv +_b_cboss_obj),a        ; updated object locator token of rescued ship   (token was 1)
+       ld   (ds_plyr_actv +_b_bmbr_boss_cobj),a   ; updated object locator token of rescued ship   (token was 1)
        ld   h,#>b_8800                            ; the captured ship object becomes inactive (0)
        xor  a
        ld   (hl),a
