@@ -51,7 +51,7 @@ static const uint8 d_bmbr_boss_wingm_idcs[];
 static void fmtn_expcon_comp(uint8, uint8, uint8); // compute formation expand/contract movement
 static void fghtr_ctrl_inp(uint8);
 static void rckt_sprite_init(void);
-
+static uint8 c_1C8D(uint8, uint8);
 
 /*============================================================================
 ;; data source for sprite tiles used in attract mode
@@ -660,7 +660,7 @@ void f_1B65(void)
     // _1C01: boss launcher ... only enable capture-mode for every other one ( %2 )
     case 2:
     {
-        uint8 hl, de;
+        uint8 b, c, hl, de, ixl;
 
         if (0 == plyr_state_actv.bmbr_boss_cflag)
         {
@@ -696,24 +696,105 @@ void f_1B65(void)
 // get red alien index from d_1D2C, check if already flagged for "special" bomber plyr_state[0x0D].
         for (hl = 0; hl < 6; hl++)
         {
-            uint8 c = 0;
+            c = 0; // ld   bc,#6 * 256 + 0
             de = d_bmbr_boss_wingm_idcs[hl];
+            c <<= 1;
             if (plyr_state_actv.bonus_bee_obj_offs != de)
             {
-                c <<= 1;
                 c |= (sprt_mctl_objs[de].state == STAND_BY);
             }
+            // else l_1C44: "special attacker", skip test STAND_BY
+
         } // djnz l_1C38_while
 
+        ixl = 0; // ld   ixl,#0
+        for (b = 0; b < 4; b++)
+        {
+            uint8 a = c & 0x07;
+            if (4 != a && a >= 3) // jr   z,l_1C5B
+            {
+                uint8 rv;
+                rv = c_1C8D(ixl, b);  // this may pop the stack and return
+                if (rv) return; // check ret and find a way to exit
+            }
+            // l_1C5B:
+            c >>= 1; //rr   c
+        } // djnz l_1C4F_while
+
+        ixl = 1; // inc  ixl
+        for (b = 0; b < 4; b++)
+        {
+            uint8 rv, a;
+            a = c & 0x07;
+            if (0 != a) // call nz,c_1C8D
+            {
+                rv = c_1C8D(ixl, b); // this may pop the stack and return
+                if (rv) return; // check ret and find a way to exit
+            }
+            c >>= 1; //rr   c
+        } // djnz l_1C65_while
+
+// got here by killing all the bosses
 
         break;
     }
     default:
         break;
     }
+
     return;
 }
 
+/*=============================================================================
+;; c_1C8D()
+;;  Description:
+;;   for f_1B65
+;; IN:
+;;  B: 4,3,2,1 to select object/index of bomber
+;;  IXL: 1st or second pass through loop? pass thru to j_1CAE
+;; OUT:
+;;  ...
+;; RETURN:
+;;
+;;---------------------------------------------------------------------------*/
+static uint8 c_1C8D(uint8 IXL, uint8 B)
+{
+    uint16 iy;
+    uint8 a;
+
+    /*
+    ; convert ordinal in B (i.e. 4,3,2,1) to object/index ... it's not intuitive:
+    ;  4 -> 4 -> 0 -> 0
+    ;  3 -> 2 -> 2 -> 4
+    ;  2 -> 3 -> 3 -> 6
+    ;  1 -> 1 -> 1 -> 2
+    */
+    a = B;
+    if (a & 0x01) a ^= 0x01;
+//l_1C94:
+    a &= 0x03;
+    a = (a<<3) + 0x30; // object/index of bomber
+
+    if (STAND_BY != sprt_mctl_objs[a].state)
+    {
+        return 1; // ret  nz
+    }
+
+    // l_1CA0:
+    if (0 != glbls9200.glbl_enemy_enbl)
+    {
+        iy = _flv_d_0411;
+    }
+    else
+    {
+        iy = _flv_d_00f1;
+    }
+
+    //j_1CAE(a, iy);
+
+
+    return 0;
+}
 
 /*=============================================================================
 ;; j_1CAE()

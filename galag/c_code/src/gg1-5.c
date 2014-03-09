@@ -166,6 +166,10 @@ static const uint8 flv_d_00d4[] =
 };
 
 // db_flv_00f1: this one or db_flv_0411 for boss launcher
+static const uint8 flv_d_00f1[] =
+{
+    0x12,0x18,0x17,0x12,0x00,0x80,0xff
+};
 
 
 // Look up table, indices into fmtn_hpos_ arrays for home-position
@@ -368,7 +372,9 @@ static const uint8 flv_d_atk_red[] =
 //};
 //static const uint8 _flv_i_040c[] = {
     0xFB,0x12,0x00,0xFF,0xFF,
+};
 //flv_d_0411: this one or flv_d_00f1
+static const uint8 flv_d_0411[] = {
     0x12,0x18,0x14,
 //};
 //static const uint8 _flv_i_0414[] = {
@@ -390,7 +396,9 @@ static const uint8 flv_d_atk_red[] =
     0x23,0x04,0x1A,0x23,0x03,0x1D,0x23,0x1A,0x25,0x23,0x03,0x10,0x23,0xFD,0x48,0xFD,
     W2B(_flv_i_0420),
 };
+// db_fltv_rogefgter:
 
+//db_0454:
 
 /************************************/
 uint8 flv_get_data(uint16 phl)
@@ -1319,7 +1327,7 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
 /*=============================================================================
 ;; f_08D3()
 ;;  Description:
-;;   Top level task to implement object flying motion.
+;;   Periodic task to supervise object motion.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -2441,6 +2449,7 @@ static const uint8 flv_d_0ff0[] =
 void flv_init_data(void)
 {
     FLV_MCPY( flv_d_001d      , 0x001D) // stg 1
+    FLV_MCPY( flv_d_00f1      , 0x00F1)
     FLV_MCPY( flv_p_004b      , 0x004B) // this one is a "jump" but is not contigous with previous so must be copied explicitly
     FLV_MCPY( flv_d_0067      , 0x0067) // stg 1
     FLV_MCPY( flv_d_009f      , 0x009F) // stg 2
@@ -2481,6 +2490,7 @@ FLV_MCPY( flv_d_0333      , 0x0333)
 //  FLV_MCPY(_flv_i_03cc      , 0x03CC)
 //  FLV_MCPY(_flv_i_03d7      , 0x03D7)
 //  FLV_MCPY(_flv_i_040c      , 0x040C)
+  FLV_MCPY( flv_d_0411      , 0x0411)
 //  FLV_MCPY(_flv_i_0414      , 0x0414)
 //  FLV_MCPY(_flv_i_0420      , 0x0420)
 //  FLV_MCPY(_flv_i_0425      , 0x0425)

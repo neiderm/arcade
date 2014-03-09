@@ -254,6 +254,7 @@ typedef struct
 typedef enum
 {
     _flv_d_001d      = 0x001D,
+    _flv_d_00f1      = 0x00F1,
     _flv_i_004b      = 0x004B,
     _flv_i_005e      = 0x005E,
     _flv_d_0067      = 0x0067,
@@ -297,6 +298,7 @@ typedef enum
     _flv_i_03cc      = 0x03CC,
     _flv_i_03d7      = 0x03D7,
     _flv_i_040c      = 0x040C,
+    _flv_d_0411      = 0x0411,
     _flv_i_0414      = 0x0414,
     _flv_i_0420      = 0x0420,
 //  _flv_i_0425      = 0x0425,
