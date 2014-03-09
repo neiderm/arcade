@@ -45,6 +45,7 @@ static uint8 fghtr_ctrl_dxflag;         // selection flag for dx increment of fi
 static const uint8 demo_fghtr_mvecs_ac[]; // fighter movement vectors, demo, after capture
 static const uint8 demo_fghtr_mvecs_bc[]; // fighter movement vectors, demo, before capture
 static uint8 fmtn_expcon_cinc_bits[][16]; // bitmap table for formation expand/contract movement
+static const uint8 d_bmbr_boss_wingm_idcs[];
 
 // function prototypes
 static void fmtn_expcon_comp(uint8, uint8, uint8); // compute formation expand/contract movement
@@ -402,7 +403,7 @@ void f_17B2()
 
             plyr_state_actv.plyr_is_2ship = 0; // not 2 ship
             glbls9200.glbl_enemy_enbl = 0;
-            plyr_state_actv.cboss_dive_flag = 1;
+            plyr_state_actv.bmbr_boss_cflag = 1;
 
             task_actv_tbl_0[0x10] = 1; //  f_1B65 ... manage flying-bug-attack
             task_actv_tbl_0[0x0B] = 1; //  f_1DB3 ... checks enemy status at 9200
@@ -545,22 +546,24 @@ void f_1B65(void)
     // l_1B7A:
     while (B > 0)
     {
-        A = bmbr_boss_pool[L].obj_idx; // valid object index if slot active, otherwise $FF
+        uint8 a, e;
+        a = bmbr_boss_pool[L].obj_idx; // valid object index if slot active, otherwise $FF
 
-        if (0xFF != A) // jr   nz,l_1B8B
+        if (0xFF != a) // jr   nz,l_1B8B
         {
             // l_1B8B: launching element of boss+wing mission
 
             bmbr_boss_pool[L].obj_idx = 0xFF; // $FF disables the slot
 
-            A = bmbr_boss_pool[L].obj_idx & ~0x80; // res  7,e ... if set then negate rotation angle to (ix)0x0C
+            // bmbr_boss_pool[L].obj_idx
+            e = a & ~0x80; // res  7,e ... if set then negate rotation angle to (ix)0x0C
 
-            if (STAND_BY != sprt_mctl_objs[A].state) // disposition resting/inactive
+            if (STAND_BY != sprt_mctl_objs[e].state) // disposition resting/inactive
             {
                 return; // ret  nz
             }
 
-            bmbr_setup_fltq_boss(A, bmbr_boss_pool[L].vectr); // L object index/offset, pDE is pointer to data
+            bmbr_setup_fltq_boss(a, bmbr_boss_pool[L].vectr); // L object index/offset, pDE is pointer to data
 
             b_9AA0[0x13] = 1; //  sound-fx count/enable registers, bug dive attack sound
 
@@ -573,7 +576,7 @@ void f_1B65(void)
         }
     } // end while ... djnz l_1B7A
 
-    // insert a small delay
+    // insert a 1/4 sec delay before trying next bomber
     if (0 != (ds3_92A0_frame_cts[0] & 0x0F))
     {
         return;
@@ -633,8 +636,7 @@ void f_1B65(void)
             // jr   l_1BDF
         }
 
-        // this section common to both bee and moth launcher, check for next one, skip if already active
-        //l_1BDF:
+        // l_1BDF: check for next red or yellow ready, skip if already active
         while (B > 0)
         {
             // test clone-attack parameter && object_status
@@ -655,8 +657,57 @@ void f_1B65(void)
         break;
     }
 
-        // boss launcher ... only enable capture-mode for every other one ( %2 )
+    // _1C01: boss launcher ... only enable capture-mode for every other one ( %2 )
     case 2:
+    {
+        uint8 hl, de;
+
+        if (0 == plyr_state_actv.bmbr_boss_cflag)
+        {
+            plyr_state_actv.cboss_enable += 1; // inc  (hl)
+            if (0x01 & plyr_state_actv.cboss_enable)
+            {
+                uint8 b;
+
+                // start-offset of object/index array and capture mode parameters
+                // similarish to bomber-setup of red/yellow
+                // ixl = 2
+                // iy = db_0454
+                de = 0x30; // bosses start at $30 ... object/index of bomber to _1CAE
+
+                for (b = 0; b < 4; b++)
+                {
+                    if (STAND_BY == sprt_mctl_objs[de].state)  break; // jr   z,l_1C24_is_standby
+
+                    de += 2;
+                }
+                if ( b >= 4 )  return;
+
+                //l_1C24_is_standby
+                plyr_state_actv.bmbr_boss_cflag = 1;
+                plyr_state_actv.bmbr_boss_cobj = de; // 0x30 + 2 * b
+
+                // jp   j_1CAE ... parameters for boss+wing mission are setup, iy == &db_0454 ... c_1C8D
+            }
+        }
+
+//l_1C30
+// already in capture-mode, or capture-mode select is suppressed this time ... look for a wingman
+// get red alien index from d_1D2C, check if already flagged for "special" bomber plyr_state[0x0D].
+        for (hl = 0; hl < 6; hl++)
+        {
+            uint8 c = 0;
+            de = d_bmbr_boss_wingm_idcs[hl];
+            if (plyr_state_actv.bonus_bee_obj_offs != de)
+            {
+                c <<= 1;
+                c |= (sprt_mctl_objs[de].state == STAND_BY);
+            }
+        } // djnz l_1C38_while
+
+
+        break;
+    }
     default:
         break;
     }
@@ -679,9 +730,9 @@ void j_1CAE(uint8 e, uint8 ixl, uint16 iy )
 
 
 /*=============================================================================
-;;  indices of 6 red aliens that rest under the 4 bosses.
+;;  indices of 6 red aliens that rest under the 4 bosses for wingmen selection
 ;;---------------------------------------------------------------------------*/
-static const uint8 d_wingmen_idxs[] =
+static const uint8 d_bmbr_boss_wingm_idcs[] =
 {
     0x4A,0x52,0x5A,0x58,0x50,0x48
 };

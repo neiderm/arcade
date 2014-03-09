@@ -339,7 +339,7 @@ static void gctl_stg_new_env_init(void)
 
     plyr_state_actv.bonus_bee_obj_offs = 1;
     plyr_state_susp.bonus_bee_obj_offs = 1;
-    plyr_state_susp.cboss_obj_slot = 1;
+    plyr_state_susp.bmbr_boss_cobj = 1;
 
     task_actv_tbl_0[0x0B] = 1; // f_1DB3 ... Update enemy status
     task_actv_tbl_0[0x08] = 1; // f_2916 ... Launches the attack formations

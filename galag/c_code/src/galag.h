@@ -93,29 +93,29 @@ typedef struct
  */
 typedef struct
 {
-    uint8 num_ships; // mchn_cfg_nships
+    uint8 num_ships;          // mchn_cfg_nships
     uint8 stage_ctr;
-    uint8 *p_atkwav_tbl; // &8920[n] (see 2896)
-    uint8 nest_lr_flag; // 1 or 0 .. flag to f_2A90, if 1 signifies nest left/right movement should stop
-    uint8 not_chllng_stg; // stg_ctr+1%4 (0 if challenge stage)
+    uint8 *p_atkwav_tbl;      // &8920[n] (see 2896)
+    uint8 nest_lr_flag;       // 1 or 0 .. flag to f_2A90, if 1 signifies nest left/right movement should stop
+    uint8 not_chllng_stg;     // stg_ctr+1%4 (0 if challenge stage)
     uint8 b_attkwv_ctr;
-    uint8 plyr_is_2ship; // 1 ...player is two-ship
-    uint8 cboss_obj_slot; // both ships joined .... offset from 8800[] for active capturing boss
+    uint8 plyr_is_2ship;      // 1 ...player is two-ship
+    uint8 bmbr_boss_cobj;     // object/index of active capturing boss
     //   0x09    ; set by cpu-b as capturing boss starts dive  (910D?)
     //   0x0A    ; related to ship-capture status
-    uint8 cboss_dive_flag; // 1 == capturing boss initiates his dive
-    uint8 cboss_enable; // only enable every other boss for capture
+    uint8 bmbr_boss_cflag;    // 1 == suppress select capture boss (force wingman)
+    uint8 cboss_enable;       // only enable every other boss for capture
     uint8 bonus_bee_obj_offs; // offset of object that spawns the bonus bee
     //   0x0E    ; bonus "bee"... flashing color 'A' for bonus bee
     //   0x0F    ; bonus "bee"... flashing color 'B' for bonus bee
-    uint8 pbm[0x10]; // array of pointers? ... 8 bytes, "01B501B501B501B5"
+    uint8 pbm[0x10];          // array of pointers? ... 8 bytes, "01B501B501B501B5"
     //   0x18-0x1D ?
-    uint8 mcfg_bonus0; // mach_cfg_bonus[0]...load at game start ... $9980
+    uint8 mcfg_bonus0;        // mach_cfg_bonus[0]...load at game start ... $9980
     //   0x1F    ; game_tmr_2, player1/2 switch
-    uint8 p1or2; // 0==plyr1, 1==plyr2
+    uint8 p1or2;              // 0==plyr1, 1==plyr2
     uint8 bonus_bee_launch_tmr;
-    uint8 b_atk_wv_enbl; // 0 when respawning player ship
-    uint8 b_nbugs; // b_bugs_actv_nbr
+    uint8 b_atk_wv_enbl;      // 0 when respawning player ship
+    uint8 b_nbugs;            // b_bugs_actv_nbr
     //   0x24    ; total_hits
     //   0x26    ; shots_fired
     //   0x28    ; 9AA0[0] ... sound_mgr_status, player1/2 switch
