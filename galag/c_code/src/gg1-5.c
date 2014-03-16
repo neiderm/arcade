@@ -398,11 +398,22 @@ static const uint8 flv_d_0411[] = {
 };
 // db_fltv_rogefgter:
 
-//db_0454:
+static const uint8 flv_d_0454[] = { // capture mode boss
+    0x12,0x18,0x14,0xf4,
+    0x12,0x00,0x04,0xfc,
+    0x48,0x00,0xfc,0xff,
+    0x23,0x00,0x30,0xf8,0xf9,0xfa,
+    W2B(_flv_i_040c),
+    0xfd,
+    W2B(_flv_i_0425)
+};
+
 
 /************************************/
 uint8 flv_get_data(uint16 phl)
 {
+    if (phl >= sizeof(flv_data))  return 0; // oops, whatya want me to do about it
+
     return flv_data[phl];
 }
 // this one is separate to allow breakpoint prior to selection of new command token
@@ -1419,8 +1430,14 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
 
             case 0xFF: // _0E49 (00): inactive
             {
-                // does it really go here?
-                break; //jp   l_0DFB_next_superloop
+                // training mode, make previous diving boss disabled
+                sprt_mctl_objs[ mctl_mpool[mpidx].b10 ].state = INACTIVE; // ld   (hl),#0x80
+                mrw_sprite.posn[ mctl_mpool[mpidx].b10 ].b0 = 0; // ld   (hl),#0
+                mctl_mpool[mpidx].b13 = 0; // ld   0x13(ix),#0x00
+
+                return; // only control token that exits the do
+
+                break; //jp   next__pool_idx
             }
 
             case 0xFE: // _0B16 (01): attack elements that break formation to attack ship (level 3+)
@@ -1648,7 +1665,9 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
             {
                 r16_t tmpA;
                 uint8 A;
-                // setup horizontal limits for targetting
+                // setup horizontal limits for targetting - red alien is
+                // somewhere around center-screen at the waypoint and can
+                // target horizontally $60 pixels left or right (to the limits)
                 if (mrw_sprite.posn[SPR_IDX_SHIP].b0 < 0x1E) // cp   #0x1E
                 {
                     tmpA.word = 0x1E;
@@ -1668,22 +1687,16 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                     tmpA.word = 0xF0 - tmpA.word + 0x01;
                 }
 
-                // (fighterX - alienX) / 4
-                // l_0A1E: subtract mctl.X<15:8> i.e. sprite.x<7:1>
+                // l_0A1E: fighterX - alienX
+                // first divide by 2 provides 9.7 scaling for sub
                 tmpA.word >>= 1; // srl  a
-                tmpA.word -= mctl_mpool[mpidx].cx.pair.b1;
+                tmpA.word -= mctl_mpool[mpidx].cx.pair.b1; // sprite.x<7:1>
 
-                // divide again by 2 ... Cy from sub rra'd into b7
-                // since it's unsigned, C (unlike MS-windoze
-                // calculator) doesn't sign extend the
-                // shift through all 16-bits, tho the sub was
-                // sign extended thru all 16 on negative result and
-                //  thus bit-8 effectively provides the Cy rra'd into <7>
+                // divide by 2 again ... b8 of 16-bit difference-result,
+                // shifted into b7, will capture Cy from sub in previous step.
                 tmpA.word >>= 1; // rra  a ... Cy into <7>
 
-                tmpA.pair.b1 = 0; // clear it so negative result of addition below can be detected (overflow condition)
-
-                // typically b<7:> if set then negate data to (ix)0x0C
+                // reverses path index for opposite rotation
                 if ( 0 != (mctl_mpool[mpidx].b13 & 0x80)) // bit  7,0x13(ix)
                 {
                     // negative (clockwise) rotation ... approach
@@ -1692,32 +1705,23 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 }
 
                 // l_0A2C_:
-                // offset to make positive index (working range
-                // -$18 to +$17) provides indices up to 4 available
-                // paths depending upon situation either to left
-                // or to right of fighter. This should mean that
-                // the targetting approach would be max'd out for
-                // delta > |($18*4)| ... (still not safe in corners tho?)
-                tmpA.word += (0x30 >> 1); // 0x18;
+                // offset to make positive index (working range -$18 to +$17)
+                // provides indices to 8 available paths ranging from fighter
+                // max-left (negative delta) to fighter max-right (positive delta)
+                A = tmpA.word + (0x30 / 2); // 0x18;
 
-                // test if offset'ed result still out of range negative (overflow if addition to negative delta is greater than 0)
-                if (0 == tmpA.pair.b1) // jp   p,l_0A32
+                // test if offseted result still out of range negative
+                if ((sint8)A < 0) // jp   p,l_0A32
                 {
-                    A = 0; // xor  a ... S is clear (overflow)
-                }
-                else
-                {
-                    A = tmpA.pair.b0;
+                    A = 0; // xor  a ... S is not set (overflow adding to negative sum)
                 }
 
                 //l_0A32:
-                // enforce upper limit on offset'ed result
+                // enforce upper limit on offseted result
                 if (A >= 0x30) A = 0x2F; // cp   #0x30 ... limit to 47 ... divide by 6 ... choose from 8
 
                 //l_0A38:
-                // divide number of index steps into scaled result
-                // ld   h,a
-                // ld   a,#6
+                // divide pixels-per-step into scaled/offseted/bounded delta
                 A = mctl_div_16_8(A, 6); // HL = HL / A
 
                 A = flv_get_data(pHLdata + A + 1); // adjust for index range 1 thru 8
