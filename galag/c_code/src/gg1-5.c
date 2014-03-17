@@ -1737,8 +1737,17 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 break; // jp   j_090E_flite_path_init
             }
 
-            case 0xF1: // _0968 (0E): diving attacks stop and aliens go home
+            // boss fly through bottom of screen to top
+            case 0xF1: // _0968 (0E):
             {
+                uint8 E, A;
+
+                E = mctl_mpool[mpidx].b10;
+
+                E = sprt_fmtn_hpos_ord_lut[ E + 0 ]; // row index
+                A = fmtn_hpos_orig[E / 2]; // x-coord (z80 must read from RAM copy)
+                mctl_mpool[mpidx].cy.pair.b1 = A + 0x20;
+
                 // jp   l_0B8B
                 //l_0B8B
                 pHLdata += 1; // inc  hl
