@@ -301,7 +301,7 @@ l_01DF:
        ld   (ds_cpu0_task_actv + 0x0A),a          ; 1: f_2A90 ... left/right movement of collective while attack waves coming
        call c_2C00                                ; new stage setup
 
-       ld   hl,#ds_plyr_actv +_ds_bonus_codescore ; set 8 bytes "01B501B501B501B5"
+       ld   hl,#ds_plyr_actv +_ds_bmbr_boss_scode ; set 8 bytes "01B501B501B501B5"
        ld   de,#0x0100 + 0x80 + 0x35              ; 400 sprite (d = $04 - $03)
        ld   b,#4
 l_0220:

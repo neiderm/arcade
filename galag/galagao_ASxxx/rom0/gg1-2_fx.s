@@ -994,7 +994,7 @@ case_bmbr_boss:
        ld   a,(ds_plyr_actv +_b_bmbr_boss_cflag)  ; 1 if capture-mode is active / capture-mode selection suppressed
        and  a
        jr   nz,l_1C30
-; if ( boss_capture_mode_toggle % 2 ) then goto 1C30
+; if ( plyr.cboss_enable_toggle % 2 ) then goto 1C30
        ld   hl,#ds_plyr_actv +_b_bmbr_boss_wingm  ; toggle bomber boss wingman-enable
        inc  (hl)
        bit  0,(hl)
@@ -1020,7 +1020,7 @@ l_1C24_is_standby:
        ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 1 ... force next bomber-boss to wingman mode (suppress capture-boss select)
        ld   a,e
        ld   (ds_plyr_actv +_b_bmbr_boss_cobj),a   ; object/index of bomber to _1CAE ... bosses start at $30
-       jp   j_1CAE                                ; parameters for boss+wing mission are setup, iy == &db_0454 ... c_1C8D
+       jp   j_1CAE                                ; parameters for boss+wing mission i.e. iy== &db_0454 ... c_1C8D, doesn't pop
 
 ; alredy in capture-mode, or capture-mode select is suppressed this time ... look for a wingman
 ; get red alien index, check if already flagged by plyr_state.clone_attkr_en
@@ -1047,27 +1047,29 @@ l_1C44:
        ld   b,#4
        ld   ixh,c                                 ; stash C ... bits set for each boss available in standby state
 
+; look for 2 adjoining red wingmen available
 l_1C4F_while:
-; if (4 != a && a >= 3)
        ld   a,c
        and  #0x07
-       cp   #4
+; if (a==3 || a==5 || a==6) ...
+       cp   #4                                     ; (a ! 4) ...
        jr   z,l_1C5B
-       cp   #3
+       cp   #3                                     ; && (a>=3)
        ; d == #>b_8800, e don't care
-       call nc,c_1C8D                             ; this may pop the stack and return
+       call nc,c_1C8D                             ; modifies b???
 l_1C5B:
        rr   c
        djnz l_1C4F_while
 
-       inc  ixl                                   ; ixl = 1
+; second pass, take what we can get
+       inc  ixl                                   ; ixl = 1 ... second pass, take what we can get
        ld   c,ixh                                 ; restore previous C
        ld   b,#4
 
 l_1C65_while:
        ld   a,c
        and  #0x07
-       call nz,c_1C8D                             ; this may pop the stack and return
+       call nz,c_1C8D                             ; modifies b???
        rr   c
        djnz l_1C65_while
 
@@ -1078,7 +1080,7 @@ l_1C65_while:
 l_1C76:
        ld   a,(de)
        dec  a
-       jr   z,l_1CA0
+       jr   z,j_1CA0                              ; does not pop HL
        inc  e
        inc  e
        djnz l_1C76
@@ -1127,19 +1129,20 @@ l_1C94:
        ret  nz
 
        pop  hl                                    ; returns to task manager
-l_1CA0:
+j_1CA0:
        ld   iy,#db_flv_0411
        ld   a,(ds_9200_glbls + 0x0B)              ; enemy enable, select data ptr boss launch: if (0), iy=$00F1, else iy=$0411
        and  a
        jr   nz,j_1CAE
-       ld   iy,#db_flv_00f1                       ; don't know when this one selected
+       ld   iy,#db_flv_00f1                       ; training-mode
 
 ;;=============================================================================
 ;; from f_1B65 (l_1C24)... boss diving.
 ;; setup bonus scoring for this one
 ;; IN:
+;;    b   - only matters if called for 2 adjoined wingmen??
 ;;    e   - object/index of bomber
-;;    ixl -
+;;    ixl - 2==capture_boss, 0==2_wingmen, 1==1_wingman
 ;;    iy  - pointer to flight vector data
 
 ;;-----------------------------------------------------------------------------
@@ -1150,17 +1153,19 @@ j_1CAE:
        rrca                                       ; bit-1 in Cy
        ld   a,e
        rla                                        ; Cy into bit-0
-       rrca                                       ; restore A, with flag in Cy
-       ld   (bmbr_boss_pool),a                    ; object/index of bomber boss
-       ex   af,af'
+       rrca                                       ; restore A, with flag in Cy but bit-7 cleared
+       ld   (bmbr_boss_pool + 0),a                ; object/index of bomber boss
+       ex   af,af'                                ; stash Cy for rotation flag
        ld   (bmbr_boss_pool + 1),iy               ; flight vector of bomber boss
        inc  b
-       ld   a,e
+; plyr_actv.bmbr_boss_scode[]
+       ld   a,e                                   ; object/index of bomber
        and  #0x07
-       ld   hl,#ds_plyr_actv +_ds_bonus_codescore
+       ld   hl,#ds_plyr_actv +_ds_bmbr_boss_scode
        rst  0x10                                  ; HL += A
+; d_1CFD[ixl]
        ld   a,ixl
-       ex   de,hl
+       ex   de,hl                                 ; stash hl (&plyr_actv.code)
        ld   hl,#d_1CFD
        rst  0x08                                  ; HL += 2A
        ld   a,(hl)
@@ -1169,17 +1174,22 @@ j_1CAE:
        inc  e
        ld   a,(hl)
        ld   (de),a
+
+; if (2 == ixl) then skip launching wingmen ... capture-boss situation
        ld   a,ixl
        cp   #2
        jr   z,l_1CE3
        ld   de,#bmbr_boss_pool + 3                ; 4 groups of 3 bytes
+; if (1 == ixl) ... setup 1 or 2 wingmen (dec b each call)
        dec  a
        jr   z,l_1CE0
-       call c_1D03                                ; DE==&boss_wing_slots[3] ... boss dives with wingman
+       call c_1D03                                ; DE==&boss_pool[3] ... boss dives with wingman
 l_1CE0:
-       call c_1D03                                ; DE==&boss_wing_slots[6] ... boss dives with wingman
+       call c_1D03                                ; DE==&boss_pool[6] ... boss dives with wingman
+
+; if rogue fighter for this boss !STAND_BY then return
 l_1CE3:
-       ld   a,(bmbr_boss_pool)                    ; obj/index
+       ld   a,(bmbr_boss_pool)                    ; obj/index (setup from function arguments above)
        and  #0x07                                 ; object/index of captured fighter i.e. 00 04 06 02
        ld   l,a
 ; check for 0
@@ -1188,25 +1198,28 @@ l_1CE3:
        dec  a
        ret  nz                                    ; return to task manager
 
-       ld   c,l                                   ; object/index of captured ship e.g. $00, $02, $04, $06
+       ld   c,l                                   ; object/index of rogue-fighter e.g. $00, $02, $04, $06
 
+; find available slot (don't know how many are occupied by wingmen?)
        ld   hl,#bmbr_boss_pool                    ; reset pointer, search for obj_idx==$FF
-l_1CF2:
+l_1CF2_while:
        inc  l
        inc  l
        inc  l
        ld   a,(hl)
        inc  a
-       jr   nz,l_1CF2
+       jr   nz,l_1CF2_while
 
 ; stash A (object/index of capture-boss), reload object/index of captured ship into A
-       ex   af,af'
+       ex   af,af'                                ; unstash rotation flag
        ld   a,c                                   ; object/index of captured ship
-       jr   l_1D16
+
+; hl already loaded so skip c_1D03
+       jr   l_1D16                                ; c_1D03 but skip the first bit
 
 ;;=============================================================================
 ;; data for c_1C8D:
-;; override bonus/score attribute in ds_plyr_actv._ds_array8[] for 3 of 4 bosses
+;; ixl selects bonus-score to override in ds_plyr_actv._ds_array8[]
 ;; .b0 ... add to bug_collsn[$0F] (adjusted scoring increment)
 ;; .b1 -> obj_collsn_notif[L] ... sprite code + 0x80
 d_1CFD:
@@ -1220,6 +1233,8 @@ d_1CFD:
 ;;   for c_1C8D
 ;;   ...boss takes a sortie with one or two wingmen attached.
 ;; IN:
+;;  B
+;;  C
 ;;  DE: &boss_wing_slots[n]
 ;; OUT:
 ;;  DE: &boss_wing_slots[n + 3]
@@ -1235,15 +1250,18 @@ l_1D0D:
        ld   a,b
        dec  b
        ld   hl,#d_1D2C_wingmen
-       rst  0x10                                  ; HL += A
+       rst  0x10                                  ; HL += A ... what's B?
        ex   af,af'
        ld   a,(hl)
        ex   de,hl                                 ; &boss_wing_slots[n] to HL
 
 ;;=============================================================================
-;; out of section at l_1CF2
+;; skipping the setup section (rogue fighter)
 ;; IN:
-;;  A - object/index of diver/bomber e.g. red bomber wingman, captured ship etc.
+;;  Cy - rotation flag?
+;;  A  - object/index of diver/bomber e.g. red bomber wingman, captured ship etc.
+;;  HL - index to bmbr_boss_pool[]
+;;  IY -
 ;;-----------------------------------------------------------------------------
 l_1D16:
 ; load boss_wing_slots[n + 0], and stash bit-7 of object/index in Cy
@@ -1251,7 +1269,7 @@ l_1D16:
        rrca
        ld   (hl),a                                ; &boss_wing_slots[n + 0]
 
-; stash Cy flag
+; stash Cy (rotation flag)
        ex   af,af'
 
        inc  l

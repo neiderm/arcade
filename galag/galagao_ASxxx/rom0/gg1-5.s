@@ -356,7 +356,7 @@ db_flv_0411:
 db_fltv_rogefgter:
   .db 0x12,0x18,0x14,0x12,0x03,0x2a,0x12,0x10,0x40,0x12,0x01,0x20,0x12,0xfe,0x78,0xff
 
-db_0454:
+db_0454: ; capture mode boss
   .db 0x12,0x18,0x14,0xf4
   .db 0x12,0x00,0x04,0xfc
   .db 0x48,0x00,0xfc,0xff
@@ -1356,7 +1356,7 @@ l_0899:
        ld   (ds4_game_tmrs + 1),a                 ; 6 ... captured ship timer
        ld   a,l
        and  #7                                    ; gets offset of object from $30
-       ld   hl,#ds_plyr_actv +_ds_bonus_codescore ; bonus code/scoring attributes for 1 of 4 flying bosses
+       ld   hl,#ds_plyr_actv +_ds_bmbr_boss_scode ; bonus code/scoring attributes for 1 of 4 flying bosses
        rst  0x10                                  ; HL += A
        ld   a,(hl)                                ; .b0 ... add to bug_collsn[$0F] (adjusted scoring increment)
        inc  l
@@ -1669,7 +1669,7 @@ l_0A16:
 l_0A1E:
        srl  a
        sub  0x03(ix)
-       rra                                        ; divide again by 2 ... also allows Cy from sub into b7
+       rra                                        ; divide again by 2 ... Cy from sub into b7
        bit  7,0x13(ix)                            ; if !z  then  a=-a
        jr   z,l_0A2C_
 ; negative (clockwise) rotation ... approach to waypoint is from right to left
@@ -1678,12 +1678,12 @@ l_0A1E:
 l_0A2C_:
 ; test if offset'ed result still out of range negative (overflow if addition to negative delta is greater than 0)
        add  a,#0x30>>1                            ; offset to positive range for selection of index
-       jp   p,l_0A32                              ; clear A if S is set
-       xor  a                                     ; !overflow
+       jp   p,l_0A32
+       xor  a                                     ; result still negative (S is set )
 l_0A32:
        cp   #0x30
        jr   c,l_0A38
-       ld   a,#0x2F                               ; when?
+       ld   a,#0x2F                               ; set upper limit
 l_0A38:
        ld   h,a
        ld   a,#6

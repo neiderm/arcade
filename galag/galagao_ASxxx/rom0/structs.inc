@@ -38,7 +38,7 @@ _STRUCT  ; plyr_state
   _DS  _b_bbee_obj           1   ; 0x0D  bonus "bee"... offset of object that spawns the bonus bee.
   _DS  _b_bbee_clr_a         1   ; 0x0E  bonus "bee"... flashing color 'A' for bonus bee
   _DS  _b_bbee_clr_b         1   ; 0x0F  bonus "bee"... flashing color 'B' for bonus bee
-  _DS  _ds_bonus_codescore   8   ; 0x10  bonus code/score attributes e.g. "01B501B501B501B5"
+  _DS  _ds_bmbr_boss_scode   8   ; 0x10  bonus code/score attributes e.g. "01B501B501B501B5"
   _DS  _ds_affay6            6   ; 0x18-0x1D ?
   _DS  _b_mcfg_bonus         1   ; 0x1E  load at game start from w_mchn_cfg_bonus ... $9980
   _DS  _b_plyr_swap          1   ; 0x1F  game_tmr_2, player1/2 switch
