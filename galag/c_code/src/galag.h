@@ -303,6 +303,7 @@ typedef enum
     _flv_i_0420      = 0x0420,
     _flv_i_0425      = 0x0425,
     _flv_i_0430      = 0x0430,
+    _flv_d_0454      = 0x0454,
 //  _flv_d_cboss     = 0x046B,
 //  _flv_i_0499      = 0x0499,
 //  _flv_d_04c6      = 0x04C6,

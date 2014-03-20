@@ -46,6 +46,7 @@ static const uint8 demo_fghtr_mvecs_ac[]; // fighter movement vectors, demo, aft
 static const uint8 demo_fghtr_mvecs_bc[]; // fighter movement vectors, demo, before capture
 static uint8 fmtn_expcon_cinc_bits[][16]; // bitmap table for formation expand/contract movement
 static const uint8 d_bmbr_boss_wingm_idcs[];
+static const uint8 d_1CFD[];
 
 // function prototypes
 static void fmtn_expcon_comp(uint8, uint8, uint8); // compute formation expand/contract movement
@@ -53,6 +54,8 @@ static void fghtr_ctrl_inp(uint8);
 static void rckt_sprite_init(void);
 static uint8 c_1C8D(uint8, uint8);
 static void j_1CAE(uint8, uint8, uint8, uint16);
+static void bmbr_boss_wingm_go(uint16, uint8);
+static void l_1D16(uint8, uint16, uint8);
 
 /*============================================================================
 ;; data source for sprite tiles used in attract mode
@@ -400,7 +403,7 @@ void f_17B2()
 
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_tl; // fighter vectors for training level
 
-            memset(bmbr_boss_pool, 0xff, sizeof(bmbr_boss_slot_t) * 4);
+            memset(bmbr_boss_pool, 0, sizeof(bmbr_boss_slot_t) * 4);
 
             plyr_state_actv.plyr_is_2ship = 0; // not 2 ship
             glbls9200.glbl_enemy_enbl = 0;
@@ -668,7 +671,7 @@ void f_1B65(void)
         {
             // toggle bit-0 and check if capture mode should be enabled
             plyr_state_actv.cboss_enable += 1; // inc  (hl)
-            if (0x01 & plyr_state_actv.cboss_enable)
+            if (0 == (0x01 & plyr_state_actv.cboss_enable)) // bit  0,(hl)
             {
                 uint8 b;
 
@@ -691,15 +694,17 @@ void f_1B65(void)
                 plyr_state_actv.bmbr_boss_cobj = de; // 0x30 + 2 * b
 
                 // jp   j_1CAE ... parameters for boss+wing mission are setup, iy == &db_0454 ... c_1C8D
+                j_1CAE(2, b, de, _flv_d_0454); // capture boss
             }
         }
 
 //l_1C30
 // already in capture-mode, or capture-mode select is suppressed this time ... look for a wingman
 // get red alien index from d_1D2C, check if already flagged for "special" bomber plyr_state[0x0D].
+        c = 0; // ld   bc,#6 * 256 + 0
+
         for (hl = 0; hl < 6; hl++)
         {
-            c = 0; // ld   bc,#6 * 256 + 0
             de = d_bmbr_boss_wingm_idcs[hl];
             c <<= 1;
             if (plyr_state_actv.bonus_bee_obj_offs != de)
@@ -752,7 +757,7 @@ void f_1B65(void)
 /*=============================================================================
 ;; c_1C8D()
 ;;  Description:
-;;   for f_1B65
+;;   attempt to enable bomber-boss for selected wingman-alien(s)
 ;; IN:
 ;;  B: 4,3,2,1 to select object/index of bomber boss
 ;;  IXL: 1st or second pass through loop? pass thru to j_1CAE
@@ -763,15 +768,13 @@ void f_1B65(void)
 ;;---------------------------------------------------------------------------*/
 static uint8 c_1C8D(uint8 IXL, uint8 B)
 {
-    uint16 iy;
-    uint8 a;
-
+    uint8 a, e;
     /*
-    ; convert ordinal in B (i.e. 4,3,2,1) to object/index ... it's not intuitive:
-    ;  4 -> 4 -> 0 -> 0
-    ;  3 -> 2 -> 2 -> 4
-    ;  2 -> 3 -> 3 -> 6
-    ;  1 -> 1 -> 1 -> 2
+      convert ordinal in B (i.e. 4,3,2,1) to object/index ... it's not intuitive:
+       3 -> 2 -> 2 -> $34
+       2 -> 3 -> 3 -> $36
+       1 -> 1 -> 1 -> $32
+       0 -> 0 -> 0 -> $30
     */
     a = B;
     if (a & 0x02) // bit  1,a
@@ -780,9 +783,9 @@ static uint8 c_1C8D(uint8 IXL, uint8 B)
     }
 //l_1C94:
     a &= 0x03;
-    a = (a << 1) + 0x30; // object/index of bomber
+    e = (a << 1) + 0x30; // object/index of bomber
 
-    if (STAND_BY != sprt_mctl_objs[a].state)
+    if (STAND_BY != sprt_mctl_objs[e].state)
     {
         return 0; // ret  nz
     }
@@ -790,11 +793,11 @@ static uint8 c_1C8D(uint8 IXL, uint8 B)
     // l_1CA0:
     if (0 != glbls9200.glbl_enemy_enbl)
     {
-        iy = _flv_d_0411;
+        j_1CAE(IXL, B, e, _flv_d_0411);
     }
     else
     {
-        iy = _flv_d_00f1;
+        j_1CAE(IXL, B, e, _flv_d_00f1); // training-mode
     }
     return 1;
 }
@@ -802,29 +805,56 @@ static uint8 c_1C8D(uint8 IXL, uint8 B)
 /*=============================================================================
 ;; j_1CAE()
 ;;  Description:
-;; setup bonus scoring for this one
+;; Setup scoring of boss, launch red-alien wingman and possibly rogue fighter.
 ;; IN:
 ;;    b   -
 ;;    e   - object/index of boss
 ;;    ixl - 2==capture_boss, 0==2_wingmen, 1==1_wingman
 ;;    iy  - pointer to flight vector data
 ;;---------------------------------------------------------------------------*/
-static void j_1CAE(uint8 b, uint8 e, uint8 ixl, uint16 iy)
+static void j_1CAE(uint8 ixl, uint8 b, uint8 e, uint16 iy)
 {
     uint8 xCy, hl;
 
+    xCy = (0 != (e & 0x02)); // ex   af,af' ... stash Cy for rotation flag
+
+    // flag in Cy but bit-7 cleared
+    bmbr_boss_pool[0].obj_idx = (xCy  << 7) | (e & 0x7F);
+
+    bmbr_boss_pool[0].vectr = iy;
+
+    // inc  b
+
+    // plyr_actv.bmbr_boss_scode[(e & 0x07) + 0] = d_1CFD[ixl*2+0];
+    // plyr_actv.bmbr_boss_scode[(e & 0x07) + 1] = d_1CFD[ixl*2+1];
+
+    if (2 != ixl)
+    {
+        uint8 de = 0;
+        // setup 1 or 2 wingmen
+        if (0 == ixl)
+        {
+            bmbr_boss_wingm_go(iy, 0);
+            de = 1;
+        }
+        bmbr_boss_wingm_go(iy, de);
+    }
+
+    //l_1CE3:  if rogue fighter for this boss !STAND_BY then return
+    hl = bmbr_boss_pool[0].obj_idx & 0x07;
+    if (STAND_BY != sprt_mctl_objs[hl].mctl_idx)  return;
 
     // find available slot (don't know how many are occupied by wingmen)
     for (hl = 0; hl < 4; hl++) // z80 doesn't bother with this bounds check
     {
     }
 
-    // hl already loaded so skip c_1D03
+    // hl already loaded so skip setup on bmbr_boss_wingm_go
     //l_1D16(a, iy, hl);
 }
 
 /*=============================================================================
-;; data for c_1C8D:
+;; data for c_1C8D (should be scoped locally to "j_1CAE" subroutine):
 ;; override bonus/score attribute in ds_plyr_actv._ds_array8[] for 3 of 4 bosses
 ;; .b0 ... add to bug_collsn[$0F] (adjusted scoring increment)
 ;; .b1 -> obj_collsn_notif[L] ... sprite code + 0x80
@@ -837,7 +867,7 @@ static const uint8 d_1CFD[] =
 };
 
 /*=============================================================================
-;; c_1D03()
+;; bmbr_boss_wingm_go()
 ;;  Description:
 ;;   for c_1C8D
 ;;   ...boss takes a sortie with one or two wingmen attached.
@@ -848,13 +878,15 @@ static const uint8 d_1CFD[] =
 ;; OUT:
 ;;  DE: &boss_wing_slots[n + 3]
 ;;---------------------------------------------------------------------------*/
-static void c_1D03(uint16 iy, uint8 de)
+static void bmbr_boss_wingm_go(uint16 iy, uint8 de)
 {
+    uint8 a = 0;
 
+    l_1D16(a, iy, de);
 }
 
 /*=============================================================================
-;; out of section at l_1CF2
+;; skipping the setup section (rogue fighter)
 ;; IN:
 ;;  Cy - rotation flag?
 ;;  A  - object/index of diver/bomber e.g. red bomber wingman, captured ship etc.
