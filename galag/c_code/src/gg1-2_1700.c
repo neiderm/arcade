@@ -52,7 +52,7 @@ static const uint8 d_1CFD[];
 static void fmtn_expcon_comp(uint8, uint8, uint8); // compute formation expand/contract movement
 static void fghtr_ctrl_inp(uint8);
 static void rckt_sprite_init(void);
-static uint8 c_1C8D(uint8, uint8, uint8);
+static uint8 c_1C8D(uint8, uint8, uint8, uint16);
 static void j_1CAE(uint8, uint8, uint8, uint16);
 static void bmbr_boss_wingm_go(uint16, uint8);
 static void l_1D16(uint8, uint16, uint8);
@@ -697,7 +697,7 @@ void f_1B65(void)
                     plyr_state_actv.bmbr_boss_cobj = de; // 0x30 + 2 * b
 
                     // jp   j_1CAE ... parameters for boss+wing mission are setup, iy == &db_0454 ... c_1C8D
-                    j_1CAE(2, b, de, _flv_d_0454); // capture boss
+                    c_1C8D(0xFF, 2, b, _flv_d_0454); // jp   j_1CAE ... capture boss
                 }
                 return;
             }
@@ -728,7 +728,7 @@ void f_1B65(void)
             if (4 != a && a >= 3) // if (a==3 || a==5 || a==6)  ... jr   z,l_1C5B
             {
                 uint8 rv;
-                rv = c_1C8D(0xFF, 0, b);  // this may pop the stack and return
+                rv = c_1C8D(0xFF, 0, b, 0xFFFF);  // this may pop the stack and return
                 if (rv) return; // check ret and find a way to exit
             }
             // l_1C5B:
@@ -742,7 +742,7 @@ void f_1B65(void)
             a = c & 0x07;
             if (0 != a) // call nz,c_1C8D
             {
-                rv = c_1C8D(0xFF, 1, b); // this may pop the stack and return
+                rv = c_1C8D(0xFF, 1, b, 0xFFFF); // this may pop the stack and return
                 if (rv) return; // check ret and find a way to exit
             }
             c >>= 1; //rr   c
@@ -757,7 +757,7 @@ void f_1B65(void)
 
             if (STAND_BY == sprt_mctl_objs[e].state ) // jr   z,j_1CA0
             {
-                rv = c_1C8D(e, 2, b); // into c_1C8D but skip index selection
+                rv = c_1C8D(e, 2, b, 0xFFFF); // into c_1C8D but skip index selection
                 if (rv) return; // check ret and find a way to exit
             }
         } // djnz l_1C76_while
@@ -798,45 +798,51 @@ void f_1B65(void)
 ;; RETURN:
 ;;
 ;;---------------------------------------------------------------------------*/
-static uint8 c_1C8D(uint8 E, uint8 IXL, uint8 B)
+static uint8 c_1C8D(uint8 e, uint8 ixl, uint8 b, uint16 flv)
 {
-    uint8 a, e;
+    uint16 iy;
+    uint8 a;
 
-    e = E;
+    iy = flv;
 
-    if (0xFF == E)
+    if (0xFFFF == flv)
     {
-        /*
-          convert ordinal in B (i.e. 4,3,2,1) to object/index ... it's not intuitive:
-           3 -> 2 -> 2 -> $34
-           2 -> 3 -> 3 -> $36
-           1 -> 1 -> 1 -> $32
-           0 -> 0 -> 0 -> $30
-        */
-        a = B;
-        if (a & 0x02) // bit  1,a ... jr   z,l_1C94
+        if (0xFF == e)
         {
-            a ^= 0x01; // xor  #0x01
-        }
+            /*
+              convert ordinal in B (i.e. 4,3,2,1) to object/index ... it's not intuitive:
+               3 -> 2 -> 2 -> $34
+               2 -> 3 -> 3 -> $36
+               1 -> 1 -> 1 -> $32
+               0 -> 0 -> 0 -> $30
+            */
+            a = b;
+            if (a & 0x02) // bit  1,a ... jr   z,l_1C94
+            {
+                a ^= 0x01; // xor  #0x01
+            }
 //l_1C94:
-        a &= 0x03;
-        e = (a << 1) + 0x30; // object/index of bomber
+            a &= 0x03;
+            e = (a << 1) + 0x30; // object/index of bomber
 
-        if (STAND_BY != sprt_mctl_objs[e].state) // cp   #0x01
+            if (STAND_BY != sprt_mctl_objs[e].state) // cp   #0x01
+            {
+                return 0; // ret  nz
+            }
+        }
+        // l_1CA0:
+        if (0 != glbls9200.glbl_enemy_enbl)
         {
-            return 0; // ret  nz
+            iy = _flv_d_0411; // j_1CAE(e, ixl, b, _flv_d_0411);
+        }
+        else
+        {
+            iy = _flv_d_00f1; // j_1CAE(e, ixl, b, _flv_d_00f1); // training-mode
         }
     }
 
-    // l_1CA0:
-    if (0 != glbls9200.glbl_enemy_enbl)
-    {
-        j_1CAE(IXL, B, e, _flv_d_0411);
-    }
-    else
-    {
-        j_1CAE(IXL, B, e, _flv_d_00f1); // training-mode
-    }
+    j_1CAE(e, ixl, b, iy);
+
     return 1;
 }
 
@@ -850,7 +856,7 @@ static uint8 c_1C8D(uint8 E, uint8 IXL, uint8 B)
 ;;    ixl - 2==capture_boss, 0==2_wingmen, 1==1_wingman
 ;;    iy  - pointer to flight vector data
 ;;---------------------------------------------------------------------------*/
-static void j_1CAE(uint8 ixl, uint8 b, uint8 e, uint16 iy)
+static void j_1CAE(uint8 e, uint8 ixl, uint8 b, uint16 iy)
 {
     uint8 xCy, hl;
 
