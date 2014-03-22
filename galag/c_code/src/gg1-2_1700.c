@@ -683,18 +683,23 @@ void f_1B65(void)
 
                 for (b = 0; b < 4; b++)
                 {
-                    if (STAND_BY == sprt_mctl_objs[de].state)  break; // jr   z,l_1C24_is_standby
-
+                    if (STAND_BY == sprt_mctl_objs[de].state)
+                    {
+                        break; // jr   z,l_1C24_is_standby
+                    }
                     de += 2; // increment pointer/offset
+                } // djnz l_1C1B_while
+
+                if ( b < 4 )
+                {
+                    //l_1C24_is_standby
+                    plyr_state_actv.bmbr_boss_cflag = 1;
+                    plyr_state_actv.bmbr_boss_cobj = de; // 0x30 + 2 * b
+
+                    // jp   j_1CAE ... parameters for boss+wing mission are setup, iy == &db_0454 ... c_1C8D
+                    j_1CAE(2, b, de, _flv_d_0454); // capture boss
                 }
-                if ( b >= 4 )  return;
-
-                //l_1C24_is_standby
-                plyr_state_actv.bmbr_boss_cflag = 1;
-                plyr_state_actv.bmbr_boss_cobj = de; // 0x30 + 2 * b
-
-                // jp   j_1CAE ... parameters for boss+wing mission are setup, iy == &db_0454 ... c_1C8D
-                j_1CAE(2, b, de, _flv_d_0454); // capture boss
+                return;
             }
         }
 
