@@ -267,7 +267,7 @@ d_181F:
 ; one time at end of demo, just before "HEROES" displayed, ship has been
 ; erased from screen but remaining bugs may not have been erased yet.
 case_1840:
-       rst  0x28                                  ; memset(_9100_game_data,0,$F0)
+       rst  0x28                                  ; memset(mctl_mpool,0,$$14 * 12)
        call c_1230_init_taskman_structs
        xor  a
        ld   (ds_cpu0_task_actv + 0x10),a          ; 0 (f_1B65 ... Manage flying-bug-attack )
@@ -881,7 +881,7 @@ l_1B8B:
        ex   af,af'
 
 ; if (STAND_BY != obj_status[E].state) return ... disposition resting/inactivez
-       ld   a,(de)                                ; .b0
+       ld   a,(de)                                ; 92CA[].b0
        dec  a
        ret  nz                                    ; exit if not available (demo)
 
@@ -889,7 +889,7 @@ l_1B8B:
        inc  l
        ld   e,(hl)                                ; e.g. 92CA[].b1, lsb of pointer to data
        inc  l
-       ld   d,(hl)                                ; e.g. 92CA[].b1, msb of pointer to data
+       ld   d,(hl)                                ; e.g. 92CA[].b2, msb of pointer to data
 
 ; reload A
        ex   af,af'
@@ -1013,6 +1013,7 @@ l_1C1B_while:
        inc  e                                     ; status bytes, evens ... i.e. 8830, 32, etc.
        inc  e
        djnz l_1C1B_while
+
        ret
 
 l_1C24_is_standby:
@@ -1020,11 +1021,12 @@ l_1C24_is_standby:
        ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 1 ... force next bomber-boss to wingman mode (suppress capture-boss select)
        ld   a,e
        ld   (ds_plyr_actv +_b_bmbr_boss_cobj),a   ; object/index of bomber to _1CAE ... bosses start at $30
-       jp   j_1CAE                                ; parameters for boss+wing mission i.e. iy== &db_0454 ... c_1C8D, doesn't pop
+       jp   j_1CAE                                ; _boss_activate(e, ixl, b, iy) ... C?
 
 ; alredy in capture-mode, or capture-mode select is suppressed this time ... look for a wingman
 ; get red alien index, check if already flagged by plyr_state.clone_attkr_en
 l_1C30:
+; escort object/IDs order in data right->left so bit will shift out left->right
        ld   hl,#d_1D2C_wingmen
        ld   d,#>b_8800
        ld   bc,#6 * 256 + 0                       ; check 6 objects (B) and clear C
@@ -1047,7 +1049,7 @@ l_1C44:
        ld   b,#4
        ld   ixh,c                                 ; stash C ... bits set for each boss available in standby state
 
-; look for 2 adjoining red wingmen available
+; first pass: look for 2 adjoining escorts available occuring in 3 adjacent spaces
 l_1C4F_while:
        ld   a,c
        and  #0x07
@@ -1056,61 +1058,65 @@ l_1C4F_while:
        jr   z,l_1C5B
        cp   #3                                     ; && (a>=3)
        ; d == #>b_8800, e don't care
-       call nc,c_1C8D                             ; modifies b???
+       call nc,c_1C8D                             ; _boss_activate(0xFF, 0, b, 0xFFFF)
 l_1C5B:
        rr   c
        djnz l_1C4F_while
 
-; second pass, take what we can get
-       inc  ixl                                   ; ixl = 1 ... second pass, take what we can get
+; second pass: look for 1 available escort
+       inc  ixl                                   ; 1
        ld   c,ixh                                 ; restore previous C
        ld   b,#4
 
 l_1C65_while:
        ld   a,c
        and  #0x07
-       call nz,c_1C8D                             ; modifies b???
+       call nz,c_1C8D                             ; _boss_activate(0xFF, 1, b, 0xFFFF)
        rr   c
        djnz l_1C65_while
 
-; got here by killing all the bosses
-       inc  ixl
+; third pass: take any available boss
+       inc  ixl                                   ; 2
        ld   de,#b_8800 + 0x30                     ; boss objects are 30 34 36 32
        ld   b,#4
-l_1C76:
+l_1C76_while:
        ld   a,(de)
        dec  a
-       jr   z,j_1CA0                              ; does not pop HL
+       jr   z,j_1CA0                              ; _boss_activate(e, 2, b, 0xFFFF) ... status==STANDBY, skip index selection
        inc  e
        inc  e
-       djnz l_1C76
+       djnz l_1C76_while
 
-; shot all bosses.. checks status of captured ship objects (00, 02, 04, 06)
+; last pass: no boss available ... check for available rogue fighter (objects 00, 02, 04, 06)
        ld   hl,#b_8800
        ld   b,#4
-l_1C83:
+l_1C83_while:
        ld   a,(hl)
        dec  a
        jp   z,l_1D25
        inc  l
        inc  l
-       djnz l_1C83
+       djnz l_1C83_while
 
        ret
 
 ;;=============================================================================
-;; c_1C8D()
+;; bmbr_boss_activate()
 ;;  Description:
-;;   for f_1B65
+;;   select bomber-boss object/index, select movement control vector
 ;; IN:
 ;;  B: 4,3,2,1 to select object/index of bomber
-;;  D: pre-loaded with lsb of pointer to objects array
-;;  IXL: pass thru to j_1CAE
+;;  C: flags for escorts available (pass-thru)
+;;  D: pre-loaded with msb of pointer to objects array (for convenience as it was just used a few instructions ago)
+;;  E: object/index of bomber-boss candidate (from const array) if jp 1CA0 taken
+;;  IXL: 0 -> 2 escorts, 1 -> 1 escort (2 is for capture-boss so it doesn't apply)
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 c_1C8D:
-; convert ordinal in B (i.e. 4,3,2,1) to object/index ... it's not intuitive:
+; convert ordinal in B (i.e. 4,3,2,1) to object/index in home-position order (left to right)
+; the ordinal (B) will be used later to index d_escort_ids[] which are ordered
+; right->left, i.e. ordinal 4 indexes to an ID located leftmost and so on.
 ;  4 -> 4 -> 0 -> 0
 ;  3 -> 2 -> 2 -> 4
 ;  2 -> 3 -> 3 -> 6
@@ -1124,40 +1130,44 @@ l_1C94:
        sla  a
        add  a,#0x30                               ; boss objects are 30 34 36 32
        ld   e,a                                   ; object/index of bomber to _1CAE
-       ld   a,(de)                                ; ; d == #>b_8800
+       ld   a,(de)                                ; d == #>b_8800
        cp   #0x01                                 ; check for ready/available status
        ret  nz
 
-       pop  hl                                    ; returns to task manager
+       pop  hl                                    ; will return to task manager eventually
+
 j_1CA0:
        ld   iy,#db_flv_0411
        ld   a,(ds_9200_glbls + 0x0B)              ; enemy enable, select data ptr boss launch: if (0), iy=$00F1, else iy=$0411
        and  a
-       jr   nz,j_1CAE
+       jr   nz,l_1CAE
        ld   iy,#db_flv_00f1                       ; training-mode
 
-;;=============================================================================
-;; from f_1B65 (l_1C24)... boss diving.
-;; setup bonus scoring for this one
-;; IN:
-;;    b   - only matters if called for 2 adjoined wingmen??
-;;    e   - object/index of bomber
-;;    ixl - 2==capture_boss, 0==2_wingmen, 1==1_wingman
-;;    iy  - pointer to flight vector data
+l_1CAE:
 
 ;;-----------------------------------------------------------------------------
+;; setup bomber-boss, _boss_pool[0], bonus scoring, etc.
+;; if capture boss (jp $1CAE), paremeters same as above except:
+;; IN:
+;;    b, c: not used when escort selection skipped (ixl == 2)
+;;    ixl:  2==solo/capture boss is valid and will skip escort selection ...
+;;            ... in addition to 0 -> 2 escorts, 1 -> 1 escort
+;;-----------------------------------------------------------------------------
 j_1CAE:
+
 ; objects 32 & 36 are on right side (bit-1 set): set flag in bit-7 to indicate negative rotation
        ld   a,e                                   ; object/index of bomber
        rrca
-       rrca                                       ; bit-1 in Cy
+       rrca                                       ; flag from A<1> into Cy
        ld   a,e
        rla                                        ; Cy into bit-0
-       rrca                                       ; restore A, with flag in Cy but bit-7 cleared
+       rrca                                       ; flag in Cy and in bit-7
        ld   (bmbr_boss_pool + 0),a                ; object/index of bomber boss
        ex   af,af'                                ; stash Cy for rotation flag
        ld   (bmbr_boss_pool + 1),iy               ; flight vector of bomber boss
-       inc  b
+
+       inc  b                                     ; `dec b` in c_1D03
+
 ; plyr_actv.bmbr_boss_scode[]
        ld   a,e                                   ; object/index of bomber
        and  #0x07
@@ -1179,8 +1189,9 @@ j_1CAE:
        ld   a,ixl
        cp   #2
        jr   z,l_1CE3
+
        ld   de,#bmbr_boss_pool + 3                ; 4 groups of 3 bytes
-; if (1 == ixl) ... setup 1 or 2 wingmen (dec b each call)
+; if (1 == ixl) ... setup 1 escort, else setup 2 escorts
        dec  a
        jr   z,l_1CE0
        call c_1D03                                ; DE==&boss_pool[3] ... boss dives with wingman
@@ -1189,7 +1200,7 @@ l_1CE0:
 
 ; if rogue fighter for this boss !STAND_BY then return
 l_1CE3:
-       ld   a,(bmbr_boss_pool)                    ; obj/index (setup from function arguments above)
+       ld   a,(bmbr_boss_pool + 0)                ; obj/index (setup from function arguments above)
        and  #0x07                                 ; object/index of captured fighter i.e. 00 04 06 02
        ld   l,a
 ; check for 0
@@ -1201,7 +1212,7 @@ l_1CE3:
        ld   c,l                                   ; object/index of rogue-fighter e.g. $00, $02, $04, $06
 
 ; find available slot (don't know how many are occupied by wingmen?)
-       ld   hl,#bmbr_boss_pool                    ; reset pointer, search for obj_idx==$FF
+       ld   hl,#bmbr_boss_pool + 0                ; reset pointer, search for obj_idx==$FF
 l_1CF2_while:
        inc  l
        inc  l
@@ -1210,12 +1221,12 @@ l_1CF2_while:
        inc  a
        jr   nz,l_1CF2_while
 
-; stash A (object/index of capture-boss), reload object/index of captured ship into A
+; setup parameters (HL, IY already loaded)
+;  HL == &_boss_pool[n] ... n = { 3, 6, 9 }
+;  IY == pointer to flight vector data
        ex   af,af'                                ; unstash rotation flag
        ld   a,c                                   ; object/index of captured ship
-
-; hl already loaded so skip c_1D03
-       jr   l_1D16                                ; c_1D03 but skip the first bit
+       jr   l_1D16                                ; ... jp past setup section of function
 
 ;;=============================================================================
 ;; data for c_1C8D:
@@ -1230,14 +1241,17 @@ d_1CFD:
 ;;=============================================================================
 ;; c_1D03()
 ;;  Description:
-;;   for c_1C8D
+;;   bmbr_boss_escort_sel
 ;;   ...boss takes a sortie with one or two wingmen attached.
 ;; IN:
 ;;  B
-;;  C
-;;  DE: &boss_wing_slots[n]
+;;  C: flags for escorts available
+;;  DE: &_boss_pool[n]
+;;  IY: pointer to flight vector data
+;;  Cy': rotation flag, to be OR'd into pool_slot[n].idx<7>
 ;; OUT:
-;;  DE: &boss_wing_slots[n + 3]
+;;  B: index of next escort to be selected from const array
+;;  C: flags for escorts available
 ;;-----------------------------------------------------------------------------
 c_1D03:
        rrc  c
@@ -1250,26 +1264,30 @@ l_1D0D:
        ld   a,b
        dec  b
        ld   hl,#d_1D2C_wingmen
-       rst  0x10                                  ; HL += A ... what's B?
-       ex   af,af'
-       ld   a,(hl)
+       rst  0x10                                  ; HL += A
+
+; setup parameters (IY, pointer to flight vector data, already loaded)
+       ex   af,af'                                ; unstash rotation flag
+       ld   a,(hl)                                ; d_escorts[a] ... object/index
        ex   de,hl                                 ; &boss_wing_slots[n] to HL
 
 ;;=============================================================================
 ;; skipping the setup section (rogue fighter)
 ;; IN:
-;;  Cy - rotation flag?
-;;  A  - object/index of diver/bomber e.g. red bomber wingman, captured ship etc.
+;;  A  - object/index of red bomber wingman, captured ship etc.
 ;;  HL - index to bmbr_boss_pool[]
-;;  IY -
+;;  IY - pointer to flight vector data
+;;  Cy - rotation flag
+;; OUT:
+;;  DE: &_boss_pool[n] ... pointer advanced in case of second call
 ;;-----------------------------------------------------------------------------
 l_1D16:
-; load boss_wing_slots[n + 0], and stash bit-7 of object/index in Cy
-       rla                                        ; object/index of captured ship from _1CFB
-       rrca
+; load boss_wing_slots[n + 0], rotation flag from Cy to bit-7 of object/index
+       rla                                        ; object/index
+       rrca                                       ; rotate out of a<0> thru Cy into a<7>
        ld   (hl),a                                ; &boss_wing_slots[n + 0]
 
-; stash Cy (rotation flag)
+; re-stash Cy (rotation flag)
        ex   af,af'
 
        inc  l
@@ -1279,8 +1297,8 @@ l_1D16:
        ld   a,iyh
        ld   (hl),a
        inc  l
-       ex   de,hl                                 ; &boss_wing_slots[n]
-       ret                                        ; back to _1CE0, end 'call _1D03'
+       ex   de,hl                                 ; &boss_wing_slots[n] ... update pointer in DE for second subroutine call
+       ret
 
 ;;=============================================================================
 ;; Movement of captured rogue ship... out of section at l_1C83
@@ -1291,8 +1309,7 @@ l_1D25:
        ret
 
 ;;=============================================================================
-;; data for f_1B65 (and c_1D03)
-;; These are indices of the 6 moths that rest under the 4 bosses.
+;; 6 escort aliens (right to left under the 4 bosses )
 d_1D2C_wingmen:
        .db 0x4A,0x52,0x5A,0x58,0x50,0x48
 
