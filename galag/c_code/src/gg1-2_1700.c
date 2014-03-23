@@ -52,9 +52,9 @@ static const uint8 d_1CFD[];
 static void fmtn_expcon_comp(uint8, uint8, uint8); // compute formation expand/contract movement
 static void fghtr_ctrl_inp(uint8);
 static void rckt_sprite_init(void);
-static uint8 bmbr_boss_activate(uint8, uint8, uint8, uint16);
-static void bmbr_boss_wingm_go(uint16, uint8);
-static void l_1D16(uint8, uint16, uint8);
+static uint8 bmbr_boss_activate(uint8, uint8, uint8, uint8, uint16);
+static void bmbr_boss_escort_sel(uint16, uint8, uint8 *, r16_t *, uint8);
+
 
 /*============================================================================
 ;; data source for sprite tiles used in attract mode
@@ -674,8 +674,7 @@ void f_1B65(void)
             {
                 uint8 b;
 
-                // start-offset of object/index array and capture mode parameters
-                // similarish to bomber-setup of red/yellow
+                // object/index and parameters for capture-boss
                 // ixl = 2
                 // iy = db_0454
                 de = 0x30; // bosses start at $30 ... object/index of bomber to _1CAE
@@ -694,8 +693,9 @@ void f_1B65(void)
                     //l_1C24_is_standby
                     plyr_state_actv.bmbr_boss_cflag = 1;
                     plyr_state_actv.bmbr_boss_cobj = de; // 0x30 + 2 * b
-
-                    bmbr_boss_activate(0xFF, 2, b, _flv_d_0454); // jp   j_1CAE ... capture boss
+return; //HELP_ME_DEBUG
+                    // b, c: only matters for escort selection (ixl != 2)
+                    bmbr_boss_activate(de, 2, 0xFF, 0xFF, _flv_d_0454); // jp   j_1CAE ... capture boss
                 }
                 return;
             }
@@ -703,19 +703,18 @@ void f_1B65(void)
 
 //l_1C30
 // already in capture-mode, or capture-mode select is suppressed this time ... look for a wingman
-// get red alien index from d_1D2C, check if already flagged for "special" bomber plyr_state[0x0D].
+// get index of escort from d_1D2C, check if already flagged for "special" bomber plyr_state[0x0D].
         c = 0; // ld   bc,#6 * 256 + 0
 
         for (hl = 0; hl < 6; hl++)
         {
             de = d_bmbr_boss_wingm_idcs[hl];
-            c <<= 1;
-            if (plyr_state_actv.bonus_bee_obj_offs != de)
+            c <<= 1; // rl   c
+            if (plyr_state_actv.bonus_bee_obj_offs != de) // jr   z,l_1C44
             {
                 c |= (sprt_mctl_objs[de].state == STAND_BY);
             }
-            // else l_1C44: "special attacker", skip test STAND_BY
-
+            // else l_1C44
         } // djnz l_1C38_while
 
         // ld   ixl,#0 ... first pass: look for 2 adjoining red wingmen available
@@ -726,7 +725,7 @@ void f_1B65(void)
             if (4 != a && a >= 3) // if (a==3 || a==5 || a==6)  ... jr   z,l_1C5B
             {
                 uint8 rv;
-                rv = bmbr_boss_activate(0xFF, 0, b, 0xFFFF);  // this may pop the stack and return
+                rv = bmbr_boss_activate(0xFF, 0, 4 - b, c, 0xFFFF);  // this may pop the stack and return
                 if (rv) return; // check ret and find a way to exit
             }
             // l_1C5B:
@@ -740,7 +739,7 @@ void f_1B65(void)
             a = c & 0x07;
             if (0 != a) // call nz,c_1C8D
             {
-                rv = bmbr_boss_activate(0xFF, 1, b, 0xFFFF); // this may pop the stack and return
+                rv = bmbr_boss_activate(0xFF, 1, 4 - b, c, 0xFFFF); // this may pop the stack and return
                 if (rv) return; // check ret and find a way to exit
             }
             c >>= 1; //rr   c
@@ -755,7 +754,7 @@ void f_1B65(void)
 
             if (STAND_BY == sprt_mctl_objs[e].state ) // jr   z,j_1CA0
             {
-                rv = bmbr_boss_activate(e, 2, b, 0xFFFF); // jr   z,j_1CA0 ... skip index selection
+                rv = bmbr_boss_activate(e, 2, 4 - b, 0, 0xFFFF); // jr   z,j_1CA0 ... skip index selection
                 if (rv) return; // check ret and find a way to exit
             }
         } // djnz l_1C76_while
@@ -786,22 +785,26 @@ void f_1B65(void)
 ;;  Description:
 ;;   Attempt to activate bomber-boss and selects wingman if available.
 ;;   Instead of creating a separate function for l_1CA0, E is used with a
-;;   sentinel value (0xFF - invalid object/index) to force wingman selection.
+;;   sentinel value (0xFF - invalid object/index) to force escort selection
+;;   (logic is to avoid duplication of C code does not exist in z80).
 ;; IN:
-;;  E: object/index of bomber-boss candidate, 0xFF triggers wingman selection
-;;  B: 4,3,2,1 to select object/index of bomber boss
+;;  B: 4,3,2,1 to select object/index of bomber
+;;  C: flags for escorts available (only for pass-thru to _boss_wingm_go, if doing wingman setup)
+;;  D: pre-loaded with lsb of pointer to objects array
+;;  E: object/index of bomber-boss candidate if jp 1CA0 taken, 0xFF triggers wingman selection
 ;;  IXL: 2==capture_boss, 0==2_wingmen, 1==1_wingman
 ;;  flv: use $ffff to trigger vector selection
 ;; OUT:
 ;;  ...
 ;; RETURN:
+;;  0 call failed to select escort and caller should continue selection process
+;;  1 simulates stack and jp tricks in z80 to expediently end the periodic task
 ;;
 ;;---------------------------------------------------------------------------*/
-static uint8 bmbr_boss_activate(uint8 e, uint8 ixl, uint8 b, uint16 flv)
+static uint8 bmbr_boss_activate(uint8 e, uint8 ixl, uint8 b, uint8 c, uint16 flv)
 {
     uint16 iy;
-    uint8 xCy, hl;
-    uint8 a;
+    uint8 Cy, hl;
 
     iy = flv;
 
@@ -809,8 +812,9 @@ static uint8 bmbr_boss_activate(uint8 e, uint8 ixl, uint8 b, uint16 flv)
     {
         if (0xFF == e)
         {
+            uint8 a;
             /*
-              convert ordinal in B (i.e. 4,3,2,1) to object/index ... it's not intuitive:
+              convert ordinal in B (i.e. 4,3,2,1) to object/index ... in home-position order (left to right)
                3 -> 2 -> 2 -> $34
                2 -> 3 -> 3 -> $36
                1 -> 1 -> 1 -> $32
@@ -821,7 +825,7 @@ static uint8 bmbr_boss_activate(uint8 e, uint8 ixl, uint8 b, uint16 flv)
             {
                 a ^= 0x01; // xor  #0x01
             }
-//l_1C94:
+            //l_1C94:
             a &= 0x03;
             e = (a << 1) + 0x30; // object/index of bomber
 
@@ -843,37 +847,57 @@ static uint8 bmbr_boss_activate(uint8 e, uint8 ixl, uint8 b, uint16 flv)
 
     // j_1CAE:
 
-    xCy = (0 != (e & 0x02)); // ex   af,af' ... stash Cy for rotation flag
+    Cy = (0 != (e & 0x02)); // ex   af,af' ... stash Cy for rotation flag
 
-    // flag in Cy but bit-7 cleared
-    bmbr_boss_pool[0].obj_idx = (xCy  << 7) | (e & 0x7F);
+    // objects 32 & 36 are on right side (bit-1 set): set flag in bit-7 to
+    // indicate negative rotation (flag in Cy)
+    bmbr_boss_pool[0].obj_idx = (Cy  << 7) | (e & 0x7F);
 
     bmbr_boss_pool[0].vectr = iy;
 
     // inc  b
 
-    // plyr_actv.bmbr_boss_scode[(e & 0x07) + 0] = d_1CFD[ixl*2+0];
-    // plyr_actv.bmbr_boss_scode[(e & 0x07) + 1] = d_1CFD[ixl*2+1];
+// plyr_actv.bmbr_boss_scode[(e & 0x07) + 0] = d_1CFD[ixl*2+0];
+// plyr_actv.bmbr_boss_scode[(e & 0x07) + 1] = d_1CFD[ixl*2+1];
+
 
     if (2 != ixl)
     {
-        // setup 1 or 2 wingmen
-        bmbr_boss_wingm_go(iy, 0);
+        r16_t flags;
+        uint8 idx;
 
-        if (1 != ixl) bmbr_boss_wingm_go(iy, 1);
+        flags.word = 0;
+        flags.pair.b1 = c;
+        idx = b + 1; // inc  b
+
+        // setup 1 or 2 escorts
+        bmbr_boss_escort_sel(iy, 1, &idx, &flags, Cy);
+
+        if (1 != ixl) bmbr_boss_escort_sel(iy, 2, &idx, &flags, Cy);
     }
 
     //l_1CE3:  if rogue fighter for this boss !STAND_BY then return
     hl = bmbr_boss_pool[0].obj_idx & 0x07;
-    if (STAND_BY != sprt_mctl_objs[hl].mctl_idx)  return;
 
-    // find available slot (don't know how many are occupied by wingmen)
-    for (hl = 0; hl < 4; hl++) // z80 doesn't bother with this bounds check
+    if (STAND_BY == sprt_mctl_objs[hl].mctl_idx)
     {
-    } // jr   nz,l_1CF2_while
+        // find available slot (don't know how many are occupied by escorts)
+        for (hl = 1; hl < 4; hl++) // z80 doesn't bother with this bounds check
+        {
+            if (0xFF == bmbr_boss_pool[hl].obj_idx)  break;
+        } // jr   nz,l_1CF2_while
 
-    // hl already loaded so skip setup on bmbr_boss_wingm_go
-    //l_1D16(a, iy, hl);
+        if (hl >= 4)  return 1;
+
+        // setup A and Cy' parameters (HL, IY already loaded)
+        //  A  - object/index of captured fighter
+        //  HL - &_boss_pool[n] ... n = { 3, 6, 9  }
+        //  IY - pointer to flight vector data
+
+        // l_1D16:
+        bmbr_boss_pool[hl].obj_idx = (Cy  << 7) | (bmbr_boss_pool[0].obj_idx & 0x07);
+        bmbr_boss_pool[hl].vectr = iy;
+    }
 
     return 1;
 }
@@ -892,38 +916,44 @@ static const uint8 d_1CFD[] =
 };
 
 /*=============================================================================
-;; bmbr_boss_wingm_go()
+;; bmbr_boss_escort_sel()
 ;;  Description:
-;;   for c_1C8D
-;;   ...boss takes a sortie with one or two wingmen attached.
+;;   c_1D03 - select next escort in the queue
+;;   duplicates section at l_1D16 for simplicity
+;;   would be cleaner if incorporated logic for 1/2 spawned to avoid pointers
 ;; IN:
-;;  B
-;;  C
-;;  IY: pointer to flight vector data
-;;  DE: index to _boss_pool[n]
+;;  B:   index to const array of escort object/id
+;;  C:   flags for escorts available
+;;  IY:  pointer to flight vector data
+;;  DE:  index to _boss_pool[n] ... n = {1, 2}
+;;  Cy': rotation flag, to be OR'd into pool_slot[n].idx<7>
 ;; OUT:
 ;;
 ;;---------------------------------------------------------------------------*/
-static void bmbr_boss_wingm_go(uint16 iy, uint8 de)
+static void bmbr_boss_escort_sel(uint16 iy, uint8 de, uint8 *b, r16_t *c, uint8 Cy)
 {
+    r16_t tmpC;
     uint8 a = 0;
 
-    l_1D16(a, iy, de);
-}
+    c->word >>= 1; // rrc  c
 
-/*=============================================================================
-;; skipping the setup section (rogue fighter)
-;; IN:
-;;  Cy - rotation flag?
-;;  A  - object/index of diver/bomber e.g. red bomber wingman, captured ship etc.
-;;  IY - pointer to flight vector data
-;;  HL - index to _boss_pool[]
-;;---------------------------------------------------------------------------*/
-static void l_1D16(uint8 a, uint16 iy, uint8 hl)
-{
-    //bmbr_boss_pool[0].obj_idx = a;
+    if (0 == (0x80 & c->pair.b0)) // jr   c,l_1D0D
+    {
+        *b -= 1; // dec  b
+        c->word >>= 1; // rrc  c
 
-    //bmbr_boss_pool[0].vectr = iy;
+        if (0 == (0x80 & c->pair.b0)) // jr   c,l_1D0D
+        {
+            *b -= 1; // dec  b
+        }
+    }
+
+    a = d_bmbr_boss_wingm_idcs[*b]; // ld   a,b
+    *b -= 1; // dec  b
+
+    // l_1D16:
+    bmbr_boss_pool[de].obj_idx = (Cy  << 7) | (a & 0x7F);
+    bmbr_boss_pool[de].vectr = iy;
 }
 
 /*=============================================================================
