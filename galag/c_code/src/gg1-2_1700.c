@@ -413,7 +413,7 @@ void f_17B2()
             task_actv_tbl_0[0x03] = 1; //  f_1700 ... ship-update in training/demo mode
 
             //from DSWA "sound in attract mode"
-            b_9AA0[0x17] = 1; // (_sfr_dsw4 >> 1) & 0x01;
+            b_9AA0[0x17] = 0; // (_sfr_dsw4 >> 1) & 0x01;
 
             c_game_or_demo_init();
             break;
@@ -1400,7 +1400,7 @@ static void fghtr_ctrl_inp(uint8 inbits)
 
     // set ship.dX (1 or 2)
     // l_1FA1_set_ship_dx:
-    dxinc = 1;
+    dxinc = 1; // ld   c,#1
 
     // toggle fghtr_ctrl_dxflag
     fghtr_ctrl_dxflag ^= 1;
@@ -1410,49 +1410,41 @@ static void fghtr_ctrl_inp(uint8 inbits)
     // l_1FAE_handle_input_bits:
     if (0 == mrw_sprite.posn[SPR_IDX_SHIP].b0) return;
 
-    if (inbits & 0x02) // if ! input.right (inverted)
+    if (0 == (inbits & 0x02)) // input.right, else ... jr   nz,l_1FC7_test_l
     {
-        // jr   nz,l_1FC7_test_llmt
-        // test left limit
-        if (mrw_sprite.posn[SPR_IDX_SHIP].b0 < 0x12) // "main" ship (single) position
-        {
-            return;
-        }
-        else
-        {
-            mrw_sprite.posn[SPR_IDX_SHIP].b0 -= dxinc;
-
-            // jr   l_1FD4_update_two_ship
-        }
-    }
-    else
-    {
-        if (mrw_sprite.posn[SPR_IDX_SHIP].b0 > 0xD1)
+        if (mrw_sprite.posn[SPR_IDX_SHIP].b0 >= 0xD1) // jr   c,l_1FC0_test_r
         {
             // moving right: check right limit for double-ship
 
             // if double ship, return
-            if (0 != plyr_state_actv.plyr_is_2ship)
-            {
-                return;
-            }
-            // l_1FC0_test_rlmt_single:
-            if (mrw_sprite.posn[SPR_IDX_SHIP].b0 >= 0xE1)
+            if (0 != plyr_state_actv.plyr_is_2ship) // bit  0,e
             {
                 return;
             }
         }
+        // l_1FC0_test_rlmt_single:
+        if (mrw_sprite.posn[SPR_IDX_SHIP].b0 >= 0xE1) // cp   #0xE1
+        {
+            return;
+        }
         // add dX for right direction
-        mrw_sprite.posn[SPR_IDX_SHIP].b0 += dxinc;
+        mrw_sprite.posn[SPR_IDX_SHIP].b0 += dxinc; // add  a,c
+
+        // jr   l_1FD4_update_two
+    }
+    else // test left limit
+    {
+        if (mrw_sprite.posn[SPR_IDX_SHIP].b0 < 0x12) // "main" fighter (single) position
+        {
+            return;
+        }
+        mrw_sprite.posn[SPR_IDX_SHIP].b0 -= dxinc; // sub  c
+
+        // jr   l_1FD4_update_two_
     }
 
-    // l_1FD4_update_two_ship:
-    if (0 == plyr_state_actv.plyr_is_2ship)
-    {
-        return;
-    }
-    else
-    {
-        mrw_sprite.posn[SPR_IDX_SHIP].b0 += 0x0F;
-    }
+    // l_1FD4_update_two_:
+    if (0 == plyr_state_actv.plyr_is_2ship)  return;
+
+    mrw_sprite.posn[SPR_IDX_SHIP].b0 += 0x0F; // add  a,#0x0F
 }
