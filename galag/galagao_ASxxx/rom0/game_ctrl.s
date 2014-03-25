@@ -125,7 +125,6 @@ l_032A:
        ld   (hl),#0
        ld   (hl),a
 
-
        call c_sctrl_sprite_ram_clr
 
 ; display 1UP HIGH SCORE 20000 (1 time only after boot)
@@ -134,7 +133,7 @@ l_032A:
        call c_1230_init_taskman_structs
 
 ; data structures for 12 objects
-       rst  0x28                                  ; memset(motion_que,0,$$14 * 12) ... object motion structs.
+       rst  0x28                                  ; memset(mctl_mpool,0,$$14 * 12)
 
 ; Not sure here...
 ; this would have the effect of disabling/skipping the task at 0x1F (f_0977)
@@ -179,7 +178,6 @@ j_Game_start:
 ; task_activ_tbl[0x12] = 0
        ld   (ds_cpu0_task_actv + 0x12),a          ; 0 ... f_1D76
 
-
 ; The object-collision notification structures are cleared
 ; at every beginning of round (and demo), so I am guessing the intent here is to
 ; clear the globals that share the $80 byte block
@@ -194,7 +192,7 @@ j_Game_start:
        ld   (ds_99B9_star_ctrl + 0x05),a          ; 6
 
 ; array of object movement structures etc.
-       rst  0x28                                  ; memset(_9100_game_data,0,$F0)
+       rst  0x28                                  ; memset(mctl_mpool,0,$$14 * 12)
        call c_sctrl_sprite_ram_clr                ; clear sprite mem etc.
        call c_1230_init_taskman_structs
 
@@ -229,14 +227,14 @@ l_038D_while:
 ; GameState == Ready ... reinitialize everthing
        call c_1230_init_taskman_structs
        call c_sctrl_playfld_clr
-       rst  0x28                                  ; memset(_9100_game_data,0,$F0)
+       rst  0x28                                  ; memset(mctl_mpool,0,$$14 * 12)
        call c_sctrl_sprite_ram_clr
 
 ; game_state == READY
 
 l_game_state_ready:
        xor  a
-       ld   (ds_9200_glbls + 0x0B),a              ; 0 ... flying_bug_attck_condtn ... 1 at demo mode, 3 at game start, now 0
+       ld   (ds_9200_glbls + 0x0B),a              ; 0 ... flying_bug_attck_condtn
        ld   c,#0x13                               ; C = string_out_pe_index
        rst  0x30                                  ; string_out_pe "(c) 1981 NAMCO LTD"
        ld   c,#1                                  ; C = string_out_pe_index
@@ -300,6 +298,9 @@ l_0003D8:
        xor  a
        ld   b,#0xA0
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
+
+;ld hl, ds_plyr_actv +_b_stgctr   ; HELP_ME_DEBUG
+;ld (hl), #6
 
        ld   (b_9AA0 + 0x17),a                     ; 0 ... enable sound mgr process
 
@@ -613,7 +614,7 @@ l_0509_while:
        and  a
        jr   nz,l_0509_while
 
-       rst  0x28                                  ; memset(_9100_game_data,0,$F0)
+       rst  0x28                                  ; memset(mctl_mpool,0,$$14 * 12)
        call c_sctrl_sprite_ram_clr
        call c_sctrl_playfld_clr
 
@@ -1384,7 +1385,7 @@ l_0865:
        call c_08BE                                ; A==new_stage_parms[0], HL==d_0909, C==num_bugs_on_scrn
        ld   (b_92C0 + 0x08),a                     ; = c_08BE() ... bomb drop enable flags
 
-; flag indicates condition when number of flying aliens less than new_stage_parm[7]
+; flag indicates number of flying aliens is less than new_stage_parm[7]
 ; if flag is set by sub-CPU tasking kernel ...
        ld   a,(b_92A0 + 0x0A)                     ; continuous bombing when flag set
        and  a
@@ -1484,18 +1485,42 @@ c_08BE:
 ;;=============================================================================
 ; sets of 3 bytes indexed by stage parameters 2 and 3 (max value 9)
 d_08CD:
-       .db 0x09,0x07,0x05, 0x08,0x06,0x04, 0x07,0x05,0x04, 0x06,0x04,0x03, 0x05,0x03,0x03
-       .db 0x04,0x03,0x03, 0x04,0x02,0x02, 0x03,0x03,0x02, 0x03,0x02,0x02, 0x02,0x02,0x02
+       .db 0x09,0x07,0x05
+       .db 0x08,0x06,0x04
+       .db 0x07,0x05,0x04
+       .db 0x06,0x04,0x03
+       .db 0x05,0x03,0x03
+       .db 0x04,0x03,0x03
+       .db 0x04,0x02,0x02
+       .db 0x03,0x03,0x02
+       .db 0x03,0x02,0x02
+       .db 0x02,0x02,0x02
 d_08EB:
-       .db 0x06,0x05,0x04, 0x05,0x04,0x03, 0x05,0x03,0x03, 0x04,0x03,0x02, 0x04,0x02,0x02
-       .db 0x03,0x03,0x02, 0x03,0x02,0x01, 0x02,0x02,0x01, 0x02,0x01,0x01, 0x01,0x01,0x01
+       .db 0x06,0x05,0x04
+       .db 0x05,0x04,0x03
+       .db 0x05,0x03,0x03
+       .db 0x04,0x03,0x02
+       .db 0x04,0x02,0x02
+       .db 0x03,0x03,0x02
+       .db 0x03,0x02,0x01
+       .db 0x02,0x02,0x01
+       .db 0x02,0x01,0x01
+       .db 0x01,0x01,0x01
 
 ; sets of 4 bytes indexed by stage parameters 0 and 1 (max value 7)
 d_0909:
-       .db 0x03,0x03,0x01,0x01, 0x03,0x03,0x03,0x01, 0x07,0x03,0x03,0x01, 0x07,0x03,0x03,0x03
-       .db 0x07,0x07,0x03,0x03, 0x0F,0x07,0x03,0x03, 0x0F,0x07,0x07,0x03, 0x0F,0x07,0x07,0x07
+       .db 0x03,0x03,0x01,0x01
+       .db 0x03,0x03,0x03,0x01
+       .db 0x07,0x03,0x03,0x01
+       .db 0x07,0x03,0x03,0x03
+       .db 0x07,0x07,0x03,0x03
+       .db 0x0F,0x07,0x03,0x03
+       .db 0x0F,0x07,0x07,0x03
+       .db 0x0F,0x07,0x07,0x07
 ;d_0929:
-       .db 0x06,0x0A,0x0F,0x0F, 0x04,0x08,0x0D,0x0D, 0x04,0x06,0x0A,0x0A
+       .db 0x06,0x0A,0x0F,0x0F
+       .db 0x04,0x08,0x0D,0x0D
+       .db 0x04,0x06,0x0A,0x0A
 
 ;;=============================================================================
 ;; f_0935()
