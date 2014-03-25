@@ -54,6 +54,8 @@ static const uint8 gctl_str_2up[];
 static const uint8 gctl_str_000[];
 static const uint8 gctl_point_fctrs[];
 static const uint8 gctl_bmbr_enbl_tmrdat[][4];
+static const uint8 d_08CD[][3];
+static const uint8 d_08EB[][3];
 
 
 // function prototypes
@@ -68,12 +70,13 @@ static void gctl_supv_score(void);
 static void gctl_score_digit_incr(uint16, uint8);
 static int gctl_supv_stage();
 static void gctl_chllng_stg_end(void);
-static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8, uint8);
+static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8);
 static void gctl_plyr_start_stg_init(void);
 static void gctl_plyr_respawn_1P(void);
 static int gctl_plyr_terminate(void);
 static void gctl_plyr_startup(void);
 static int gctl_game_runner(void);
+static uint8 c_08AD(uint8 *pd);
 
 
 /*=============================================================================
@@ -1192,11 +1195,11 @@ void f_0857(void)
 
     // l_0865: bomb drop enable flags
     // A==new_stage_parms[0], HL==gctl_bmbr_enbl_tmrdat, C==num_bugs_on_scrn
-    A = gctl_bmbr_enbl_tmrs_set(ds_new_stage_parms[0], b_bugs_actv_nbr, 0);
+    A = gctl_bmbr_enbl_tmrs_set(ds_new_stage_parms[0], 0);
     b_92C0_0[0x08] = A; // bomb drop enable timer loaded to bombers (0x0F)ix
 
-//    if (0 != bmbr_cont_flag)
-if (1)
+
+    if (0 != bmbr_cont_flag)
     {
         // default inits for bomber activation timers
         b_92C0_0[0x04] = 2;
@@ -1204,12 +1207,61 @@ if (1)
         b_92C0_0[0x06] = 2;
 
         // sound-fx count/enable registers, kill pulsing sound effect
-        b_9AA0[0x00] = 0;
+        b_9AA0[0x00] = 0; // sound-fx count/enable regs, pulsing formation effect
         return;
     }
 
-//l_0888:
-A = ds_new_stage_parms[0x01];
+    //l_0888:
+    A = gctl_bmbr_enbl_tmrs_set(ds_new_stage_parms[1], 8); // ld   hl,#d_0909 + 8 * 4
+    b_92C0_0[0x04] = A;
+
+    A = ds_new_stage_parms[0x02];
+    A = c_08AD(&d_08CD[A][0]);
+    b_92C0_0[0x05] = A;
+
+    A = ds_new_stage_parms[0x03];
+    A = c_08AD(&d_08EB[A][0]);
+    b_92C0_0[0x06] = A;
+}
+
+/*=============================================================================
+;; c_08AD()
+;;  Description:
+;;  for f_0857
+;; IN:
+;;  A == ds_new_stage_parms[2] or [3]
+;;  B == ds4_game_tmrs[2]
+;;  HL == d_08CD or d_08EB
+;; OUT:
+;;  A == (hl)
+;;---------------------------------------------------------------------------*/
+uint8 c_08AD(uint8 *pd)
+
+{
+    uint8 retA;
+    uint8 hl = 0;
+
+// HL += 3 * A ... index into groups of 3 bytes
+//       ld   e,a
+//       sla  a
+//       add  a,e
+//       rst  0x10                                  ; HL += A
+
+    if (ds4_game_tmrs[2] < 0x28) // cp   #0x28
+    {
+        //jr   nc,l_08B8
+        hl += 1; // inc  hl
+    }
+//l_08B8:
+    if (0 == ds4_game_tmrs[2]) // and  a
+    {
+        //jr   nz,l_08BC
+        hl += 1; // inc  hl
+    }
+//l_08BC:
+    retA = *(pd + hl); // ld   a,(hl)
+
+    return retA;
 }
 
 /*=============================================================================
@@ -1223,17 +1275,46 @@ A = ds_new_stage_parms[0x01];
 ;; OUT:
 ;;  A==(hl)
 ;;---------------------------------------------------------------------------*/
-static uint8 gctl_bmbr_enbl_tmrs_set(uint8 A, uint8 C, uint8 L)
+static uint8 gctl_bmbr_enbl_tmrs_set(uint8 A, uint8 L)
 {
     uint8 rv, idx, sel;
 
     idx = A * 4;
-    sel = C / 10; // call c_divmod
+    sel = b_bugs_actv_nbr / 10; // call c_divmod
     rv = gctl_bmbr_enbl_tmrdat[L][idx + sel];
     return rv;
 }
 
 /*---------------------------------------------------------------------------*/
+// sets of 3 bytes indexed by stage parameters 2 and 3 (max value 9)
+static const uint8 d_08CD[][3] =
+{
+    {0x09,0x07,0x05},
+    {0x08,0x06,0x04},
+    {0x07,0x05,0x04},
+    {0x06,0x04,0x03},
+    {0x05,0x03,0x03},
+    {0x04,0x03,0x03},
+    {0x04,0x02,0x02},
+    {0x03,0x03,0x02},
+    {0x03,0x02,0x02},
+    {0x02,0x02,0x02}
+};
+
+static const uint8 d_08EB[][3] =
+{
+    {0x06,0x05,0x04},
+    {0x05,0x04,0x03},
+    {0x05,0x03,0x03},
+    {0x04,0x03,0x02},
+    {0x04,0x02,0x02},
+    {0x03,0x03,0x02},
+    {0x03,0x02,0x01},
+    {0x02,0x02,0x01},
+    {0x02,0x01,0x01},
+    {0x01,0x01,0x01}
+};
+
 static const uint8 gctl_bmbr_enbl_tmrdat[][4] =
 {
 //d_0909:

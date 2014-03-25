@@ -370,6 +370,7 @@ extern uint8 cpu1_task_en[];
 extern uint8 b_bugs_flying_nbr;
 extern const uint8 sprt_fmtn_hpos_ord_lut[];
 extern uint8 sprt_hit_notif[];
+extern uint8 bmbr_cont_flag;
 
 /* gg1-7.c */
 extern uint8 b_9AA0[];

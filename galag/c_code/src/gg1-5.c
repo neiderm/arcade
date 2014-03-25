@@ -36,7 +36,7 @@ uint8 sprt_hit_notif[0x30 * 2];
 uint8 ds3_92A0_frame_cts[3];
 uint8 cpu1_task_en[8];
 uint8 b_bugs_flying_nbr;
-
+uint8 bmbr_cont_flag; // b_92AA ... bomber continuous mode
 
 /*
  ** static external definitions in this file
@@ -587,7 +587,8 @@ void cpu1_rst38(void)
         ds3_92A0_frame_cts[2]++; // t[2] = H++
     }
 
-    // flag = ( num_bugs < param07 ) & ds_cpu0_task_actv[0x15]
+    bmbr_cont_flag = (b_bugs_actv_nbr < ds_new_stage_parms[0x07] &&
+                   0 != task_actv_tbl_0[0x15]); // fire btn inp
 
     // find the first ready task.. may run more than one.
     // In general, any non-zero value in cpu1_task_en[] enables that task.
@@ -669,10 +670,10 @@ void f_05EE(void)
 
     // l_0613: else ... !two_ship
     if (0 == mrw_sprite.cclr[SPR_IDX_SHIP + 0].b0) return; // ret  z
-#if 1 //
-    tmpSx = mrw_sprite.posn[SPR_IDX_SHIP + 0].b0; // stash fighter sX because it will be 0'd by hit_notif_fghtr
+
+    tmpSx = mrw_sprite.posn[SPR_IDX_SHIP + 0].b0; // stash fighter sX because it will be 0'd by hitd_fghtr_notif
     hit_notif = hitd_fghtr_notif(SPR_IDX_SHIP + 0); // ship_collisn_detectn_runner
-#endif
+
     if (0 == hit_notif) return; // ret  z
 
     //if (!two_ship) jr   z,l_0639_not_two_
@@ -1544,14 +1545,14 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 // jr   l_0B9F
 
                 // l_0B9F:
-                if (0) // if ( 1 == b_92A0_0A && 0 == ds_cpu0_task_actv[0x1D]) // jp   z,l_0B46
-                {
-                    pHLdata += 3; // inc  hl (x3)
-                }
-                else
+                if (0 == bmbr_cont_flag || 0 != task_actv_tbl_0[0x1D]) // jp   z,l_0B46
                 {
                     // l_0B46:
                     pHLdata = flv_0B46_set_ptr(pHLdata);
+                }
+                else
+                {
+                    pHLdata += 3; // inc  hl (x3)
                 }
                 break; // jp   j_090E_flite_path_init
             }
@@ -1577,7 +1578,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 //l_0B76
                 mctl_mpool[mpidx].cx.pair.b1 =  A >> 1; // srl  a
 
-                if (0 /* 0 != b_92A0_0A[0]*/) // jp   z,l_0B8B
+                if (0 != bmbr_cont_flag) // jp   z,l_0B8B
                 {
                     b_9AA0[0x13] = 1; // non-zero value
                 }
