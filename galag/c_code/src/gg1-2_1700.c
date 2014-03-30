@@ -125,7 +125,7 @@ void case_1766(void)
 {
     uint8 A;
 
-    // 0x80 fires shot ... not sure why bit-6 not masked out
+    // d<7> && !d<6> ... ordinance deployed!
     if (0x80 == (0xC0 & *demo_p_fghtr_mvecs))
     {
         demo_p_fghtr_mvecs += 1; // inc  de ... right-most boss+2wingmen dive
@@ -133,49 +133,40 @@ void case_1766(void)
     //l_1772:
     demo_p_fghtr_mvecs += 1; // inc  de
 
-    switch (*demo_p_fghtr_mvecs & 0xE0) // don't bother with rlca
+    A = *demo_p_fghtr_mvecs & 0xE0; // don't bother with rlca
+
+    // case_1794: load index/position of target alien
+    if (0x00 == A || 0x20 == A)
     {
-    case 0x00: // case_1794
-    case 0x20: // case_1794
-
-        // load index/position of target alien
-        // rlca ... note, mask makes rlca into <:0> through Cy irrelevant
-        A = *demo_p_fghtr_mvecs << 1; // rlca ... rotate bits<6:1> into place
-        demo_idx_tgt_obj = A & 0x7E; // mask out Cy rlca'd into <:0>
-        break; // ret
-
-        // done!
-    case 0xC0: // case_179C
+        demo_idx_tgt_obj = (*demo_p_fghtr_mvecs << 1) & 0x7E; // mask out Cy rlca'd into <:0>
+    }
+    // case_179C: last token
+    else if (0xC0 == A)
+    {
         task_actv_tbl_0[0x03] = 0; // this task
-        break; // ret
-
-    case 0x40: // case_17A1 ... runs timer and doesn't come back for a while
-
+    }
+    // case_17A1: wait for target in sights
+    else if (0x40 == A)
+    {
         // ld   a,(de) ... and  #0x1F
 
         //l_17A4:
         demo_state_tmr = *demo_p_fghtr_mvecs & 0x1F;
-        break; // ret
-
-    case 0x60: // case_17A8 ... no idea when
-
-        // A not needed but help makes it easy to understand for nooobz
-        A = *demo_p_fghtr_mvecs & 0x1F;
+    }
+    // case_17A8: no idea when
+    else if (0x60 == A)
+    {
+        //A = *demo_p_fghtr_mvecs & 0x1F;
         //       ld   c,a
-        //       rst  0x30                                  ; string_out_pe
-        break; // ret
-
-    // runs timer and doesn't come back for a while
-    case 0x80: // case_17AE
-    case 0xA0: // case_17AE
+        //       rst  0x30 ... string_out_pe
+    }
+    // case_17AE: wait timer, firing rocket training level ... demo ?
+    else if (0x80 == A || 0xA0 == A)
+    {
         //ld   a,(de) ... jr   l_17A4
 
         //l_17A4:
         demo_state_tmr = *(demo_p_fghtr_mvecs + 1); // inc  de;
-        break; // ret
-
-    default:
-        break;
     }
 }
 
@@ -222,23 +213,22 @@ void f_1700(void)
         rckt_sprite_init(); //  init sprite objects for rockets
         // ld   de,(pdb_demo_fghtrvctrs) ... don't need it
 
-        // 1734: drives the simulated inputs to the fighter in training mode
+        // no break!
+
+    // 1734: drives the simulated inputs to the fighter in training mode
     case 0x80:
+
+        // ld   hl,#ds_plyr_actv +_b_2ship
         // ld   e,(hl) ... double ship flag referenced directly in fghtr_ctrl_inp
 
-        A = *demo_p_fghtr_mvecs; // ld   a,(de)
+        // not till demo round
+        A = *demo_p_fghtr_mvecs & 0x0A; // 0x08 | 0x02
+        //jr   l_1755
 
-        if (0 == (A & 0x01)) // bit  0,a
+        if (0 != (*demo_p_fghtr_mvecs & 0x01)) // bit  0,a
         {
-            // not till demo round
-            A &= 0x0A; // 0x08 | 0x02
-            //jr   l_1755
-        }
-        else // jr   nz,l_1741
-        {
-            // move fighter in direction of targeted alien?
-            uint8 L;
-            L = demo_idx_tgt_obj; // object/index of targeted alien
+            // move fighter in direction of targeted alien
+            uint8 L = demo_idx_tgt_obj; // object/index of targeted alien
 
             A = 0x0A; // 0x08 | 0x02
             if (mrw_sprite.posn[L].b0 != mrw_sprite.posn[SPR_IDX_SHIP].b0) // sub  (hl)
@@ -266,7 +256,7 @@ void f_1700(void)
             return; // ret  nz
         }
 
-        rckt_sprite_init(); //  init sprite objects for rockets ...training mode, ship about to shoot?
+        rckt_sprite_init(); //  training mode ... nukes are loaded
 
         case_1766();
 
