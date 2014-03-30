@@ -133,14 +133,11 @@ void case_1766(void)
     //l_1772:
     demo_p_fghtr_mvecs += 1; // inc  de
 
-    // A not needed, but easier to chew that way
-    A = (*demo_p_fghtr_mvecs >> 5) & 0x07;
-
-// note: 1794, 17ae
-    switch (A)
+    switch (*demo_p_fghtr_mvecs & 0xE0) // don't bother with rlca
     {
-    case 0: // case_1794
-    case 1: // case_1794
+    case 0x00: // case_1794
+    case 0x20: // case_1794
+
         // load index/position of target alien
         // rlca ... note, mask makes rlca into <:0> through Cy irrelevant
         A = *demo_p_fghtr_mvecs << 1; // rlca ... rotate bits<6:1> into place
@@ -148,33 +145,33 @@ void case_1766(void)
         break; // ret
 
         // done!
-    case 6: // case_179C
+    case 0xC0: // case_179C
         task_actv_tbl_0[0x03] = 0; // this task
         break; // ret
 
-    case 2: // case_17A1 ... runs timer and doesn't come back for a while
-        // A not needed but help makes it obvious
-        A = *demo_p_fghtr_mvecs & 0x1F;
+    case 0x40: // case_17A1 ... runs timer and doesn't come back for a while
+
+        // ld   a,(de) ... and  #0x1F
+
         //l_17A4:
-        demo_state_tmr = A;
+        demo_state_tmr = *demo_p_fghtr_mvecs & 0x1F;
         break; // ret
 
-    case 3: // case_17A8 ... no idea when
+    case 0x60: // case_17A8 ... no idea when
+
         // A not needed but help makes it easy to understand for nooobz
         A = *demo_p_fghtr_mvecs & 0x1F;
         //       ld   c,a
         //       rst  0x30                                  ; string_out_pe
         break; // ret
 
-        // runs timer and doesn't come back for a while
-    case 4: // case_17AE
-    case 5: // case_17AE
-        // A not needed but help makes it obvious
-        A = *(demo_p_fghtr_mvecs + 1); // inc  de
+    // runs timer and doesn't come back for a while
+    case 0x80: // case_17AE
+    case 0xA0: // case_17AE
+        //ld   a,(de) ... jr   l_17A4
 
-        //jr   l_17A4
         //l_17A4:
-        demo_state_tmr = A;
+        demo_state_tmr = *(demo_p_fghtr_mvecs + 1); // inc  de;
         break; // ret
 
     default:
@@ -198,39 +195,35 @@ void f_1700(void)
 {
     uint8 A;
 
-    // A not needed here, but it's easier to digest
-    A = (*demo_p_fghtr_mvecs >> 5) & 0x07; // rlca * 3
-
-    switch (A)
+    switch (*demo_p_fghtr_mvecs & 0xE0) // don't bother with rlca
     {
-    case 0x02: // 171F: boss+wingmen nearly to fighter
+    case 0x40: // 171F: delay for targetting diving boss+wingmen
         if (0 == (ds3_92A0_frame_cts[0] & 0x0F))
         {
             demo_state_tmr -= 1;
-            if (0 != demo_state_tmr)
-            {
-                return;
-            }
-        }
-        // else ret  nz
 
-        // jp   case_1766 .....
+            if (0 == demo_state_tmr)
+            {
+                case_1766(); // jp   case_1766 ...
+            } // else ... ret  nz
+        }  // else ... ret  nz
+        break;
 
     case 0x00: // 1766:
-    case 0x01: // 1766:
-    case 0x03: // 1766:
+    case 0x20: // 1766:
+    case 0x60: // 1766:
     {
         case_1766();
         break;
     }
 
     // appearance of first attack wave in GameOver Demo-Mode
-    case 0x05: // 172D:
+    case 0xA0: // 172D:
         rckt_sprite_init(); //  init sprite objects for rockets
         // ld   de,(pdb_demo_fghtrvctrs) ... don't need it
 
         // 1734: drives the simulated inputs to the fighter in training mode
-    case 0x04:
+    case 0x80:
         // ld   e,(hl) ... double ship flag referenced directly in fghtr_ctrl_inp
 
         A = *demo_p_fghtr_mvecs; // ld   a,(de)
@@ -663,7 +656,7 @@ void f_1B65(void)
     // _1C01: boss launcher ... only enable capture-mode for every other one ( %2 )
     case 2:
     {
-        uint8 b, c, hl, de;
+        uint8 b, c, hl, de, ixh;
 
         // check capture-mode is active / capture-mode selection suppressed
         if (0 == plyr_state_actv.bmbr_boss_cflag)
@@ -717,6 +710,8 @@ return; //HELP_ME_DEBUG
             // else l_1C44
         } // djnz l_1C38_while
 
+        ixh = c; // ld   ixh,c
+
         // ld   ixl,#0 ... first pass: look for 2 adjoining red wingmen available
         for (b = 0; b < 4; b++)
         {
@@ -731,6 +726,8 @@ return; //HELP_ME_DEBUG
             // l_1C5B:
             c >>= 1; //rr   c
         } // djnz l_1C4F_while
+
+        c = ixh; // ld   c,ixh
 
         // second pass: inc  ixl, look for 1 available wingman
         for (b = 0; b < 4; b++)
