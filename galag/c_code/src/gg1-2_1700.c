@@ -112,63 +112,6 @@ static const uint8 demo_fghtr_mvecs_tl[] = // d_1928:
     0x18, 0x81, 0x2E, 0x81, 0x03, 0x1A, 0x81, 0x11, 0x81, 0x05, 0x42, 0xC0
 };
 
-/*=============================================================================
-;; case_1766()
-;;  Description:
-;;   Ship-update in training/demo mode
-;; IN:
-;;  ...
-;; OUT:
-;;  ...
-;;---------------------------------------------------------------------------*/
-void case_1766(void)
-{
-    uint8 A;
-
-    // d<7> && !d<6> ... ordinance deployed!
-    if (0x80 == (0xC0 & *demo_p_fghtr_mvecs))
-    {
-        demo_p_fghtr_mvecs += 1; // inc  de ... right-most boss+2wingmen dive
-    }
-    //l_1772:
-    demo_p_fghtr_mvecs += 1; // inc  de
-
-    A = *demo_p_fghtr_mvecs & 0xE0; // don't bother with rlca
-
-    // case_1794: load index/position of target alien
-    if (0x00 == A || 0x20 == A)
-    {
-        demo_idx_tgt_obj = (*demo_p_fghtr_mvecs << 1) & 0x7E; // mask out Cy rlca'd into <:0>
-    }
-    // case_179C: last token
-    else if (0xC0 == A)
-    {
-        task_actv_tbl_0[0x03] = 0; // this task
-    }
-    // case_17A1: wait for target in sights
-    else if (0x40 == A)
-    {
-        // ld   a,(de) ... and  #0x1F
-
-        //l_17A4:
-        demo_state_tmr = *demo_p_fghtr_mvecs & 0x1F;
-    }
-    // case_17A8: no idea when
-    else if (0x60 == A)
-    {
-        //A = *demo_p_fghtr_mvecs & 0x1F;
-        //       ld   c,a
-        //       rst  0x30 ... string_out_pe
-    }
-    // case_17AE: wait timer, firing rocket training level ... demo ?
-    else if (0x80 == A || 0xA0 == A)
-    {
-        //ld   a,(de) ... jr   l_17A4
-
-        //l_17A4:
-        demo_state_tmr = *(demo_p_fghtr_mvecs + 1); // inc  de;
-    }
-}
 
 /*=============================================================================
 ;; f_1700()
@@ -188,31 +131,10 @@ void f_1700(void)
 
     switch (*demo_p_fghtr_mvecs & 0xE0) // don't bother with rlca
     {
-    case 0x40: // 171F: delay for targetting diving boss+wingmen
-        if (0 == (ds3_92A0_frame_cts[0] & 0x0F))
-        {
-            demo_state_tmr -= 1;
-
-            if (0 == demo_state_tmr)
-            {
-                case_1766(); // jp   case_1766 ...
-            } // else ... ret  nz
-        }  // else ... ret  nz
-        break;
-
-    case 0x00: // 1766:
-    case 0x20: // 1766:
-    case 0x60: // 1766:
-    {
-        case_1766();
-        break;
-    }
-
     // appearance of first attack wave in GameOver Demo-Mode
     case 0xA0: // 172D:
         rckt_sprite_init(); //  init sprite objects for rockets
         // ld   de,(pdb_demo_fghtrvctrs) ... don't need it
-
         // no break!
 
     // 1734: drives the simulated inputs to the fighter in training mode
@@ -258,7 +180,71 @@ void f_1700(void)
 
         rckt_sprite_init(); //  training mode ... nukes are loaded
 
-        case_1766();
+        // no break
+
+    case 0x00: // 1766:
+    case 0x20: // 1766:
+    case 0x60: // 1766:
+    case 0x40: // 171F: delay for targetting diving boss+wingmen
+
+        if (0x40 == (*demo_p_fghtr_mvecs & 0xE0))
+        {
+            if (0 != (ds3_92A0_frame_cts[0] & 0x0F))
+            {
+                return; // ret  nz
+            }
+            demo_state_tmr -= 1;
+
+            if (0 != demo_state_tmr)
+            {
+                return; // ret  nz
+            }
+        }
+
+        // d<7> && !d<6> ... ordinance deployed!
+        if (0x80 == (0xC0 & *demo_p_fghtr_mvecs))
+        {
+printf("... fish in the water\n");
+            demo_p_fghtr_mvecs += 1; // inc  de ... right-most boss+2wingmen dive
+        }
+        //l_1772:
+        demo_p_fghtr_mvecs += 1; // inc  de
+
+        A = *demo_p_fghtr_mvecs & 0xE0; // don't bother with rlca
+
+        // case_1794: load index/position of target alien
+        if (0x00 == A || 0x20 == A)
+        {
+            demo_idx_tgt_obj = (*demo_p_fghtr_mvecs << 1) & 0x7E; // mask out Cy rlca'd into <:0>
+        }
+        // case_179C: last token
+        else if (0xC0 == A)
+        {
+            task_actv_tbl_0[0x03] = 0; // this task
+        }
+        // case_17A1: wait for target in sights
+        else if (0x40 == A)
+        {
+            // ld   a,(de) ... and  #0x1F
+
+            //l_17A4:
+            demo_state_tmr = *demo_p_fghtr_mvecs & 0x1F;
+        }
+        // case_17A8: no idea when
+        else if (0x60 == A)
+        {
+            //A = *demo_p_fghtr_mvecs & 0x1F;
+            //       ld   c,a
+            //       rst  0x30 ... string_out_pe
+        }
+        // case_17AE: wait timer, firing rocket training level ... demo ?
+        else if (0x80 == A || 0xA0 == A)
+        {
+            //ld   a,(de) ... jr   l_17A4
+
+            //l_17A4:
+            demo_state_tmr = *(demo_p_fghtr_mvecs + 1); // inc  de;
+        }
 
         break;
 
@@ -919,7 +905,6 @@ static const uint8 d_1CFD[] =
 ;;---------------------------------------------------------------------------*/
 static void bmbr_boss_escort_sel(uint16 iy, uint8 de, uint8 *b, r16_t *c, uint8 Cy)
 {
-    r16_t tmpC;
     uint8 a = 0;
 
     c->word >>= 1; // rrc  c
@@ -945,6 +930,10 @@ static void bmbr_boss_escort_sel(uint16 iy, uint8 de, uint8 *b, r16_t *c, uint8 
 
 /*=============================================================================
 ;;  indices of 6 red aliens that rest under the 4 bosses for wingmen selection
+
+ demo layout:
+      0x34         0x30         0x32         0x36
+                                    0x4A 0x58    0x52
 ;;---------------------------------------------------------------------------*/
 static const uint8 d_bmbr_boss_wingm_idcs[] =
 {
