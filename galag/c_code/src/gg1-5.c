@@ -412,8 +412,10 @@ static const uint8 flv_d_0454[] = { // capture mode boss
 /************************************/
 uint8 flv_get_data(uint16 phl)
 {
-    if (phl >= sizeof(flv_data))  return 0; // oops, whatya want me to do about it
-
+    if (phl >= sizeof(flv_data))
+    {
+        return 0; // oops, whatya want me to do about it
+    }
     return flv_data[phl];
 }
 // this one is separate to allow breakpoint prior to selection of new command token
@@ -1545,7 +1547,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 // jr   l_0B9F
 
                 // l_0B9F:
-                if (0 == bmbr_cont_flag || 0 != task_actv_tbl_0[0x1D]) // jp   z,l_0B46
+                if (0 == bmbr_cont_flag || 1 == task_actv_tbl_0[0x1D]) // jp   z,l_0B46
                 {
                     // l_0B46:
                     pHLdata = flv_0B46_set_ptr(pHLdata);
@@ -1580,7 +1582,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
 
                 if (0 != bmbr_cont_flag) // jp   z,l_0B8B
                 {
-                    b_9AA0[0x13] = 1; // non-zero value
+                    b_9AA0[0x13] = 1; // non-zero value, dive attack sound
                 }
 
                 //l_0B8B
@@ -1634,8 +1636,26 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 break; // jp   j_090E_flite_path_init
             }
 
-            case 0xF6: // _0BA8 (09): one red alien remain, in "free flight mode"
+            case 0xF6: // _0BA8 (09): continuous bombing mode
             {
+                r16_t AC;
+
+                pHLdata += 1; // inc  hl
+                AC.word = flv_get_data(pHLdata); // ld   a,(hl)
+
+                // reverses path index for opposite rotation
+                if ( 0 != (mctl_mpool[mpidx].b13 & 0x80)) // bit  7,0x13(ix)
+                {
+                    AC.pair.b0 += 0x80; // add  a,#0x80
+                    AC.pair.b0 = -AC.pair.b0 ; // neg
+                }
+                // l_0BB4:
+                AC.word <<= 2;
+
+                mctl_mpool[mpidx].ang.word = AC.word;
+                mctl_mpool[mpidx].b0E = 0x1E; // bomb drop counter
+                mctl_mpool[mpidx].b0F = b_92C0_0[0x08]; // bomb drop enable flags
+
                 // jp   l_0B8B
 
                 //l_0B8B
@@ -1761,16 +1781,17 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 break;
             }
 
-            case 0xF0: // _0955 (0F): attack wave
-            case 0xEF: // _094E (10): one red alien left in continuous bombing mode
+            case 0xF0: // _0955
+            case 0xEF: // _094E (10): continuous bombing mode
             {
-                uint8 A;
+                uint8 A; // this can be local with two cases mashed together
 
                 A = ds_new_stage_parms[0x09]; // jumps the pointer on/after stage 8
 
                 if (0xEF != mctld) // jp   l_0959
                 {
-                    A = ds_new_stage_parms[0x08];
+                    // case_0955 (0F): attack wave:
+                    A = ds_new_stage_parms[0x08]; // jumps the pointer on/after stage 8
                     A = 0; // this can be 0 for now
                 }
 
@@ -1779,15 +1800,16 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
                 {
                     // not until stage 8
                     // load a pointer from data tbl into .p08 (09)
+                    pHLdata = flv_0B46_set_ptr(pHLdata); // reuse subroutine
                     // jp   l_0B8C
                 }
                 else // jr   z,l_0963
                 {
-                    // l_0963
+                    // l_0963: skip loading new address
                     pHLdata += 2;
                     // jp   l_0B8B
 
-                    //l_0B8B
+                    //l_0B8B:
                     pHLdata += 1; // inc  hl
                 }
                 // l_0B8C:
@@ -1947,7 +1969,7 @@ static void mctl_rotn_incr(uint8 mpidx)
         }
     }
 
-    // l_0C46 ... hold off on updating rotation value in pool slot
+    // l_0C46 ... below
 
     /*
      * determine_sprite_code
@@ -2011,7 +2033,7 @@ static void mctl_rotn_incr(uint8 mpidx)
         mctl_coord_incr(A, mpidx);
     }
 
-    // l_0C46: now the rotation value for this slot can be updated (l_0C46)
+    // l_0C46: now the rotation value for this slot can be updated
     mctl_mpool[mpidx].ang.word += (sint8) mctl_mpool[mpidx].b0C;
 }
 
