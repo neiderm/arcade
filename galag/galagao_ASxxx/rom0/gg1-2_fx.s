@@ -44,7 +44,6 @@ f_1700:
        ld   h,(hl)
        ld   l,a
        jp   (hl)
-
 d_1713:
        .dw case_1766
        .dw case_1766
@@ -71,17 +70,21 @@ case_172D:  ; 0x05
 
 ; drives the simulated inputs to the fighter in training mode
 case_1734:  ; 0x04
-       ld   a,(de)
+       ld   a,(de)                                ; *pdb_demo_fghtrvctrs
+
        ld   hl,#ds_plyr_actv +_b_2ship
        ld   e,(hl)                                ; setup E for c_1F92
+
        bit  0,a
        jr   nz,l_1741
        and  #0x0A
        jr   l_1755
+
 l_1741:
-       ld   a,(ds_9200_glbls + 0x09)              ; index/position of attacking object
+       ld   a,(ds_9200_glbls + 0x09)              ; object/index of targeted alien
        ld   l,a
        ld   h,#>ds_sprite_posn
+
        ld   a,(ds_sprite_posn + 0x62)             ; ship (1) position
        sub  (hl)
        ld   a,#0x0A
@@ -102,7 +105,7 @@ l_1755:
 case_1766:  ; 0x00, 0x01, 0x03
        ld   de,(pdb_demo_fghtrvctrs)
        ld   a,(de)
-       and  #0xC0                                 ; 0x80 fires shot ... not sure why bit-6 not masked out
+       and  #0xC0                                 ; 0x80 fires shot ... 0xC0 is end of sequence
        cp   #0x80
        jr   nz,l_1772
        inc  de                                    ; firing shot ... advance to next token
@@ -126,15 +129,15 @@ l_1772:
        jp   (hl)                                  ; 1784
 
 d_1786:
-       .dw case_1794
-       .dw case_1794
-       .dw case_17A1
-       .dw case_17A8
-       .dw case_17AE
-       .dw case_17AE
-       .dw case_179C
+       .dw case_1794  ; 0
+       .dw case_1794  ; 1 -> $2x
+       .dw case_17A1  ; 2 -> $4x
+       .dw case_17A8  ; 3
+       .dw case_17AE  ; 4 -> $8x
+       .dw case_17AE  ; 5
+       .dw case_179C  ; 6 -> $Cx
 
-; prior to bosses and reds appearing
+; load index/position of target alien
 case_1794:
 ; ds_9200_glbls[0x09] = *_demo_fghtrvctrs << 1 & 0x7E
        ld   a,(de)
@@ -143,13 +146,13 @@ case_1794:
        ld   (ds_9200_glbls + 0x09),a              ; index/position of of target alien
        ret
 
-; shot-and-hit far-left boss in training mode (second hit)
+; $C0: last token, shot-and-hit far-left boss in training mode (second hit)
 case_179C:
        xor  a
        ld   (ds_cpu0_task_actv + 0x03),a          ; 0 ... f_1700
        ret
 
-; shoot-and-hit far-right or far-left boss (once) in training mode
+; $4x: shoot-and-hit far-right or far-left boss (once) in training mode
 case_17A1:
        ld   a,(de)
        and  #0x1F
@@ -165,8 +168,7 @@ case_17A8:
        rst  0x30                                  ; string_out_pe
        ret
 
-; fighter has appeared in training mode
-; prior to each fighter shot in training mode?
+; $8x: prior to each fighter shot in training mode?
 case_17AE:
        inc  de
        ld   a,(de)
@@ -1221,7 +1223,7 @@ l_1CF2_while:
        inc  a
        jr   nz,l_1CF2_while
 
-; setup parameters (HL, IY already loaded)
+; setup A and Cy' parameters (HL, IY already loaded)
 ;  HL == &_boss_pool[n] ... n = { 3, 6, 9 }
 ;  IY == pointer to flight vector data
        ex   af,af'                                ; unstash rotation flag
@@ -1823,7 +1825,7 @@ f_1F04:
        ld   a,(b_9215_flip_screen)
        add  a,#<ds3_99B5_io_input + 0x01          ; add lsb
        ld   l,a
-       ld   h,#>ds3_99B5_io_input                 ; msb
+       ld   h,#>ds3_99B5_io_input + 0x00          ; msb
        bit  4,(hl)
        ret  nz                                    ; active low input
 ; else
@@ -2007,9 +2009,9 @@ f_1F85:
 
 ; read from io_input[1] or io_input[2] depending whether screen is flipped.
        ld   a,(b_9215_flip_screen)
-       add  a,#<ds3_99B5_io_input + 1             ; LSB
+       add  a,#<ds3_99B5_io_input + 0x01          ; LSB
        ld   l,a
-       ld   h,#>ds3_99B5_io_input                 ; MSB
+       ld   h,#>ds3_99B5_io_input + 0x00          ; MSB
        ld   a,(hl)
 
 ;      call c_1F92
@@ -2069,11 +2071,9 @@ l_1FAE_handle_input_bits:
        and  a
        ret  z
 
-; if ( ! input.Right ) ... test left limit
+; if ( input.Right ) ...
        bit  1,b                                   ; if ( ! input bits.right ) ... inverted
        jr   nz,l_1FC7_test_llmt
-
-; ... else ...
 
 ; if ( ship.posn.x > 0xD1) ... moving right: check right limit for double-ship
        ld   a,(hl)
@@ -2084,15 +2084,15 @@ l_1FAE_handle_input_bits:
        ret  nz                                    ; at right limit of double-ship
 
 l_1FC0_test_rlmt_single:
-; else if ( ship.posn.x >= 0xE1 ) return
+; if ( ship.posn.x >= 0xE1 ) return
        cp   #0xE1                                 ; right limit, single-ship
        ret  nc
-; else ... add dX for right direction
-       add  a,c
+; add dX for right direction
+       add  a,c                                   ; fighter dX
        ld   (hl),a
        jr   l_1FD4_update_two_ship
 
-; ... test left limit
+; ... else ... test left limit
 l_1FC7_test_llmt:
 ; if ( ship.posn.x < 0x12 ) return
        ld   a,(hl)
