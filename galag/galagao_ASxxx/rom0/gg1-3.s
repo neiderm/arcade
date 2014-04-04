@@ -1541,15 +1541,15 @@ c_2896:
        ld   a,(ds_plyr_actv +_b_stgctr)           ; stage init sprite codes
        rrca
        rrca
-       ld   c,a
+       ld   c,a                                   ; table index (below)
        rrca
        ld   b,a
-       and  #0x1C
-       ld   a,b
+       and  #0xE0 >> 3                            ; 0x1C ... test if stage >= 32
+       ld   a,b                                   ; .stage_ctr >> 3
        jr   z,l_28B5
-       ld   a,#3                                  ; when is jr not taken?
+       ld   a,#3                                  ; select index 3 if stage >= 32
 l_28B5:
-       and  #0x03                                 ; 8 entries in data
+       and  #0x03                                 ; 4 entries in data (every 8 challenge stages the selection index is stepped)
        ld   hl,#d_stage_chllg_rnd_attrib
        rst  0x08                                  ; HL += 2A
        ld   de,#ds2_stg_chllg_rnd_attrib          ; challenge bonus attributes (2 bytes from 2900[])
@@ -1557,7 +1557,7 @@ l_28B5:
        ldi                                        ; "LD (DE),(HL)", DE++, HL++, BC--
        ldi
 
-       ld   hl,#d_290E
+       ld   hl,#d_290E                            ; 8 entries
        and  #0x07
        rst  0x10                                  ; HL += A
        ld   d,(hl)
