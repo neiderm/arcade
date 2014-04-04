@@ -50,7 +50,7 @@ uint8 b_bugs_actv_nbr; // total count of remaining aggressors according to objec
 // accumulated count of remaining aggressors according to object state dispatcher
 static uint8 objs_dspch_ccnt; // probably includes zombie fighter
 
- // attack wave sequencer table: 16-bytes * 5 waves + 6 bytes for markers ($7E, $7F)
+// attack wave sequencer table: 16-bytes * 5 waves + 6 bytes for markers ($7E, $7F)
 static uint8 atkw_seqt[0x56];
 
 // forward declarations
@@ -307,13 +307,13 @@ void objs_dispatcher(uint8 frame_ct)
         {
             switch (sprt_mctl_objs[ E ].state)
             {
-                // ignore me (fighter, or inactive invader)
+            // ignore me (fighter, or inactive invader)
             case INACTIVE:
                 // _2416
                 E += 4;
                 break;
 
-                // _2422: dive attack or homing from formation pattern
+            // _2422: dive attack or homing from formation pattern
             case HOMING:
                 L = E;
                 C = sprt_fmtn_hpos_ord_lut[L + 0]; // row position index
@@ -330,7 +330,7 @@ void objs_dispatcher(uint8 frame_ct)
                 E += 4; // 2416
                 break;
 
-                // _243C: shot my damn ship (DE==8862 ... 8863 counts down from $0F for all steps of explosion)
+            // _243C: shot my damn ship (DE==8862 ... 8863 counts down from $0F for all steps of explosion)
             case ROGUE_FGHTR:
                 // obj_status[].mctl_q_index used for explosion counter
                 // counts down to 0 (from $F) during explosion
@@ -358,7 +358,7 @@ void objs_dispatcher(uint8 frame_ct)
                 // jp   l_2416
                 break;
 
-                // _245F: rotating back into position in the collective
+            // _245F: rotating back into position in the collective
             case HOME_RTN:
                 L = E;
 
@@ -409,7 +409,7 @@ void objs_dispatcher(uint8 frame_ct)
                 E += 4; // 2416
                 break;
 
-                // _2488: stationary
+            // _2488: stationary
             case STAND_BY:
                 L = E;
                 // use bit-1 of 4 Hz timer to toggle tile-code 6 or 7 every 1/2
@@ -418,7 +418,7 @@ void objs_dispatcher(uint8 frame_ct)
                 mrw_sprite.cclr[L].b0 |=
                     (0 != (ds3_92A0_frame_cts[2] & 0x02));
 
-                // if 0 ... nothing else to do, but count object
+                // update stuff if enemy-enable set
                 if (0 != glbls9200.glbl_enemy_enbl) // should be 0 at demo
                 {
                     // l_249B:
@@ -431,20 +431,21 @@ void objs_dispatcher(uint8 frame_ct)
 
                     // jp   l_2413 ...  reset index to .b0 and continue
                     // dec  e  ; reset index/pointer to b0
-                }
+                } // else ... nothing else to do, but count object
+
                 // l_2414_inc_active:
                 objs_dspch_ccnt += 1; // 2414
                 E += 4; // 2416
                 break;
 
-                // _24B2: nearly fatally shot
+            // _24B2: nearly fatally shot
             case EXPLODING:
                 objs_dispatcher_rckt_hit(E);
                 // _2416
                 E += 4;
                 break;
 
-                // _2535: showing a score bitmap for a bonus hit
+            // _2535: showing a score bitmap for a bonus hit
             case SCORE_BITM:
                 sprt_mctl_objs[ E ].mctl_idx -= 1;
                 // nz,case_2416
@@ -458,7 +459,7 @@ void objs_dispatcher(uint8 frame_ct)
                 E += 4;
                 break;
 
-                // _254D: terminate out of bounds bombs or "transient" invaders
+            // _254D: terminate out of bounds bombs or "transient" invaders
             case PTRN_CTL: // state progression ... 7's to 3's, and then 9's, 2's, and finally 1's
             case BOMB: // release slot for bomb when out of range
                 if ( mrw_sprite.posn[ E ].b0 < 0xF4 )
@@ -496,7 +497,7 @@ void objs_dispatcher(uint8 frame_ct)
                 mrw_sprite.posn[ E ].b0 = 0;
                 break;
 
-                // _2590: once for each spawning orc (new stage)
+            // _2590: once for each spawning orc (new stage)
             case SPAWNING:
                 sprt_mctl_objs[ E ].state = PTRN_CTL; // from "spawning"
                 objs_dspch_ccnt += 1;
@@ -797,23 +798,15 @@ void gctl_stg_new_etypes_init(void)
 
     if (0 == plyr_state_actv.not_chllng_stg)
     {
-        A = plyr_state_actv.stage_ctr >> 2; // rrca * 2
-        C = A;
-        A >>= 1; // rrca
-        B = A;
-        A &= 0x1C;
-        A = B;
-        if ( 0 != A )  A = 3;
+        A = (plyr_state_actv.stage_ctr >> 3) & 0x03;
 
-        // l_28B5:
-        A &= 0x03;
+        if ( 0 != (0xE0 & plyr_state_actv.stage_ctr))  A = 3;
 
-        stg_chllg_rnd_attrib[0] = atkw_chllg_rnd_attrib[A + 0];
-        stg_chllg_rnd_attrib[1] = atkw_chllg_rnd_attrib[A + 1];
+        stg_chllg_rnd_attrib[0] = atkw_chllg_rnd_attrib[A + 0]; // ldi
+        stg_chllg_rnd_attrib[1] = atkw_chllg_rnd_attrib[A + 1]; // ldi
 
-        A = C & 0x07;
-        D = atkw_chlg_spcclr[A];
-        E = D;
+        D = atkw_chlg_spcclr[(plyr_state_actv.stage_ctr >> 2) && 0x07];
+        E = D; // ld   e,d
 
         // jr   l_28D0
     }
@@ -1238,7 +1231,7 @@ void f_2A90(void)
     // l_2ADA_done:
     glbls9200.bug_nest_direction_lr = 0;
     task_actv_tbl_0[0x0A] = 0; // f_2A90 (this task)
-    b_9AA0[0x00] = 1;          // sound mgr
+    b_9AA0[0x00] = 1;          // sound-fx count/enable regs, pulsing formation effect
     task_actv_tbl_0[0x09] = 1; // f_1DE6 ... collective bug movement
     return;
 }
