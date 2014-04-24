@@ -204,8 +204,8 @@ sprt_mctl_obj_state_t;
 #define SPR_IDX_SHIP  (0x62)
 #define SPR_IDX_RCKT  (0x64)
 #define SPR_IDX_RCKT0 (SPR_IDX_RCKT)
-#define SPR_IDX_RCKT1 (SPR_IDX_RCKT + sizeof(bpair_t))
-
+#define SPR_IDX_RCKT1 (SPR_IDX_RCKT0 + sizeof(bpair_t))
+#define SPR_IDX_BOMB0 (SPR_IDX_RCKT1 + sizeof(bpair_t))
 
 /*
  * struct type for motion control pool
@@ -389,6 +389,7 @@ extern sprt_regs_t mrw_sprite;
 extern uint8 b_92A4_rockt_attribute[];
 extern uint8 b_92C0_0[];
 extern bmbr_boss_slot_t bmbr_boss_pool[];
+extern r16_t bomb_hrates[];
 
 /* gg1-3.c */
 extern mctl_pool_t mctl_mpool[];

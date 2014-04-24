@@ -1183,6 +1183,51 @@ static uint8 fmtn_expcon_cinc_bits[][16] =
 ;;---------------------------------------------------------------------------*/
 void f_1EA4(void)
 {
+    uint8 ixh, ixl, hl;
+
+    ixh = (ds3_92A0_frame_cts[0] & 0x01) + 2;
+
+    if (0 != glbls9200.flip_screen)
+    {
+        ixh = -(ds3_92A0_frame_cts[0] & 0x01 + 2); // neg
+    }
+    ixl = 8; // loop ct
+    hl = 0;
+
+    //bomb_xcoords[a].
+    while(ixl > 0)
+    {
+        if (0x30 == mrw_sprite.cclr[SPR_IDX_BOMB0 + hl * 2].b0
+                && 0x00 != mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b0)
+        {
+            r16_t tmp16;
+            uint8 a, c;
+
+            c = bomb_hrates[hl * 2].pair.b1 + (bomb_hrates[hl * 2].pair.b0 & 0x7E);
+            bomb_hrates[hl * 2].pair.b1 = c & 0x1F;
+            a = c >> 5;
+
+            if (0 != (0x80 & bomb_hrates[hl * 2].pair.b0)) // bit  7,b
+            {
+                // use negative offset of X coordinate if bomb path is to the left
+                a = -a; // neg
+            }
+
+            // update X
+            mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b0 += a; // add  a,(hl)
+
+            // update Y
+            tmp16.word = mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b1;
+            tmp16.pair.b1 = mrw_sprite.ctrl[SPR_IDX_BOMB0 + hl * 2].b1;
+            tmp16.word += ixh;
+            mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b1 = tmp16.pair.b0;
+            mrw_sprite.ctrl[SPR_IDX_BOMB0 + hl * 2].b1 =
+                (mrw_sprite.ctrl[SPR_IDX_BOMB0 + hl * 2].b1 & 0xF7) |
+                (tmp16.pair.b1 & 0x01);
+        }
+        hl += 1;
+        ixl -= 1; // dec  ixl
+    }
 
 }
 
@@ -1291,7 +1336,7 @@ static void rckt_sprite_init(void)
     // sprite.ctrl bits ...  flipx into bit:5, flipy into bit:6
     B = (mrw_sprite.ctrl[SPR_IDX_SHIP].b0 << 5) & 0x60;
 
-    // if ( ! flip_screen )
+    if (0 == glbls9200.flip_screen)
     {
         // screen not flipped so invert those bits
         A = B ^ 0x60;

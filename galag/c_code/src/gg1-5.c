@@ -37,6 +37,7 @@ uint8 ds3_92A0_frame_cts[3];
 uint8 cpu1_task_en[8];
 uint8 b_bugs_flying_nbr;
 uint8 bmbr_cont_flag; // b_92AA ... bomber continuous mode
+r16_t bomb_hrates[0x08 * 2];
 
 /*
  ** static external definitions in this file
@@ -2237,28 +2238,98 @@ static void mctl_posn_set(uint8 mpidx)
     // If bomb is disabled for any reason, the timer is restarted.
     mctl_mpool[mpidx].b0E -= 1; // dec  0x0E(ix)
 
-    if (0 != mctl_mpool[mpidx].b0E) // jp   nz,l_0DFB_next_
+    if (0 == mctl_mpool[mpidx].b0E) // jp   nz,next__pool_idx
     {
-        return; // jp   nz,l_0DFB_next_
+        Cy = mctl_mpool[mpidx].b0F & 0x01;
+        mctl_mpool[mpidx].b0F >>= 1; // srl  0x0F(ix)
+
+        if (Cy
+                &&
+                mctl_mpool[mpidx].cy.pair.b1 >= (152 / 2) // cp   #0x4C ... 152>>1
+                &&
+                0 != task_actv_tbl_0[0x15] // fire button input
+                &&
+                0 == ds4_game_tmrs[1])
+        {
+            uint8 hl;
+            // check for bomb available, 8 positions
+            for (hl = 0; hl < 8; hl ++)
+            {
+                if (INACTIVE == sprt_mctl_objs[SPR_IDX_BOMB0 + hl * 2].state)
+                {
+                    r16_t bc16, hl16, a16, b16;
+                    uint8 a, b;
+
+                    // l_0D8D_
+                    sprt_mctl_objs[SPR_IDX_BOMB0 + hl * 2].state = BOMB;
+
+                    mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b0 = mrw_sprite.posn[L].b0; // x
+                    mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b1 = mrw_sprite.posn[L].b1; // y<7:0>
+
+                    bc16.pair.b1 = mrw_sprite.ctrl[L].b1; // y<8>
+                    bc16.pair.b0 = mrw_sprite.posn[L].b1; // y<7:0>
+                    b = bc16.word >> 1; // y<8:1>
+
+                    hl16.pair.b1 = mrw_sprite.posn[SPR_IDX_SHIP].b0 -
+                                   mrw_sprite.posn[L].b0 ; // dX;
+
+                    if (mrw_sprite.posn[L].b0 > mrw_sprite.posn[SPR_IDX_SHIP].b0)
+                    {
+                        // result in 8-bits but parameter passed in hl to div16_8()
+                        hl16.pair.b1 = -hl16.pair.b1; // neg ... ld   h,a
+                    }
+                    hl16.pair.b0 = L; // what about L?
+                    // l_0DB1:
+
+                    a16.word = 298 >> 1; // 0x95 ... 354-56
+                    if (glbls9200.flip_screen)  a16.word = 56 >> 1; // 0x1C ... 354-298
+
+                    // l_0DBC:
+                    a16.word -= b; // sub  b
+
+                    if (0 != a16.pair.b1) // jr   nc,l_0DC1
+                    {
+                        a16.pair.b0 = -a16.pair.b0; // neg
+                    }
+
+                    // l_0DC1: determine x-rate of bomb ... dX/dY
+// off by 1 ... 6569/56=12d
+                    hl16.word = mctl_div_16_8(hl16.word, a16.pair.b0); // HL = HL / A
+                    bc16.word = hl16.word;
+                    hl16.word >>= 2;
+                    hl16.word += bc16.word; // add  hl,bc
+                    hl16.word >>= 2;
+
+                    a = 0x60; // 96
+                    if (0 == hl16.pair.b1) // jr   nz,l_0DE0
+                    {
+                        if (hl16.pair.b0 < 0x60) // jr   c,l_0DE2
+                        {
+                            //l_0DE0:
+                            a = hl16.pair.b0; // ld   a,l
+                        }
+                    }
+                    //l_0DE2:
+                    // pop  af ... restore Cy from dX above, make b 16-bit to rr the Cy into b<7>
+                    b16.word = mrw_sprite.posn[SPR_IDX_SHIP].b0 - mrw_sprite.posn[L].b0; // dX;
+                    b16.pair.b0 = a; // ld   b,a
+                    b16.word >>= 1; // rr   b
+
+                    a = (SPR_IDX_BOMB0 + hl * 2 + 0x08) & 0x0F; // can get rid of IDX_BOMB0 and  & $0F but doesn't hurt anything
+                    bomb_hrates[a].pair.b0 = b16.pair.b0;
+                    bomb_hrates[a].pair.b1 = 0;
+
+                    break; // end for
+                }
+                // else ... jr   l_0DF5_next_superloop_and_
+            }
+        }
+
+        // l_0DF5_next_superloop_and_reload_0E
+        mctl_mpool[mpidx].b0E = b_92E2_stg_parm[0]; // bomb drop counter
     }
 
-    Cy = mctl_mpool[mpidx].b0F & 0x01;
-    mctl_mpool[mpidx].b0F >>= 1; // srl  0x0F(ix)
-
-    if (Cy
-            &&
-            mctl_mpool[mpidx].cy.pair.b1 >= 0x4C // cp   #0x4C ... $98>>1
-            &&
-            0 != task_actv_tbl_0[0x15] // fire button input
-            &&
-            0 == ds4_game_tmrs[1])
-    {
-        // get me some bullets
-        return;
-    }
-
-    // l_0DF5_next_superloop_and_reload_0E
-    mctl_mpool[mpidx].b0E = b_92E2_stg_parm[0]; // bomb drop counter
+    // next__pool_idx:
 
     // jp   for__pool_idx
 }
@@ -2325,7 +2396,7 @@ static uint16 mctl_rotn_hp(uint16 _DE_, uint8 mctl_que_idx)
     }
 
     // l_0E84:
-    rHL.word = C << 8;
+    rHL.word = C << 8; // ld   h,c
 
     rHL.word = mctl_div_16_8(rHL.word, A); // HL = HL / A
 
@@ -2441,7 +2512,7 @@ static uint16 mctl_div_16_8(uint16 HL, uint8 A)
         rHL.word = Cy16;
         Cy = (0 != (Cy16 & 0x00010000)); // overflow out of 16-bits
 
-        B++; // djnz l_0EAF
+        B += 1; // djnz l_0EAF
     }
     // pop  bc
     return rHL.word;

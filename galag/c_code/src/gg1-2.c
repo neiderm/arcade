@@ -42,6 +42,7 @@ static void bmbr_setup_fltq(uint8, uint16, uint8);
 ;; bmbr_setup_fltq_boss()
 ;;  Description:
 ;;   setup bombing attackers in flite control queue, boss + 1 or 2 wingmen.
+;;   Extra layer to unpack object index from rotation flag.
 ;; IN:
 ;;   HL == &b_8800[n] ... bits 0:6
 ;;         bit-7 if set then negate rotation angle to (ix)0x0C
@@ -477,14 +478,14 @@ void c_game_or_demo_init(void)
         mrw_sprite.ctrl[L].b0 = C;
         mrw_sprite.cclr[L].b1 = D;
 
-        L++;
+        L += 2;
 
         if (B == 9)
         {
             C = 1;
-            D = 0x0B;
+            D = 13;
         }
-        B--;
+        B -= 1;
     }
     return;
 }
