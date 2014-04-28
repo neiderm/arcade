@@ -2265,6 +2265,7 @@ static void mctl_posn_set(uint8 mpidx)
 
                     mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b0 = mrw_sprite.posn[L].b0; // x
                     mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b1 = mrw_sprite.posn[L].b1; // y<7:0>
+                    mrw_sprite.ctrl[SPR_IDX_BOMB0 + hl * 2].b1 = mrw_sprite.ctrl[L].b1; // y<8>
 
                     bc16.pair.b1 = mrw_sprite.ctrl[L].b1; // y<8>
                     bc16.pair.b0 = mrw_sprite.posn[L].b1; // y<7:0>
