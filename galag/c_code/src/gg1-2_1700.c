@@ -359,7 +359,7 @@ void f_17B2()
 
             plyr_state_actv.num_ships = 0;
             task_actv_tbl_0[0x05] = 0; // f_0857
-            c_133A_show_ship();
+            fghtr_onscreen();
 
             // set inits and override defaults of bomber timers (note f_0857 disabled above)
             b_92C0_0[0x06] = 0xFF; // yellow alien default bomber timer
@@ -386,7 +386,7 @@ void f_17B2()
             //from DSWA "sound in attract mode"
             b_9AA0[0x17] = 0; // (_sfr_dsw4 >> 1) & 0x01;
 
-            c_game_or_demo_init();
+            g_mssl_init();
             break;
 
         case 0x00: // l_1940
@@ -979,7 +979,7 @@ void f_1D76(void)
 ;;   collision detection is flagged in c_076A by setting the value to $81
 ;;
 ;;   this task is disabled only when the default task config is
-;;   re-loaded from ROM (g_init_taskman_defs) just prior to the Top5
+;;   re-loaded from ROM (g_taskman_init) just prior to the Top5
 ;;   screen shown in attract-mode.
 ;;
 ;; IN:
@@ -1261,7 +1261,7 @@ void f_1F04(void)
 ;; rckt_sprite_init()
 ;;  Description:
 ;;   Intialize sprite objects for rockets.
-;;   rocket sprite.cclr[n].b0 is initialized by c_game_or_demo_init
+;;   rocket sprite.cclr[n].b0 is initialized by g_mssl_init
 ;;   Updates game shots fired count.
 ;; IN:
 ;;  ...

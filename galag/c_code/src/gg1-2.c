@@ -33,8 +33,8 @@ static const uint8 task_enable_def[32];
 // function prototypes
 static void c_build_token_1(uint8 *, uint16 *, uint8);
 static void c_build_token_2(uint8 *, uint16 *);
-static void draw_resv_fghtrs(void);
-static void draw_resv_fghtr_tile(uint16, uint8 *, uint8);
+static void fghtr_resv_draw(void);
+static void fghtr_resv_tile(uint16, uint8 *, uint8);
 static void bmbr_setup_fltq(uint8, uint16, uint8);
 
 
@@ -377,7 +377,7 @@ static void c_build_token_2(uint8 *D, uint16 *HL)
 }
 
 /*=============================================================================
-;; g_init_taskman_defs()
+;; g_taskman_init()
 ;;  Description:
 ;;   Initialize active player and reserve player kernel tables from defaults:
 ;;   - At reset
@@ -389,7 +389,7 @@ static void c_build_token_2(uint8 *D, uint16 *HL)
 ;; OUT:
 ;;  ...
 -----------------------------------------------------------------------------*/
-void g_init_taskman_defs(void)
+void g_taskman_init(void)
 {
     uint8 bc;
 
@@ -453,39 +453,37 @@ static const uint8 task_enable_def[32] =
 };
 
 /*=============================================================================
-;; c_game_or_demo_init()
+;; g_mssl_init()
 ;;  Description:
-;;   For game or "demo-mode" (f_17B2) setup
+;;   Initialize "missile" objects (bombs and/or rockets).
+;;   One-time init for codes, colors and tiles.
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-void c_game_or_demo_init(void)
+void g_mssl_init(void)
 {
-    uint8 B, C, D, E, L;
+    uint8 B, C, D, E;
 
-    L = SPR_IDX_RCKT;
-    D = 9;
-    E = 0x30;
-    C = 0;
+    D = 0x09; // rocket color code (blue head)
+    E = 0x30; // rocket/bomb tile 0
+    C = 0; // rocket tile, no inversion
     B = 10;
 
-    while (B > 0)
+    for (B = 0; B < 10; B++)
     {
+        uint8 L = SPR_IDX_RCKT + B * 2;
         mrw_sprite.cclr[L].b0 = E;
         mrw_sprite.posn[L].b0 = 0;
         mrw_sprite.ctrl[L].b0 = C;
         mrw_sprite.cclr[L].b1 = D;
 
-        L += 2;
-
-        if (B == 9)
+        if (B == 1)
         {
-            C = 1;
-            D = 13;
+            C = 1; // flip about the X axis, i.e. "up/down"
+            D = 0x0B; // bomb color code (red head)
         }
-        B -= 1;
     }
     return;
 }
@@ -696,40 +694,37 @@ void gctl_plyr_respawn_fghtr(void)
         // string_out_pe "READY" (at 8270)
         j_string_out_pe(1, -1, 0x03);
     }
-    c_133A_show_ship();
+    fghtr_onscreen();
     return;
 }
 
 /*=============================================================================
-;; c_133A_show_ship()
+;; fghtr_onscreen()
 ;;  Description:
-;;   Continues gctl_plyr_respawn_fghtr
-;;   The call label is for demo mode (f_17B2)
-;;   while (bug/bee flys home) ...ship hit, waiting for flying bug to re-nest
+;;   Blocks while waiting for aliens to stop moving
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-void c_133A_show_ship(void)
+void fghtr_onscreen(void)
 {
     while (0 != b_bugs_flying_nbr)
     {
-        if (0 != _updatescreen(1)) // waiting for aliens to stop moving
+        if (0 != _updatescreen(1))
         {
             // ESC key
         }
     }
 
-    draw_resv_fghtrs();
+    fghtr_resv_draw();
 
-    // put the ship out there
     mrw_sprite.cclr[SPR_IDX_SHIP].b0 = 0x06; // code
     mrw_sprite.cclr[SPR_IDX_SHIP].b1 = 0x09; // color
 
     // if ( !_flip_screen )  A = $29,  C = 1
     // else  A = $37,  C = 0
-    //   add  a,#0x0E                               ; screen is flipped in demo?????
+    //   add  a,#0x0E
     //   dec  c
     // l_135A:
     mrw_sprite.posn[SPR_IDX_SHIP].b0 = 0x7A; // sx
@@ -739,22 +734,22 @@ void c_133A_show_ship(void)
     mrw_sprite.ctrl[SPR_IDX_SHIP].b0 = 0x00; // no flip/double attribute
 
     glbls9200.restart_stage = 0;
-    ds_99B9_star_ctrl[0] = 1; // 1 ... when ship on screen
+    ds_99B9_star_ctrl[0] = 1; // 1 ... fighter on screen
 
     return;
 }
 
 /*=============================================================================
-;; draw_resv_fghtrs()
+;; fghtr_resv_draw()
 ;;  Description:
-;;   Draws up to 6 reserve ships in the status area of the screen, calling
-;;   the subroutine 4 times to build the ship icons from 4 tiles.
+;;   Draws up to 6 reserve fighters in the status area of the screen, calling
+;;   the subroutine 4 times to build each fighter icons from 4 tiles.
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void draw_resv_fghtrs(void)
+static void fghtr_resv_draw(void)
 {
     uint16 HL;
     uint8 E, D;
@@ -764,38 +759,38 @@ static void draw_resv_fghtrs(void)
     D = 0x49; // starting tile number
 
     HL = 0x0000 + 0x1D; // offset into tile ram
-    draw_resv_fghtr_tile(HL, &D, E);
+    fghtr_resv_tile(HL, &D, E);
 
     HL--; // advance 1 column right
-    draw_resv_fghtr_tile(HL, &D, E);
+    fghtr_resv_tile(HL, &D, E);
 
     HL += 32; // down 1 row
     HL += 1; // 1 column to the left
-    draw_resv_fghtr_tile(HL, &D, E);
+    fghtr_resv_tile(HL, &D, E);
 
     HL -= 1; // advance 1 column right
-    draw_resv_fghtr_tile(HL, &D, E);
+    fghtr_resv_tile(HL, &D, E);
 
     return;
 }
 
 /*=============================================================================
-;; draw_resv_fghtr_tile()
+;; fghtr_resv_tile()
 ;;  Description:
-;;   Each ship is composed of 4 tiles. This is called once for each tile.
+;;   Each fighter is composed of 4 tiles. This is called once for each tile.
 ;;   Each tile is replicated at the correct screen offset, allowing up to 6
-;;   reserve ship indicators to be shown. Unused locations are filled with
+;;   reserve fighter icons to be shown. Unused locations are filled with
 ;;   the "space" character tile.
 ;; IN:
 ;;   HL== offset in tile ram
 ;;    D== tile character
-;;    E== nr of reserve ships
+;;    E== nr of reserve fighters
 ;; OUT:
 ;;    HL: current offset in tile ram
 ;;     D: tile character (increment)
 ;;
 ;;---------------------------------------------------------------------------*/
-static void draw_resv_fghtr_tile(uint16 offset, uint8 *tilechr, uint8 nbr)
+static void fghtr_resv_tile(uint16 offset, uint8 *tilechr, uint8 nbr)
 {
     uint16 tmpHL;
     uint8 A, B;

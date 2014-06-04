@@ -76,7 +76,7 @@ static void gctl_plyr_respawn_1P(void);
 static int gctl_plyr_terminate(void);
 static void gctl_plyr_startup(void);
 static int gctl_game_runner(void);
-static uint8 c_08AD(uint8 *pd);
+static uint8 c_08AD(uint8 const *);
 
 
 /*=============================================================================
@@ -123,8 +123,8 @@ void g_init(void) // j_Game_init
 
     ds_99B9_star_ctrl[0] = 0; // 1 when ship on screen
 
-    // pool for boss+wing mission is only $0C bytes, so this initialization
-    // would include b_CPU1_in_progress + b_CPU2_in_progress + 2 unused bytes
+    // bmbr_boss_slots[] is only 12 bytes, so this initialization would
+    // include b_CPU1_in_progress + b_CPU2_in_progress + 2 unused bytes
     memset(bmbr_boss_pool, 0xff, sizeof(bmbr_boss_slot_t) * 4);
 
     // galaga_interrupt_enable_1_w  seems to already be set, but we make sure anyway.
@@ -162,7 +162,7 @@ void g_init(void) // j_Game_init
     // display 1UP HIGH SCORE 20000 (1 time only after boot)
     gctl_1uphiscore_displ();
 
-    g_init_taskman_defs();
+    g_taskman_init();
 
     // data structures for 12 objects
     memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C);
@@ -222,7 +222,7 @@ int g_main(void)
     memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C /* 0xF0 */);
 
     c_sctrl_sprite_ram_clr();
-    g_init_taskman_defs();
+    g_taskman_init();
 
     // allow attract-mode festivities to be skipped if credit available
     if (gctl_credit_cnt == 0)
@@ -243,7 +243,7 @@ int g_main(void)
         }
 
         // GameState == Ready ... reinitialize everything
-        g_init_taskman_defs();
+        g_taskman_init();
         c_sctrl_playfld_clr();
         memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C /* 0xF0 */);
         c_sctrl_sprite_ram_clr();
@@ -257,7 +257,7 @@ int g_main(void)
 
     // l_game_state_ready:
 
-    glbls9200.glbl_enemy_enbl = 0; // assert this in case demo was running
+    glbls9200.glbl_enemy_enbl = 0; // cleared in case demo was running
 
     j_string_out_pe(1, -1, 0x13); // "(c) 1981 NAMCO LTD"
     j_string_out_pe(1, -1, 0x01); // "PUSH START BUTTON"
@@ -316,7 +316,7 @@ int g_main(void)
 
     // do one-time inits
     gctl_plyr_init(); // setup number of lives and scores
-    c_game_or_demo_init();
+    g_mssl_init();
 
     j_string_out_pe(1, -1, 0x04); //  "PLAYER 1" (always starts with P1 no matter what!)
 
@@ -1235,7 +1235,7 @@ void f_0857(void)
 ;; OUT:
 ;;  A == (hl)
 ;;---------------------------------------------------------------------------*/
-uint8 c_08AD(uint8 *pd)
+static uint8 c_08AD(uint8 const *pd)
 
 {
     uint8 retA;

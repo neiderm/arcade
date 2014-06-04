@@ -425,12 +425,12 @@ void gctl_stg_splash_scrn(void);
 
 /* gg1-2.c */
 void gctl_stg_tokens(uint8);
-void g_init_taskman_defs(void);
+void g_taskman_init(void);
 void sprite_tiles_display(uint8 const *);
-void c_133A_show_ship(void);
+void fghtr_onscreen(void);
 void gctl_plyr_respawn_fghtr(void);
 void gctl_stg_fmtn_hpos_init(uint8);
-void c_game_or_demo_init(void);
+void g_mssl_init(void);
 void c_tdelay_3(void);
 void bmbr_setup_fltq_boss(uint8, uint16);
 void bmbr_setup_fltq_drone(uint8, uint16);
