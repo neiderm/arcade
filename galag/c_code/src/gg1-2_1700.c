@@ -315,7 +315,7 @@ void f_17B2()
             glbls9200.glbl_enemy_enbl = 1;
             break;
 
-            // in demo, as the last boss shot second time
+        // in demo, as the last boss shot second time
         case 0x05: // l_18AC
             if (0 != ds4_game_tmrs[2])
             {
@@ -339,7 +339,7 @@ void f_17B2()
             }
             break;
 
-            // ship just appeared in training mode (state active until f_1700 disables itself)
+        // fighter just appeared in training mode (state active until f_1700 disables itself)
         case 0x04: // l_18D1
         case 0x09: // l_18D1
         case 0x0B: // l_18D1
@@ -371,6 +371,8 @@ void f_17B2()
 
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_tl; // fighter vectors for training level
 
+            // bmbr_boss_slots[] is only 12 bytes, so this initialization would
+            // include b_CPU1_in_progress + b_CPU2_in_progress + 2 unused bytes
             memset(bmbr_boss_pool, 0, sizeof(bmbr_boss_slot_t) * 4);
 
             plyr_state_actv.plyr_is_2ship = 0; // not 2 ship
@@ -395,7 +397,7 @@ void f_17B2()
             c_sctrl_sprite_ram_clr();
             break;
 
-            // init demo
+        // init demo
         case 0x01: // l_1948
             idx_attrmode_sptiles_3 = 0; // setup index into sprite data table
             demo_txt_idx = 0;
@@ -502,13 +504,15 @@ void f_1B65(void)
     // this task would not be enabled during times that the global enable is
     // 0 ... however if it WERE 0, it wouldn't be necessary to check if
     // fighter-rescue is progressing ...
-    if (0 != glbls9200.glbl_enemy_enbl
-            &&
-            (0 == task_actv_tbl_0[0x15]) // f_1F04 (fire button input)
-            &&
-            (0 != task_actv_tbl_0 + 0x1D)) // f_2000 (destroyed boss that captured ship)
+
+    if (0 != glbls9200.glbl_enemy_enbl)
     {
-        return;
+        if (0 == (task_actv_tbl_0[0x15]) // f_1F04 (fire button input)
+                ||
+                (0 != task_actv_tbl_0[0x1D])) // f_2000 (destroyed boss that captured ship)
+        {
+            return; // ret  z
+        }
     }
 
     // l_1B75: check the queue for boss+wing mission (4 groups of 3 bytes) ...
@@ -1189,7 +1193,7 @@ void f_1EA4(void)
 
     if (0 != glbls9200.flip_screen)
     {
-        ixh = -(ds3_92A0_frame_cts[0] & 0x01 + 2); // neg
+        ixh = -((ds3_92A0_frame_cts[0] & 0x01) + 2); // neg
     }
     ixl = 8; // loop ct
     hl = 0;
@@ -1217,18 +1221,15 @@ void f_1EA4(void)
             mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b0 += a; // add  a,(hl)
 
             // update Y
-            tmp16.word = mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b1;
-            tmp16.pair.b1 = mrw_sprite.ctrl[SPR_IDX_BOMB0 + hl * 2].b1;
+            tmp16.word = mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b1; // Y<7:0>
+            tmp16.pair.b1 = mrw_sprite.ctrl[SPR_IDX_BOMB0 + hl * 2].b1 & 0x01;
             tmp16.word += ixh;
             mrw_sprite.posn[SPR_IDX_BOMB0 + hl * 2].b1 = tmp16.pair.b0;
-            mrw_sprite.ctrl[SPR_IDX_BOMB0 + hl * 2].b1 =
-                (mrw_sprite.ctrl[SPR_IDX_BOMB0 + hl * 2].b1 & 0xF7) |
-                (tmp16.pair.b1 & 0x01);
+            mrw_sprite.ctrl[SPR_IDX_BOMB0 + hl * 2].b1 |= tmp16.pair.b1 & 0x01;
         }
         hl += 1;
         ixl -= 1; // dec  ixl
     }
-
 }
 
 /*=============================================================================
