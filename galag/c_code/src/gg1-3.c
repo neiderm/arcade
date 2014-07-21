@@ -470,7 +470,7 @@ void objs_dispatcher(uint8 frame_ct)
 
                     tmpA.word >>= 1; // rra ... only sy<8:1> in compare
 
-                    if ( tmpA.pair.b0 >= 0x0B && tmpA.pair.b0 < 0xA5 )
+                    if (tmpA.pair.b0 >= (22 / 2) && tmpA.pair.b0 < (330 / 2))
                     {
                         // in range but don't include bombs in the count
                         if ( BOMB != sprt_mctl_objs[ E ].state ) // i.e. "pattern maneuvering"
@@ -791,7 +791,7 @@ static const uint8 atkw_oids[] =
 ;;---------------------------------------------------------------------------*/
 void gctl_stg_new_etypes_init(void)
 {
-    uint8 HL, IXL, A, B, C, D, E;
+    uint8 HL, IXL, A, D, E;
 
     // once per stage, set the player's private pointer to attack wave object setup tables
     plyr_state_actv.p_atkwav_tbl = &atkw_seqt[0];
@@ -1001,7 +1001,6 @@ void f_2916(void)
             // can't find one ... bummer
             return;
         }
-
 
         // l_2974_got_slot:
         plyr_state_actv.p_atkwav_tbl += 1; // inc  hl
