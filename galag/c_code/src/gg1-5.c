@@ -593,6 +593,7 @@ void cpu1_rst38(void)
     bmbr_cont_flag = (b_bugs_actv_nbr < ds_new_stage_parms[0x07] &&
                    0 != task_actv_tbl_0[0x15]); // fire btn inp
 
+
     // find the first ready task.. may run more than one.
     // In general, any non-zero value in cpu1_task_en[] enables that task.
     // The enable value is added to the offset (C) and may be other than 1, but
@@ -683,7 +684,6 @@ void f_05EE(void)
 
 
     // l_0639_not_two_:
-
     task_actv_tbl_0[0x14] = 0; // f_1F85 (input and fighter movement)
     task_actv_tbl_0[0x15] = 0; // f_1F04 (fire button input)
     task_actv_tbl_0[0x05] = 0; // f_05EE (this task, fighter hit-detection)
@@ -874,66 +874,62 @@ static void rckt_man(uint8 de)
 {
     uint8 AF, A;
     r16_t HL;
-    // adjust de for rocket 1 or 2,
+
+    // index for rocket 0 or 1,
     uint8 hl = SPR_IDX_RCKT + de * 2; // even indices
 
     if (0 == mrw_sprite.posn[hl].b0) return;
 
-    // else ... this one is active
 
     // if horizontal orientation, dY = A' ... adusted displacement in dY
     AF = b_92A4_rockt_attribute[de] & 0x07; // I thought it was only bits 1:2 ? ... bit7=orientation, bit6=flipY, bit5=flipX, 1:2=displacement
 
-    // ... and dX == A ... maximum displacement in dX
-    A = 6;
+    A = 6; // maximum displacement in dX
 
     // if ( vertical orientation )
     if (b_92A4_rockt_attribute[de] & 0x80) // bit  7,b
     {
         //  ex   af,af' ... swap
-        A = b_92A4_rockt_attribute[de] & 0x07; // ... adusted displacement in dX
+        A = b_92A4_rockt_attribute[de] & 0x07; // adusted displacement in dX
         AF = 6; // maximum displacement in dY
     }
-    // l_0713:
-    if (b_92A4_rockt_attribute[de] & 0x64) // bit  6,b ... flipY
-    {
-        // .. NOT flipY...negate X offset (non-flipped sprite is left facing)
 
-        // negate and add dX to sprite.sX .. add  a,(hl)
+    // l_0713:
+    if (b_92A4_rockt_attribute[de] & 0x40) // bit  6,b ... flipY
+    {
+        // non-flipped sprite is left facing ... negate X increment
         mrw_sprite.posn[hl].b0 -= A; // neg
     }
     else
     {
-        // add dX to sprite.sX ... add  a,(hl)
-        mrw_sprite.posn[hl].b0 += A;
+        mrw_sprite.posn[hl].b0 += A; // add  a,(hl)
     }
 
 
-    // left/right out of bounds...
-    if (mrw_sprite.posn[hl].b0 > 0xF0)
+    // one test for left/right limits ($F0) or < 0 ($FF)
+    if (mrw_sprite.posn[hl].b0 > 240) // $F0
     {
         //l_0763_disable_rocket:
         mrw_sprite.ctrl[hl].b0 = 0;
         return;
     }
 
-    // stash sX for hit-detection parameter
+    // stash .posn.sX for hit-detection parameter
     // ld   ixl,a
 
     // NOW onto sY...............
 
-    // inc  l ... not needed since the access is thru b1
-    HL.pair.b1 = mrw_sprite.ctrl[hl].b1 & 0x01; // get sprite.sY<8>
+    HL.pair.b1 = mrw_sprite.ctrl[hl].b1 & 0x01; // rocket.sY<8>
     HL.pair.b0 = mrw_sprite.posn[hl].b1;
 
-    if (b_92A4_rockt_attribute[de] & 0x32) // bit  5,b ... flipX
+    if (0 != (b_92A4_rockt_attribute[de] & 0x20)) // bit  5,b ... flipX
     {
-        // negate and add dY to sprite.sY .. add  a,(hl)
+        // negate and add dY
         HL.word -= AF;
     }
     else
     {
-        // add dY to sprite.sY
+        // add dY
         HL.word += AF; // add  a,(hl)
     }
 
@@ -964,7 +960,7 @@ static void rckt_man(uint8 de)
     // j_07C2 (odd, i.e. offset to b1)
     //   ld   e,l
 
-    else if (0 != task_actv_tbl_0[0x1D])
+    else if (0 != task_actv_tbl_0[0x1D]) // capturing boss destroyed, rescued ship spinning
     {
         // ld   hl,#ds_sprite_posn + 0x08             ; skip first 4 objects...
         // ld   b,#0x30 - 4
@@ -993,7 +989,7 @@ static void rckt_man(uint8 de)
 ;; IN:
 ;;  E == pointer/index to rocket object/sprite passed through to
 ;;       j_07C2 (odd, i.e. offset to b1)
-;;  HL == pointer to sprite.posn[], starting object object to test ... 0, or
+;;  HL == pointer to sprite.posn[], starting object to test ... 0, or
 ;;        +8 skips 4 objects... see explanation at l_0757.
 ;;  B == count ... $30, or ($30 - 4) as per explanation above.
 ;; OUT:
@@ -1004,13 +1000,11 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
     uint8 IXL, IXH;
     r16_t tmp16;
 
-    // setup rocket.sy<1:8> (scale factor 2 in order to get it in 8-bits)
+    // rocket.sy<8:1> (scale factor 2 in order to get it in 8-bits)
     tmp16.pair.b0 = mrw_sprite.posn[E].b1;
     tmp16.pair.b1 = mrw_sprite.ctrl[E].b1;
-    tmp16.word >>= 1;
-
+    IXH = tmp16.word >> 1;
     IXL = mrw_sprite.posn[E].b0;
-    IXH = tmp16.pair.b0;
 
     // l_076A_while_object:
     while (B-- > 0)
@@ -1036,17 +1030,16 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
 
                 // check Y coordinate
 
-                // set .sY<1:8>
-                // inc  l
+                // set .sY<8:1>
                 tmpA.pair.b1 = mrw_sprite.ctrl[hl].b1; // .sy<8>
-                tmpA.pair.b0 = mrw_sprite.posn[hl].b1; // .sy<0:7>
+                tmpA.pair.b0 = mrw_sprite.posn[hl].b1; // .sy<7:0>
                 // dec  l
                 tmpA.word >>= 1; // rrc  d ... rra
 
                 // tolerance (3) and offset (6) for hit-check divided by 2 to
                 // account for scaling
                 // only 1-byte of result needed ( d>-3 && d<+3 )
-                tmpA.pair.b0 -= IXH; // sub  ixh ...  -= rocket.sy<1:8>
+                tmpA.pair.b0 -= IXH; // sub  ixh ...  -= rocket.sy<8:1>
                 tmpA.pair.b0 -= 3;
                 tmpA.word += 6; // carry out from 1-byte sets "Cy" in .b1<0>
 
@@ -1061,14 +1054,15 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
                     {
                         // only 1-byte of result needed ( d>-6 && d<+6 )
                         tmpA.word = mrw_sprite.posn[hl].b0;
-                        tmpA.pair.b0 -= IXL; // sub  ixh ...  -= rocket.sy<1:8>
-                        tmpA.pair.b0 -= 6;
+                        tmpA.pair.b0 -= IXL; // sub  ixl ...  -= rocket.sy<8:1>
+                        tmpA.pair.b0 -= 6; // sub  6
                         tmpA.pair.b1 = 0; // clear it so we can test for "Cy"
-                        tmpA.word += 0x0B; // carry out from 1-byte sets "Cy" in .b1<0>
+                        tmpA.word += 11; // carry out from 1-byte sets "Cy" in .b1<0>
 
-                        if (tmpA.pair.b1) // ... jr   c,l_07B9_pre_hdl_collsn ...
+                        if (tmpA.pair.b1) // jr   c,l_07B9_
                         {
-                            // l_07B9_pre_hdl_collsn
+                            // l_07B9_
+
 
 
                             if ( 1 != hitd_dspchr(AF, E, hl) )
@@ -1079,12 +1073,12 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
                         }
                         // else ... jr   l_07B4_next_object
                     }
-                    else // ... l_07A4
+                    else //  l_07A4 ... twin fighter
                     {
                         tmpA.word = mrw_sprite.posn[hl].b0 - IXL; // sub  ixl ... sprite.sx -= rocket.sx
-                        tmpA.word -= 0x14;
+                        tmpA.word -= 20;
                         tmpA.pair.b1 = 0; // clear it so we can test for "Cy"
-                        tmpA.word += 0x0B;
+                        tmpA.word += 11;
 
                         if (!tmpA.pair.b1) // jr   c,l_07B9_pre_hdl_collsn
                         {
@@ -1092,18 +1086,16 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
                             tmpA.word += 4;
                             if (!tmpA.pair.b1) // jr   c,l_07B4_next_object
                             {
-
                                 tmpA.pair.b1 = 0;
-                                tmpA.word += 0x0B;
+                                tmpA.word += 11;
 
                                 if (!tmpA.pair.b1) // jr   c,l_07B9_pre_hdl_collsn
                                 {
-
                                     // l_07B4_next_object
                                     //hl += 2;
                                     break;
                                 }
-                                // else ... jr   c,l_07B9_pre_hdl_collsn
+                                // else ... jr   c,l_07B9_
                             }
                             else
                             {
@@ -1119,9 +1111,7 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
                             }
                         }
 
-
-                        // jr   c,l_07B9_pre_hdl_collsn
-
+                        // l_07B9_
 
                         if ( 1 != hitd_dspchr(AF, E, hl) )
                         {
@@ -1130,7 +1120,6 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
 
                         return; // j_07C2
                     }
-
                     // nothing else can go here!
                 }
             } // if (0x04) ... else ... jr   z,l_07B4_next_object
@@ -1168,42 +1157,32 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
 ;;---------------------------------------------------------------------------*/
 static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
 {
-    uint8 A, C;
+    uint8 A;
 
     mrw_sprite.posn[E].b0 = 0; // ld   (de),a ... sX<7:0>
     mrw_sprite.ctrl[E].b0 = 0; // ld   (de),a
 
-    // inc  l
-
-    C = mrw_sprite.cclr[HL].b1;  // ld   c,a ... save for index to sound
-
-    // jp   z,l_08CA_hit_green_boss
-    if (0 == mrw_sprite.cclr[HL].b1)
+    // jp   z,l_08CA_ ... green_boss (non-moving)
+    if (0 == mrw_sprite.cclr[HL].b1) // and  a
     {
-        // color map 0 is the "green" boss
-        // don't delete it from the queue yet
-
-        // l_08CA_hit_green_boss
+        // l_08CA_: color map 0 is "green" boss, don't delete from queue yet
         mrw_sprite.cclr[HL].b1 += 1; // color blue
 
         // sound-fx count/enable registers
         b_9AA0[0x04] = mrw_sprite.cclr[HL].b1; // hit_green_boss
 
         // jp   l_07B4_next_object
-
         return 1;
     }
-    // jr   z,l_0815_bomb_hit_ship
-    else if (0x0B == mrw_sprite.cclr[HL].b1)
+    // jr   z,l_0815_
+    else
+    if (0x0B == mrw_sprite.cclr[HL].b1) // cp   #0x0B ... color map $B is for "bombs"
     {
-        // l_0815_bomb_hit_ship
-        // color map $B is for "bombs"
-        //ld   h,#>ds_sprite_posn                    ; bomb colliding with ship.
-        //ld   (hl),#0
-        //ld   h,#>b_8800
-        //ld   (hl),#0x80
+        // noticed this stuff will also be cleared out by gctl_plyr_terminate
+        // l_0815_ ... bomb colliding with fighter
+        mrw_sprite.posn[HL].b0 = 0;
+        sprt_mctl_objs[HL].state = INACTIVE;
 
-        //ret ..         return!
         return 0; // not jp   l_07B4_next_object
     }
 
@@ -1215,14 +1194,14 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
         // rocket hit stationary bug
         // ex   af,af'
 
-        // l_07DB:
+        // l_07DB: set it up for elimination
         sprt_hit_notif[HL] = 0x81;
 
-        // l_07DF:
+        // l_07DF: if capture boss
     }
     else
     {
-        // l_081E:
+        // l_081E: handle collision with moving alien
         A = sprt_mctl_objs[ HL ].mctl_idx;
         mctl_mpool[A].b13 = 0;
 
@@ -1238,12 +1217,12 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
             sprt_hit_notif[HL] = stg_chllg_rnd_attrib[1];
             ds_bug_collsn[0x0F] += stg_chllg_rnd_attrib[0];
             // jr   l_07DF
+
             // l_07DF:
         }
         else
         {
-            // l_0849:
-            // handle special cases of flying bugs
+            // l_0849: handle special cases of moving objects
 
             // if (hit == captured ship)
 
@@ -1254,16 +1233,16 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
 
             // color map 1 ... blue boss hit once
             // else
-            if ( 1 != mrw_sprite.cclr[HL].b1 ) // color
+            if ( 0x01 != mrw_sprite.cclr[HL].b1 ) // color map 1 ... blue boss hit once
             {
                 // jp   nz,l_07DB
 
-                // l_07DB:
+                // l_07DB: set it up for elimination
                 sprt_hit_notif[HL] = 0x81;
 
                 // l_07DF:
             }
-            else // handle blue boss
+            else // blue boss (moving)
             {
                 // check for captured-fighter
 
@@ -1278,7 +1257,7 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
                 // D = ds_plyr_actv[_ds_array8 + ( hl & 0x07 + 1 }]
 
                 // l_08AA:
-                ds_bug_collsn[ 0x0F ] += A;
+                ds_bug_collsn[ 0x0F ] += A; // add  a,(hl) etc.
 
                 // jp here if shot the flying captured ship
                 // l_08B0:
@@ -1300,20 +1279,20 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
     //   ld   (ds_plyr_actv +_b_cboss_obj),a        ; 1  ... invalidate the capture boss object key
 
     //l_07EC: use the sprite color to get index to sound
-    C = mrw_sprite.cclr[HL].b1 - 1; // ld   a,c ... dec  a
+    A = mrw_sprite.cclr[HL].b1 - 1; // ld   a,c ... dec  a
 
-    if (7 != C) // jr   nz,l_07F5
+    if (0x07 != mrw_sprite.cclr[HL].b1) // jr   nz,l_07F5
     {
         // l_07F5:
-        C &= 0x03; // and  #0x03
+        A &= 0x03; // and  #0x03
     }
 
     // l_07F8:
-    b_9AA0[0x01 + C] = 1; // sound_fx_status
+    b_9AA0[0x01 + A] = 1; // sound_fx_status ... add dec'd A back to index
 
     A = mrw_sprite.cclr[HL].b1; // ld   a,c
 
-    if (7 == C) // jr   nz,l_0808
+    if (0x07 == mrw_sprite.cclr[HL].b1) // jr   nz,l_0808
     {
         //   ld   hl,#ds_plyr_actv +_b_cboss_dive_start ; 0
         //   ld   (hl),#0
@@ -1323,14 +1302,14 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
     // ld   hl,#ds_bug_collsn + 0x00              ; missile/bug or ship/bug collision
     // rst  0x10                                  ; HL += A
     // inc  (hl)
-    ds_bug_collsn[0x00 + A] += 1; //  missile/bug or ship/bug collision
+    ds_bug_collsn[A] += 1; //  missile/bug or ship/bug collision
 
     // ex   af,af'
     // jr   z,l_0811
     if ( 0 != AF ) // un-stash parameter
     {
         // inc  (hl)
-        ds_bug_collsn[0x00 + A] += 1; //  missile/bug or ship/bug collision
+        ds_bug_collsn[A] += 1; //  missile/bug or ship/bug collision
     }
 
     // l_0811:
@@ -2252,9 +2231,10 @@ static void mctl_posn_set(uint8 mpidx)
                 0 == ds4_game_tmrs[1])
         {
             uint8 hl;
-            // check for bomb available, 8 positions
-            for (hl = 0; hl < 8; hl ++)
+            // l_0D82: check for bomb available, 8 positions
+            for (hl = 0; hl < 8; hl++)
             {
+                // jr   z,l_0D8D_ ... bombs are rendered inactive at l_0815
                 if (INACTIVE == sprt_mctl_objs[SPR_IDX_BOMB0 + hl * 2].state)
                 {
                     r16_t bc16, hl16, a16, b16;
@@ -2475,10 +2455,8 @@ static uint16 mctl_div_16_8(uint16 HL, uint8 A)
 
     rHL.word = HL;
     C = A;
-
     rA.word = 0; // xor  a ... clears Cy
     Cy = 0;
-
     B = 0; // 0x11;
 
     // l_0EAF:
@@ -2495,7 +2473,7 @@ static uint16 mctl_div_16_8(uint16 HL, uint8 A)
             if (C <= rA.pair.b0)
             {
                 Cy = 0;
-                rA.pair.b0 -= C;
+                rA.pair.b0 -= C; // sub  c
             }
             // l_0EB6:
             Cy ^= 1; // ccf
