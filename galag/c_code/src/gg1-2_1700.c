@@ -105,7 +105,15 @@ static const uint8 demo_fghtr_mvecs_bc[] = // d_1887:
     0x14, 0xAA, 0x20, 0x82, 0x06, 0xA8, 0x0E, 0xA2, 0x17, 0x88, 0x12, 0xA2, 0x14, 0x18, 0x88, 0x1B,
     0x81, 0x2A, 0x5F, 0x4C, 0xC0
 };
-// fighter vectors training level
+/*
+ fighter vectors training level
+  $08, $1B: start of training lvl
+  $81: fire rocket
+  $42: wait for target in sights, at end of training lvl
+  $18: before $1A
+  $19: after $42
+  $1A: before last $42
+*/
 static const uint8 demo_fghtr_mvecs_tl[] = // d_1928:
 {
     0x08, 0x1B, 0x81, 0x3D, 0x81, 0x0A, 0x42, 0x19, 0x81, 0x28, 0x81, 0x08,
@@ -204,7 +212,6 @@ void f_1700(void)
         // d<7> && !d<6> ... ordinance deployed!
         if (0x80 == (0xC0 & *demo_p_fghtr_mvecs))
         {
-printf("... fish in the water\n");
             demo_p_fghtr_mvecs += 1; // inc  de ... right-most boss+2wingmen dive
         }
         //l_1772:
@@ -743,7 +750,7 @@ return; //HELP_ME_DEBUG
 
             if (STAND_BY == sprt_mctl_objs[0x00 + b * 2].state ) // jr   z,j_1CA0
             {
-//                rv = c_1D25(2, b); // this may pop the stack and return
+                rv = 0; // bmbr_boss_activate(2, b); // this may pop the stack and return
                 if (rv) return; // check ret and find a way to exit
             }
         } // djnz l_1C76_while
@@ -1271,7 +1278,7 @@ void f_1F04(void)
 static void rckt_sprite_init(void)
 {
     uint8 *pushDE; // pointer to rocket attribute fighter 1 or 2
-    uint8 A, B, C, E;
+    uint8 A, C, E;
 
     if (0 == mrw_sprite.posn[SPR_IDX_RCKT0].b0)
     {
@@ -1295,58 +1302,59 @@ static void rckt_sprite_init(void)
     // bit  2,(hl)                                ; no idea
     // jr   z,l_1F2B
 
-    mrw_sprite.ctrl[E].b1 = mrw_sprite.ctrl[SPR_IDX_SHIP].b1; // ship.sy, bit-8
+    mrw_sprite.ctrl[E].b1 = mrw_sprite.ctrl[SPR_IDX_SHIP].b1; // .sy<8>
 
-    mrw_sprite.posn[E].b0 = mrw_sprite.posn[SPR_IDX_SHIP].b0; // ship.sX
-    mrw_sprite.posn[E].b1 = mrw_sprite.posn[SPR_IDX_SHIP].b1; // ship.sY, bit 0-7
+    mrw_sprite.posn[E].b0 = mrw_sprite.posn[SPR_IDX_SHIP].b0; // .sX
+    mrw_sprite.posn[E].b1 = mrw_sprite.posn[SPR_IDX_SHIP].b1; // .sY<7:0>
 
-    // rocket[n].ctrl.b0 = (two_ship << 3 ) | ship.code.b0
-    mrw_sprite.ctrl[E].b0 = 0;
+    // ld   b,(hl)  ... sprite.ctrl[FGHTR].b0
+
+    // rocket[n].ctrl.b0 = (two_ship << 3 ) | ship.code.b0 // TODO
+    mrw_sprite.ctrl[E].b0 = 0; // normally 0 (not doubled or flipped)
+    mrw_sprite.ctrl[E].b0 |= mrw_sprite.ctrl[SPR_IDX_SHIP].b0; // or   b
 
     // determine rocket sprite code based on ship sprite code
-    A = mrw_sprite.cclr[SPR_IDX_SHIP].b0;
-    A &= 0x07; // ship sprite should not be > 7 ?
+    A = mrw_sprite.cclr[SPR_IDX_SHIP].b0 & 0x07; // fighter sprite codes are $00...$07
 
     if (A >= 5)
     {
-        // set_rocket_sprite_code:
-        mrw_sprite.cclr[E].b0 = 0x30; // 360 degree default orientation
+        // 360 degree default orientation
+        mrw_sprite.cclr[E].b0 = 0x30; // ld   c,#0x30
     }
     else if (A >= 2)
     {
-        // set_rocket_sprite_code:
-        mrw_sprite.cclr[E].b0 = 0x31; // 45 degree rotation
+        // 45 degree rotation
+        mrw_sprite.cclr[E].b0 = 0x31; // inc  c
     }
     else
     {
-        // set_rocket_sprite_code:
-        mrw_sprite.cclr[E].b0 = 0x33; // 90 degree rotation (code $32 is skipped ... also 360)
+        // 90 degree rotation (code $32 is skipped ... also 360)
+        mrw_sprite.cclr[E].b0 = 0x33; // 'inc  c' + 'inc  c'
     }
 
     // Displacement in both X and Y axis must be computed in order to launch rockets
     //    code= 6     dS=0      $40     ... 7 - (6+1)
     if (A >= 4)
     {
-        // add orientation bit (bit-6)
-        A = 7 - (A + 1) + 0x40;
+        A = 7 - (A + 1) + 0x40; // add orientation bit (bit-6)
     }
     // else ... no orientation swap needed, use sprite code for dS
 
     C = A << 1; // "orientation" bit into bit-7 ...
 
     // sprite.ctrl bits ...  flipx into bit:5, flipy into bit:6
-    B = (mrw_sprite.ctrl[SPR_IDX_SHIP].b0 << 5) & 0x60;
+    A = (mrw_sprite.ctrl[SPR_IDX_SHIP].b0 << 5) & 0x60; // 'ld   a,b' ... 'ld   b,a' etc.
 
-    if (0 == glbls9200.flip_screen)
+    if (0 == glbls9200.flip_screen) // jr   nz,l_1F71
     {
         // screen not flipped so invert those bits
-        A = B ^ 0x60;
+        A ^= 0x60; // xor  #0x60
     }
     // l_1F71:
-    // pointer to rocket attribute
-    *pushDE = A | C; // bit7=orientation, bit6=flipY, bit5=flipX, 1:2=displacement
+    // rocket attribute: <7> orientation, <6> flipY, <5> flipX, <2:1> displacement
+    *pushDE = A | C; // or   c
 
-    sprt_mctl_objs[E].state = BOMB; // disposition: active rocket object
+    sprt_mctl_objs[E].state = BOMB; // ld   (hl),#6
 
     b_9AA0[0x0F] = 1; // sound-fx count/enable, shot-sound
 
