@@ -108,7 +108,7 @@ typedef struct
     uint8 bonus_bee_obj_offs; // offset of object that spawns the bonus bee
     //   0x0E    ; bonus "bee"... flashing color 'A' for bonus bee
     //   0x0F    ; bonus "bee"... flashing color 'B' for bonus bee
-    uint8 pbm[0x10];          // array of pointers? ... 8 bytes, "01B501B501B501B5"
+    uint8 bmbr_boss_scode[8]; // bonus code/score attributes e.g. "01B501B501B501B5"... 8 bytes, "01B501B501B501B5"
     //   0x18-0x1D ?
     uint8 mcfg_bonus0;        // mach_cfg_bonus[0]...load at game start ... $9980
     //   0x1F    ; game_tmr_2, player1/2 switch

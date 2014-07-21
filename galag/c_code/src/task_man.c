@@ -307,7 +307,6 @@ void gctl_stg_splash_scrn(void)
 ;;-----------------------------------------------------------------------------*/
 static void gctl_stg_new_env_init(void)
 {
-    uint8 *pHL;
     uint8 B;
 
     ds4_game_tmrs[2] = 120;
@@ -347,12 +346,11 @@ static void gctl_stg_new_env_init(void)
 
     gctl_stg_bombr_setparms();
 
-    pHL = plyr_state_susp.pbm;
-
-    for (B = 0; B < 4; B++)
+    // initialize 8-byte array
+    for (B = 0; B < (sizeof(plyr_state_actv.bmbr_boss_scode) / 2); B++)
     {
-        *pHL++ = 0x01;
-        *pHL++ = 0xB5;
+        plyr_state_actv.bmbr_boss_scode[B * 2 + 0] = 0x01;
+        plyr_state_actv.bmbr_boss_scode[B * 2 + 1] = 0xB5;
     }
 
     // if ( !RackAdvance )
