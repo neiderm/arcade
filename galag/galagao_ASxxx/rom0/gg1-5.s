@@ -884,7 +884,6 @@ l_06F0:
        djnz while_06B7
 
        ret
-; end '_06B7',
 
 ;;=============================================================================
 ;; f_06F5()
@@ -917,13 +916,13 @@ f_06F5:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 rckt_man:
-; if (0 == mrw_sprite.posn[hl].b0) return
+; if (0 == rocket.posn[hl].x<7:0>) return
        ld   a,(hl)
        and  a
        ret  z
 
-; else ... this one is active, stash the parameter in B.
-       ld   a,(de)
+; else ...
+       ld   a,(de)                                ; rocket "attribute"
        ld   b,a
 
 ; if horizontal orientation, dY = A' ... dY is variable ...
@@ -951,8 +950,7 @@ l_0719:
        add  a,(hl)                                ; dX is 0 unless the ship is spinning/captured
        ld   (hl),a
 
-; left/right out of bounds... one test for right extent ($F0) or < 0 ($FF)
-; if ( coordinate > $F0 ) then goto _disable_rocket
+; one test for left/right limits ($F0) or < 0 ($FF)
        cp   #0xF0
        jr   nc,l_0763_disable_rocket
 
@@ -987,22 +985,22 @@ l_0729:
        ccf
        rl   (hl)
 
-; setup rocket_position.sy<1:8> in A (use scale factor of 2 to keep in 8-bits)
+; stash rocket.sy<8:1> in IXH for hitd_det_rckt
 l_0738:
-       ld   c,(hl)                                ; bit-8 from sprite_control.offset[1]
+       ld   c,(hl)                                ; rocket.sy<8>
        ld   h,#>ds_sprite_posn
-       ld   a,(hl)                                ; get sy bits 0:7
+       ld   a,(hl)                                ; rocket.sy<7:0>
        rrc  c                                     ; rotate bit-8 into Cy
        rra                                        ; rotate bit-8 from Cy into A
-       ld   ixh,a                                 ; stash sy<1:8> for hit-detection parameter
+       ld   ixh,a                                 ; stash sy<8:1> for hit-detection parameter
 
-; if ( sprite.sY < 40 || sprite.sY > 312 ) then _disable_rocket_wposn
+; if ( rocket.sY < 40 || rocket.sY > 312 ) then _disable_rocket_wposn
        cp   #0x28 >> 1                            ; 0x14
        jr   c,l_0760_disable_rocket_wposn         ; L is offset to sY, so first L--
        cp   #0x138 >> 1                           ; 0x9C
        jr   nc,l_0760_disable_rocket_wposn        ; L is offset to sY, so first L--
 
-; index of object/sprite passed through to hitd_dspchr (odd, i.e. b1)
+; index of rocket object/sprite passed through to hitd_dspchr (odd, i.e. b1)
        ld   e,l
 
 ; if ( task_active ) then ... else _call_hit_detection_all
@@ -1073,23 +1071,21 @@ l_076A_while_object:
        rlca
        jr   c,l_07B4_next_object
 
-; check if object status 04 (already exploding) or 05 (bonus bitmap)
+; if EXPLODING or SCORE_BITM then next object
        ld   a,(hl)
        ld   c,a
-       and  #0xFE                                 ; tests for 5 also
-       cp   #4
+       and  #0xFE                                 ; tests for SCORE_BITM (5) also
+       cp   #4                                    ; disposition EXPLODING
        jr   z,l_07B4_next_object
 
 ; test dX and dY for within +/- 3 pixels, using the addition
 ; offset with "Cy" so only 1 test needed for (d>-3 && d<+3 )
 
-; check Y coordinate
-
-       ; set .sY<1:8> in A
+; check Y coordinate ... sY<8:1> in A
        inc  l
        ld   h,#>ds_sprite_ctrl                    ; sprite.sy<8>
        ld   d,(hl)
-       ld   h,#>ds_sprite_posn                    ; sprite.sy<0:7>
+       ld   h,#>ds_sprite_posn                    ; sprite.sy<7:0>
        ld   a,(hl)
        rrc  d
        rra
@@ -1115,19 +1111,19 @@ l_076A_while_object:
 
        sub  ixl                                   ; sprite.sX -= rocket.sX
        sub  #6
-       add  a,#0x0B
-       jr   c,l_07B9_pre_hdl_collsn
+       add  a,#11
+       jr   c,hitd_dspchr_rckt
        jr   l_07B4_next_object
 
 l_07A4:
        sub  ixl                                   ; sprite.sX -= rocket.sX
-       sub  #0x14
-       add  a,#0x0B
-       jr   c,l_07B9_pre_hdl_collsn
+       sub  #20
+       add  a,#11
+       jr   c,hitd_dspchr_rckt
        add  a,#4
        jr   c,l_07B4_next_object
-       add  a,#0x0B
-       jr   c,l_07B9_pre_hdl_collsn
+       add  a,#11
+       jr   c,hitd_dspchr_rckt
 
 l_07B4_next_object:
        inc  l
@@ -1136,8 +1132,24 @@ l_07B4_next_object:
 
        ret
 
-l_07B9_pre_hdl_collsn:
-       ld   a,l                                   ; stash the object key while we use HL to ld 16-bits
+;;=============================================================================
+;; hitd_dspchr()
+;;  Description:
+;;   Detect collisions from the reference of the rocket ... update hit count
+;;   and call common subroutine.
+;; IN:
+;;   L == offset/index of enemy
+;;   E == offset/index of rocket sprite + 1
+;;   E == offset/index + 0, e.g. 9B62 (the fighter ship)
+;;   A' == object status
+;; OUT:
+;;  ...
+;; RETURN:
+;;  get out by l_07B4_next_object or ret
+;;-----------------------------------------------------------------------------
+hitd_dspchr_rckt:
+
+       ld   a,l                                   ; stash L, use HL for 16-bits math
        ld   hl,(ds_plyr_actv +_w_hit_ct)
        inc  hl
        ld   (ds_plyr_actv +_w_hit_ct),hl
@@ -1159,7 +1171,7 @@ l_07B9_pre_hdl_collsn:
 ;; OUT:
 ;;  ...
 ;; RETURN:
-;;  get out by l_07B4_next_object or ret
+;;
 ;;-----------------------------------------------------------------------------
 hitd_dspchr:
        ld   d,#>ds_sprite_posn                    ; _sprite_posn[L].b0 = 0 ... sX<7:0>
@@ -1170,13 +1182,13 @@ hitd_dspchr:
 
        inc  l
        ld   h,#>ds_sprite_code
-       ld   a,(hl)                                ; grab sprite color...
-       ld   c,a                                   ; ... for later
+       ld   a,(hl)                                ; sprite.cclr.b1 ...
+       ld   c,a                                   ; ... for later ....
        and  a
        jp   z,l_08CA_hit_green_boss               ; color map 0 is the "green" boss
        dec  l
-       cp   #0x0B                                 ; color map $B is for "bombs" ... (b for bomb!)
-       jr   z,l_0815_bomb_hit_ship
+       cp   #0x0B                                 ; color map $B is for "bombs"
+       jr   z,l_0815_bomb_hit
 
 ; if rocket or ship collided with bug
        ex   af,af'                                ; un-stash parameter ... 1 if moving bug (hit by rocket or fighter)
@@ -1202,11 +1214,11 @@ l_07DF:
 
 l_07EC:
 ; use the sprite color to get index to sound
-       push hl                                    ; stash index/offset of object
+       push hl                                    ; &obj_collsn_notif[L]
 
 ; if sprite color == 7 ... (check for red captured ship)
-       ld   a,c                                   ; sprite color
-       cp   #7
+       ld   a,c                                   ; .... sprite.cclr.b1
+       cp   #0x07
        jr   nz,l_07F5
        dec  a
        jr   l_07F8_
@@ -1216,13 +1228,13 @@ l_07F5:
        and  #0x03
 
 l_07F8_:
-       ld   hl,#b_9AA0 + 0x01                     ; b_9AA0[1 + A] ... sound-fx count/enable registers
+       ld   hl,#b_9AA0 + 0x01                     ; b_9AA0[1 + A] = 1 ... sound-fx count/enable registers
        rst  0x10                                  ; HL += A
        ld   (hl),#1
 
 ; if sprite color == 7
-       ld   a,c                                   ; sprite color
-       cp   #7
+       ld   a,c                                   ; .... sprite.cclr.b1
+       cp   #0x07
        jr   nz,l_0808
        ld   hl,#ds_plyr_actv +_b_bmbr_boss_cflag  ; 0 ... enable capture-mode selection
        ld   (hl),#0
@@ -1230,10 +1242,10 @@ l_07F8_:
 l_0808:
 ; _bug_collsn[ color ] += 1
        ld   hl,#ds_bug_collsn_hit_mult + 0x00     ; rocket/bug or ship/bug collision
-       rst  0x10                                  ; HL += A
+       rst  0x10                                  ; HL += A ... _collsn_hit_mult[sprite.cclr.b1]
        inc  (hl)
 
-       ex   af,af'                                ; un-stash parameter
+       ex   af,af'                                ; un-stash parameter/flag
        jr   z,l_0811
        inc  (hl)                                  ; shot blue boss
 l_0811:
@@ -1241,13 +1253,12 @@ l_0811:
        jp   l_07B4_next_object
 
 ; this invalidates the bomb object... but what about the ship?
-l_0815_bomb_hit_ship:
-       ld   h,#>ds_sprite_posn                    ; bomb colliding with ship.
+l_0815_bomb_hit:
+       ld   h,#>ds_sprite_posn                    ; sprite[L].sx = 0 ... bomb colliding with fighter
        ld   (hl),#0
-       ld   h,#>b_8800
-       ld   (hl),#0x80
+       ld   h,#>b_8800                            ; sprt_mctl_objs[L].state
+       ld   (hl),#0x80                            ; disposition = INACTIVE
 
-; return!
        ret
 
 ; Handle flying bug collision (bullet or ship). Not stationary bugs.
@@ -1256,7 +1267,8 @@ l_081E_hdl_flyng_bug:
        push hl
        ex   af,af'                                ; re-stash parameter
        inc  l
-       ld   a,(hl)
+       ld   a,(hl)                                ; sprt_mctl_objs[L].mctl_idx
+
        ld   h,#>ds_bug_motion_que                 ; bug_motion_que[A].b13 = 0 (release this slot)
        add  a,#0x13
        ld   l,a
@@ -1267,9 +1279,9 @@ l_081E_hdl_flyng_bug:
 
 ;; bug_flying_hit_cnt is probably only meaningful in challenge rounds. In other
 ;; rounds it is simply intiialized to 0 at start of round.
-       ld   hl,#w_bug_flying_hit_cnt              ; count down each flying bug hit ... reset 8 each challenge_wave
+       ld   hl,#w_bug_flying_hit_cnt              ; hit_cnt -= 1 ... reset 8 each challenge_wave
        dec  (hl)
-       pop  hl                                    ; b8800_obj_status
+       pop  hl                                    ; &sprt_mctl_objs[L].mctl_idx
 
        jr   nz,l_0849
 
@@ -1290,7 +1302,7 @@ l_0849:
 ; handle special cases of flying bugs, then jp   l_07DF
 
 ; if (hit == captured ship)
-       ld   a,c                                   ; sprite color
+       ld   a,c                                   ; .... sprite.cclr.b1
        cp   #7                                    ; color map 7 ... red captured ship
        jr   nz,l_0852
 
@@ -1309,13 +1321,13 @@ l_0852:
        jp   z,l_08B6
 
 ; else if ! blue-boss ... l_07DB
-       ld   a,c                                   ; sprite color
-       cp   #1                                    ; color map 1 ... blue boss hit once
+       ld   a,c                                   ; .... sprite.cclr.b1
+       cp   #0x01                                 ; color map 1 ... blue boss hit once
        jp   nz,l_07DB
 
 ; ... else ... handle blue boss
 ; check for captured-fighter
-       push de                                    ; ds_sprite_ctrl[n]
+       push de                                    ; &ds_sprite_ctrl[E]
        ld   a,l
        and  #0x07                                 ; mask off to reference the captured ship
        ld   e,a
@@ -1325,12 +1337,12 @@ l_0852:
        jr   nz,l_0899                             ; ...be $80 meaning I have killed the boss before he pulls the ship all in!
 ; captured ship is diving
        push hl                                    ; stash the boss object locator e.g. b_8830
-       ex   de,hl                                 ; DE==captured ship object locator e.g. b_8800
+       ex   de,hl                                 ; HL := &sprt_mctl_objs[ ].b0
        inc  l
-       ld   a,(hl)                                ; get the offset of the flying structure e.g. 9100+$14 etc.
-       add  a,#0x13
+       ld   a,(hl)                                ; sprt_mctl_objs[ HL ].mctl_idx
+       add  a,#0x13                               ; mctl_mpool[n].b13
        ld   e,a
-       ld   d,#>ds_bug_motion_que                 ; e.g. sets b_9113 == 0, makes this flying structure inactive.
+       ld   d,#>ds_bug_motion_que                 ; mctl_mpool[n].b13 == 0 ... make slot inactive
        xor  a
        ld   (de),a
        ld   h,#>ds_sprite_code
@@ -1351,7 +1363,7 @@ l_0852:
 l_0899:
 ; lone blue boss killed, or boss killed before pulling the beam all in
        pop  de                                    ; ds_sprite_ctrl[n].b1
-       push hl                                    ; obj_status[ HL ] (boss) e.g. b_8830
+       push hl                                    ; sprt_mctl_objs[L] (boss) e.g. b_8830
        ld   a,#6
        ld   (ds4_game_tmrs + 1),a                 ; 6 ... captured ship timer
        ld   a,l
@@ -1464,6 +1476,9 @@ j_090E_flite_path_init:
 
 ; else ...
 ;  complimented token indexes into jp-tbl for selection of next state
+
+; the current data pointer could be copied from HL into 92FA,92FB or loaded directly from ix($08)ix($09) by handler
+;
        push hl                                    ; ptr to data table
        cpl
        ld   hl,#d_0920_jp_tbl
@@ -1503,8 +1518,8 @@ case_0942:  ; $0A
        inc  hl                                    ; ptr to data table
        jp   j_090E_flite_path_init
 
-; one red alien remaining in continuous-bombing mode
-case_094E:  ; $10
+; continuous-bombing mode
+case_094E:  ; $10 (0xEF)
        ld   a,(ds_new_stage_parms + 0x09)         ; jumps the pointer on/after stage 8
        and  a
        jp   l_0959
@@ -1537,9 +1552,9 @@ case_0968:  ; $0E
        ld   d,#>db_obj_home_posn_RC               ; home_posn_rc[ ix($10) ]
        ld   a,(de)                                ; row position index
        ld   e,a
-       ld   d,#>ds_hpos_loc_orig
+       ld   d,#>ds_hpos_loc_orig                  ; b1: copy of origin data
        inc  e
-       ld   a,(de)                                ; msb, absolute row pix coordinate
+       ld   a,(de)                                ; copy of origin data
        add  a,#0x20
        ld   0x01(ix),a                            ; sY<8:1>
        jp   l_0B8B                                ; inc hl and finalize
@@ -1665,7 +1680,8 @@ l_0A16:
        jr   z,l_0A1E
        add  a,#0x0E
        neg
-; 9.7 fixed point math
+
+; (fighterX - alienX) / 4 ... 9.7 fixed point math
 l_0A1E:
        srl  a
        sub  0x03(ix)
@@ -1712,17 +1728,17 @@ case_0A53:  ; $0B
        add  a,#3
        and  #0xF8
        inc  a
-       cp   #0x29
+       cp   #82 >> 1                              ; $29
        jr   nc,l_0A66
-       ld   a,#0x29                               ; when?
+       ld   a,#0x29
 l_0A66:
-       cp   #0xCA
+       cp   #404 >> 1                             ; $CA
        jr   c,l_0A6C
-       ld   a,#0xC9                               ; when?
+       ld   a,#402 >> 1                           ; $C9
 l_0A6C:
        bit  0,c                                   ; check flip screen
        jr   z,l_0A73
-       add  a,#0x0D                               ; flipped
+       add  a,#13                                 ; flipped
        cpl
 l_0A73:
        ld   (ds5_928A_captr_status + 0x00),a
@@ -1731,7 +1747,7 @@ l_0A73:
        ld   d,#0x48
        ld   h,0x01(ix)
        ld   l,0x03(ix)
-       call c_0E5B                                ; HL = c_0E5B(DE, H, L)
+       call c_0E5B                                ; HL = c_0E5B(DE, H, L) ... determine rotation angle
        srl  h
        rr   l
        ld   0x04(ix),l
@@ -1904,7 +1920,8 @@ case_0B5F:  ; $06
        neg
 l_0B76:
        srl  a
-       ld   0x03(ix),a
+       ld   0x03(ix),a                            ; .cx.pair.b1
+
        ld   a,(b_92A0 + 0x0A)                     ; if continuous bombing flag is set, trigger dive attack sound b_9AA0[0x13]
        and  a
        jp   z,l_0B8B                              ; inc hl and finalize
@@ -1934,7 +1951,7 @@ case_0B98:  ; $08
 
 ; from case_0BD1 ... if (1 == cont_bmb_flag && 0 == task_actv[0x1D]) then ... HL += 3
 l_0B9F:
-       jp   z,l_0B46                              ; load next ptr
+       jp   z,l_0B46                              ; load next ptr ... _flite_path_init
 ; ptr to data table inc 3x ... (2 incs to skip address in table e.g. $0024?)
        inc  hl
        inc  hl
@@ -2251,7 +2268,7 @@ l_0CFA:
        adc  a,(hl)                                ;  .b01 or .b03
        ld   (hl),a
 
-       pop  hl                                    ; &mrw_sprite.ctrl[L].b0
+       pop  hl                                    ; &mrw_sprite.ctrl[L].b1
 
 ; almost done ... update the sprite x/y positions
 l_0D03_flite_pth_posn_set:
@@ -2330,8 +2347,8 @@ l_0D50:
        srl  0x0F(ix)                              ; these bits enable bombing
        jp   nc,l_0DF5_next_superloop_and_reload_0E
 
-       ld   a,0x01(ix)                            ; if > $4C
-       cp   #0x4C
+       ld   a,0x01(ix)                            ; if .cy.pair.b1 > $4C
+       cp   #152>>1                               ; 0x4C
        jp   c,l_0DF5_next_superloop_and_reload_0E
 
        ld   a,(ds_cpu0_task_actv + 0x15)          ; f_1F04 ...fire button input
@@ -2342,59 +2359,65 @@ l_0D50:
        and  a
        jp   nz,l_0DF5_next_superloop_and_reload_0E
 
-; check for available bomb-slot
-       ex   de,hl
-       ld   hl,#b_8800 + 0x68                     ; offset into object group for bombs
-       ld   b,#8                                  ; check 8 shot-slots
+; check for available bomb ... bombs are rendered inactive at l_0815
+       ex   de,hl                                 ; &sprite.ctrl[bmbr].b1 to DE ...
+       ld   hl,#b_8800 + 0x68                     ; bomb0 object/index
+       ld   b,#8                                  ; check 8 positions
 l_0D82:
-       ld   a,(hl)
-       cp   #0x80
+       ld   a,(hl)                                ; _objs[BOMB0].state
+       cp   #0x80                                 ; INACTIVE
        jr   z,l_0D8D_got_a_bullet
        inc  l
        inc  l
        djnz l_0D82
+
        jr   l_0DF5_next_superloop_and_reload_0E
 
 l_0D8D_got_a_bullet:
-       ld   (hl),#6                               ; disposition "active" (bomb)
-       push hl
+       ld   (hl),#6                               ; _objs[BOMB0].state = BOMB
+       push hl                                    ; &_objs[BOMB0 + n]
        ld   h,#>ds_sprite_posn
        ld   d,h
-       dec  e
-       ld   a,(de)
+       dec  e                                     ; ... E from &sprite.ctrl[L].b1
+; sprite.posn[BOMB0 + n].b0 = sprite.posn[L].b0
+       ld   a,(de)                                ; bomber.x
        ld   c,a
-       ld   (hl),a
+       ld   (hl),a                                ; bomb.x
+; sprite.posn[BOMB0 + n].b1 = sprite.posn[e].b1 // y<7:0>
        inc  e
        inc  l
-       ld   a,(de)
+       ld   a,(de)                                ; bomber.y<7:0>
        ld   b,a
-       ld   (hl),a
+       ld   (hl),a                                ; bomb.y<7:0>
+
        ld   h,#>ds_sprite_ctrl
        ld   d,h
-       ld   a,(de)
-       rrc  (hl)
-       rrca
-       rl   (hl)
-       rlca
-       rr   b
-       ld   a,(ds_sprite_posn + 0x62)             ; ship_1_position ... crap they're shootin right at us
-       sub  c
-       push af
-       jr   nc,l_0DB1
-       neg
+       ld   a,(de)                                ; bomber.y<8> (in :0 ... ctrl in :1)
+       rrc  (hl)                                  ; bomb.ctrl.b1<0> to Cy
+       rrca                                       ; bomber.y<8> from A<0> to Cy
+       rl   (hl)                                  ; sY<8> from Cy to bomb.ctrl.b1<0>
+       rlca                                       ; restore A with sY<8> left in Cy
+       rr   b                                     ; bomber.y<8:1>
+
+       ld   a,(ds_sprite_posn + 0x62)             ; fighter.x
+       sub  c                                     ; bomb.x
+       push af                                    ; stash fighter.x - bomber.x
+       jr   nc,l_0DB1                             ; if bomber.x > fighter.x ...
+       neg                                        ; ... then dX = -dX
 l_0DB1:
-       ld   h,a
+       ld   h,a                                   ; dX ... what about L?
+
        ld   a,(b_9215_flip_screen)
        and  a
-       ld   a,#0x95
+       ld   a,#298 >> 1                           ; 0x95 ... 354-56
        jr   z,l_0DBC
-       ld   a,#0x1C                               ; inverted
+       ld   a,#56 >> 1                            ; 0x1C ... inverted
 l_0DBC:
-       sub  b
-       jr   nc,l_0DC1
+       sub  b                                     ; bomber.y<8:1>
+       jr   nc,l_0DC1                             ; if bomber.y > fighter.y ...
        neg
 l_0DC1:
-       call c_0EAA
+       call c_0EAA                                ; HL = HL / A
        ld   b,h
        ld   c,l
        srl  h
@@ -2406,6 +2429,7 @@ l_0DC1:
        rr   l
        srl  h
        rr   l
+
        ld   a,h
        and  a
        jr   nz,l_0DE0
@@ -2416,13 +2440,14 @@ l_0DE0:
        ld   a,#0x60
 l_0DE2:
        ld   b,a
-       pop  af
+
+       pop  af                                    ; Cy from (fighter.x - bomber.x)
        rr   b
-       pop  hl
+       pop  hl                                    ; sprt_mctl_objs[bomb]
        ld   a,l
-       add  a,#8
+       add  a,#8                                  ; IDX_BOMB will be index 0 thanks to and $0F
        and  #0x0F
-       ld   hl,#b_92B0 + 0x00                     ; bullet x-coordinate structure ( 8 * 2 )
+       ld   hl,#b_92B0 + 0x00                     ; bomb x-coordinate structure ( 8 * 2 )
        add  a,l
        ld   l,a
        ld   (hl),b
@@ -2434,7 +2459,6 @@ l_0DF5_next_superloop_and_reload_0E:
        ld   0x0E(ix),a                            ; b_92E2[0] ... bomb drop counter
 
 next__pool_idx:
-;ret
        ld   hl,#b_bug_que_idx                     ; -= 1 ... counts backwards
        dec  (hl)
        ret  z
@@ -2485,6 +2509,7 @@ l_0E3A:
 
        jp   l_0D03_flite_pth_posn_set
 
+; training mode, make previous diving boss disabled
 ; a bonus bee (e.g. 883A) flying off screen. Sprite-Code 5B (scorpion), color 05, object status==9
 ; also, if status==4 (capturing boss shot while in home-position, freeing a rogue ship)
 case_0E49_make_object_inactive: ; 0x0
@@ -2558,7 +2583,7 @@ l_0E84:
        ld   l,#0
 
 ; HL = HL / A
-       call c_0EAA                                ; c_0EAA(A, HL)
+       call c_0EAA                                ; HL = HL / A
 
        ld   a,h
        xor  b
@@ -2633,11 +2658,14 @@ l_0EAF:
 l_0EB6:
 ; flip the Cy: i.e. set it if the "sub c" was done, otherwise clear it.
        ccf
+
 l_0EB7:
        adc  hl,hl
        djnz l_0EAF
+
        pop  bc
        ret
+
 l_0EBD:
        sub  c
        scf
