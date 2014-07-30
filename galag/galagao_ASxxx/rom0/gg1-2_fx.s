@@ -839,14 +839,14 @@ d_1B5F:
 ;;-----------------------------------------------------------------------------
 f_1B65:
 ; if ( flag == zero ) skip the condition check
-       ld   a,(ds_9200_glbls + 0x0B)              ; flying_bug_attck_condtn
+       ld   a,(ds_9200_glbls + 0x0B)              ; glbl_enemy_enbl
        and  a
        jr   z,l_1B75
 
-; if ((0 == ds_cpu0_task_actv[0x15]) && (0 != ds_cpu0_task_actv + 0x1D)) return
+; if ((0 == ds_cpu0_task_actv[0x15]) || (0 != ds_cpu0_task_actv + 0x1D))  return
        ld   a,(ds_cpu0_task_actv + 0x15)          ; f_1F04 (fire button input)
        ld   c,a
-       ld   a,(ds_cpu0_task_actv + 0x1D)          ; f_2000 (destroyed boss that captured ship)
+       ld   a,(ds_cpu0_task_actv + 0x1D)          ; f_2000 (destroyed capture-boss)
        cpl
        and  c
        ret  z
@@ -1192,17 +1192,17 @@ j_1CAE:
        cp   #2
        jr   z,l_1CE3
 
-       ld   de,#bmbr_boss_pool + 3                ; 4 groups of 3 bytes
+       ld   de,#bmbr_boss_pool + 1 * 3 + 0        ; 4 groups of 3 bytes
 ; if (1 == ixl) ... setup 1 escort, else setup 2 escorts
        dec  a
        jr   z,l_1CE0
-       call c_1D03                                ; DE==&boss_pool[3] ... boss dives with wingman
+       call c_1D03                                ; DE==&boss_pool[1] ... boss dives with wingman
 l_1CE0:
-       call c_1D03                                ; DE==&boss_pool[6] ... boss dives with wingman
+       call c_1D03                                ; DE==&boss_pool[2] ... boss dives with wingman
 
 ; if rogue fighter for this boss !STAND_BY then return
 l_1CE3:
-       ld   a,(bmbr_boss_pool + 0)                ; obj/index (setup from function arguments above)
+       ld   a,(bmbr_boss_pool + 0 * 3 + 0)        ; obj/index (setup from function arguments above)
        and  #0x07                                 ; object/index of captured fighter i.e. 00 04 06 02
        ld   l,a
 ; check for 0
@@ -1214,7 +1214,7 @@ l_1CE3:
        ld   c,l                                   ; object/index of rogue-fighter e.g. $00, $02, $04, $06
 
 ; find available slot (don't know how many are occupied by wingmen?)
-       ld   hl,#bmbr_boss_pool + 0                ; reset pointer, search for obj_idx==$FF
+       ld   hl,#bmbr_boss_pool + 0 * 3 + 0        ; reset pointer, search for obj_idx==$FF
 l_1CF2_while:
        inc  l
        inc  l
@@ -1731,18 +1731,21 @@ f_1EA4:
 l_1EB5:
        ld   ixh,a
        ld   l,#0x68                               ; offset into object group for missiles
-       ld   de,#b_92B0 + 0x00
+       ld   de,#b_92B0 + 0x00                     ; bomb h-rate array ( 8 * 2 )
        ld   ixl,0x08
-l_1EBF:
+
+l_1EBF_while:
+; if sprite[bomb + n].code == $30 ...
        ld   h,#>ds_sprite_code
        ld   a,(hl)
-       cp   #0x30                                 ; missile sprite codes don't show up until some new-game inits are done
+       cp   #0x30                                 ; bomb sprite codes don't show up until some new-game inits are done
        jr   nz,l_1EFF
-; we don't need to do anything until a shot is actually fired
+; ... sprite[bomb + n].posn.x != 0
        ld   h,#>ds_sprite_posn
        ld   a,(hl)
        and  a
        jr   z,l_1EFF
+
 ; Fun fixed point math: X rate in 92B0[ even ] has a scale factor of
 ; 32-counts -> 1 pixel-per-frame. Each frame, the (unchanging) dividend
 ; is loaded from 92B0, the previous MOD32 is added, the new MOD32 is stashed
@@ -1750,51 +1753,56 @@ l_1EBF:
 ; remainders add up to another whole divisor which will add an extra pixel
 ; to the offset every nth frame. Easy peasy!
 ; BTW there really is odd values in 92B0, but we just seem to not care about it i.e. mask 7E.
-       ex   de,hl
-       ld   b,(hl)
-       ld   a,b                                   ; A = B = 92B0[even]
-       and  #0x7E                                 ; Bit-7 for negative.. and we don't want the 1 ???
+
+       ex   de,hl                                 ; stash &sprite_posn[n].b0 in DE
+       ld   b,(hl)                                ; bomb_rate[n].b0
+       ld   a,b
+       and  #0x7E                                 ; Bit-7 for negative ... and we don't want the 1 ???
        inc  l
        add  a,(hl)
        ld   c,a                                   ; C = A = A + 92B0[odd] ... accumulated division remainder
        and  #0x1F                                 ; MOD 32
-       ld   (hl),a
+       ld   (hl),a                                ; bomb_rate[n].b1
        inc  l
-; upper 3 bits rotated into lower, (divide-by-32)
+; a >>= 5 (divide-by-32)
        ld   a,c
        rlca
        rlca
        rlca
        and  #0x07
 
-; need a negative offset of X coordinate if bomb path is to the left
+; use negative offset of X coordinate if bomb path is to the left
        bit  7,b
        jr   z,l_1EE4
        neg
 
 l_1EE4:
-       ex   de,hl
+       ex   de,hl                                 ; &sprite_posn[n].b0 from DE
 ; update X
        add  a,(hl)
-       ld   (hl),a    ; 9868[ even ] += A
-; update Y, and handle Cy for value > $ff. But wtf does the XOR accomplish since we don't ever use the result in A?
+       ld   (hl),a                                ; 9868[ even ] += A
+
+; update Y, and handle Cy for value > $ff
        inc  l
        ld   a,(hl)
        add  a,ixh
-       ld   (hl),a                                ; 9868[ odd ] += ixh
-       rra                                        ; shifts CY into bit-7 if we overflowed the addition
+       ld   (hl),a                                ; sprite[n].y<7:0> += ixh
+
+       rra                                        ; shifts CY into bit-7 on overflow from addition
        xor  ixh
-       rlca                                       ; ... and again we have the Cy on overflow... but wtf about the xor?
+       rlca                                       ; Cy xor'd with ixh<7> ... to Cy
        jr   nc,l_1EF9
+
 ; update "bit-8" of Y coordinate ... should only overflow the Y coordinate once.
-       ld   h,#>ds_sprite_ctrl                    ; Y-coordinate, bit-8 at odd indices
-       rrc  (hl)                                  ; bit-0 into Cy (should be 0, right?)
-       ccf                                        ; from 0 to 1...
-       rl   (hl)                                  ; ... and rotate back into bit-0
+       ld   h,#>ds_sprite_ctrl                    ; sY<8>
+       rrc  (hl)                                  ; sY<8> into Cy
+       ccf
+       rl   (hl)                                  ; sY<8>
+
 l_1EF9:
        inc  l
        dec  ixl
-       jr   nz,l_1EBF
+       jr   nz,l_1EBF_while
 
        ret
 
@@ -1843,30 +1851,30 @@ f_1F04:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 c_1F0F:
-; if ( 0 == sprite.posn[ RCKT0 ].b0 ) goto l_1F1E
-       ld   hl,#ds_sprite_posn + 0x64             ; offsetof( RCKT_0 )
-       ld   de,#b_92A0 + 0x04                     ; rocket "attribute"
+; if ( 0 != sprite[ RCKT0 ].sX ) ...
+       ld   hl,#ds_sprite_posn + 0x64             ; ROCKET_0
+       ld   de,#b_92A0 + 0x04                     ; rockt_attribute[0]
        xor  a
        cp   (hl)                                  ; if (0)
        jr   z,l_1F1E
 
-; else if ( sprite.posn[ RCKT1 ].b0 ) return
-       ld   l,#<ds_sprite_posn + 0x66             ; offsetof( RCKT_1 )
-       inc  e                                     ; rocket "attribute"
-       cp   (hl)                                  ; if (0)
+; ... then ... if ( 0 != sprite[ RCKT1 ].sX )  return
+       ld   l,#<ds_sprite_posn + 0x66             ; ROCKET_1
+       inc  e                                     ; rockt_attribute[1]
+       cp   (hl)                                  ; if (0 != sprite[RCKT1].sX)  ret
        ret  nz
 
 l_1F1E:
 ; save pointer to attribute, and stash 'offsetof( RCKT_X )' in E
 
-       push de                                    ; save pointer to rocket "attribute"
-       ex   de,hl                                 ; E = 'offsetof( RCKT_X )'.b0
+       push de                                    ; &rockt_attribute[n].posn.b0
+       ex   de,hl
 
-       ld   hl,#ds_sprite_ctrl + 0x62 + 1         ; sprite.ctrl[SHIP].b1
-       ld   d,h                                   ; sprite.ctrl[0] ... E == 'offsetof( RCKT_X )'
-       inc  e                                     ; 'offsetof( RCKT_X )'.b1
+       ld   hl,#ds_sprite_ctrl + 0x62 + 1         ; sprite.ctrl[FIGHTR].b1
+       ld   d,h
+       inc  e                                     ; sprite[RCKT_X].ctrl.b1
 
-       bit  2,(hl)                                ; no idea
+       bit  2,(hl)                                ; sprite.ctrl[FIGHTR].b1<2> ... ?
        jr   z,l_1F2B
 
        pop  de
@@ -1877,7 +1885,7 @@ l_1F2B:
        ldd                                        ; e.g. *(9B65--) = *(9B63--)
 
        ld   h,#>ds_sprite_posn
-       ld   d,h
+       ld   d,h                                   ; stash it
 ; sprite.posn[RCKT+n].b0 = sprite.posn[SPR_IDX_SHIP].b0  ... ship.sX
        ldi                                        ; e.g. *(9B64++) = *(9B62++)
 ; sprite.posn[RCKT+n].b1 = sprite.posn[SPR_IDX_SHIP].b1  ... ship.sY, bit 0-7
@@ -1887,9 +1895,9 @@ l_1F2B:
 ; B = sprite.ctrl[SHIP].b0
        ld   h,#>ds_sprite_ctrl
        ld   d,h
-       ld   b,(hl)                                ; normally 0 (not doubled or flipped)
-
-       ex   de,hl                                 ; DE = sprite.ctrl[SHIP].b0, HL = sprite.ctrl[RCKT].b0
+       ld   b,(hl)                                ; sprite.ctrl[FGHTR].b0: normally 0 (not doubled or flipped)
+                                                  ; stash in B ... see l_1F5E below
+       ex   de,hl                                 ; HL := sprite.ctrl[RCKT].b0
 
 ; sprite.ctrl[RCKT].b0.dblw = (two_ship << 3 )
        ld   a,(ds_plyr_actv +_b_2ship)
@@ -1899,7 +1907,7 @@ l_1F2B:
        rlca                                       ; in bit3 now fpr dblw attribute
 
 ; sprite.ctrl[SHIP].b0 ... typically 0, unless ship is spinning
-       or   b                                     ; A |= sprite.ctrl[SHIP].b0
+       or   b                                     ; .ctrl[RCKT].b0 |= .ctrl[SHIP].b0
        ld   (hl),a
 
 ; determine rocket sprite code based on ship sprite code, which ranges from 6 (upright orientation)
@@ -1908,7 +1916,7 @@ l_1F2B:
        ld   d,#>ds_sprite_code
        ld   a,(de)
        ld   h,d
-       and  #0x07                                 ; ship sprite should not be > 7 ?
+       and  #0x07                                 ; fighter sprite codes are $00...$07
 
        ld   c,#0x30                               ; code $30 ... 360 degree default orientation
 ; if ( A >= 5 ) then  ... code = $30
@@ -1921,6 +1929,7 @@ l_1F2B:
 ; else  ... code = $33
        inc  c                                     ; code $32 is skipped (also 360)
        inc  c                                     ; code $33 ... 90 degree rotation
+
 l_1F56_set_rocket_sprite_code:
        ld   (hl),c
 
@@ -1948,11 +1957,11 @@ l_1F56_set_rocket_sprite_code:
 ;   code= 1     dS=1      $00
 ;   code= 0     dS=0      $00
 
-; if ( A < 4 ) ...
+; if ( A >= 4 ) ...
        cp   #4                                    ; A == sprite.cclr[SHIP].b0;
        jr   c,l_1F5E
 
-; ... dS := 7 - ( code + 1 ) + 0x40
+; ... dS = 7 - ( code + 1 ) + 0x40
        cpl
        add  a,#0x40 + 7
 ; else ... no orientation swap needed, use sprite code for dS
@@ -1962,7 +1971,7 @@ l_1F5E:
        ld   c,a                                   ; ... and displacement << 1  into bits 1:2
 
 ; sprite.ctrl bits ...  flipx into bit:5, flipy into bit:6
-       ld   a,b                                   ; B == sprite.ctrl[SHIP].b0
+       ld   a,b                                   ; sprite.ctrl[SHIP].b0
        rrca
        rrca
        rrca
@@ -1974,6 +1983,7 @@ l_1F5E:
        ld   a,b                                   ; flipx/flipy bits (0x60)
        jr   nz,l_1F71
        xor  #0x60                                 ; screen not flipped so invert those bits
+
 l_1F71:
        or   c                                     ; bit7=orientation, bit6=flipY, bit5=flipX, 1:2=displacement
        pop  de                                    ; pointer to rocket attribute
