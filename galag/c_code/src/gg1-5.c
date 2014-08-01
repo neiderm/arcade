@@ -846,7 +846,7 @@ static uint8 hitd_det_fghtr(uint8 fghtr_idx, uint8 fx, uint8 fy, uint8 start_off
 /*=============================================================================
 ;; f_06F5()
 ;;  Description:
-;;    rocket motion and hit-detection
+;;    rocket motion and hit-detection manager
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -895,6 +895,7 @@ static void rckt_man(uint8 de)
     }
 
     // l_0713:
+    // l_0719: add new sX increment
     if (b_92A4_rockt_attribute[de] & 0x40) // bit  6,b ... flipY
     {
         // non-flipped sprite is left facing ... negate X increment
@@ -905,12 +906,13 @@ static void rckt_man(uint8 de)
         mrw_sprite.posn[hl].b0 += A; // add  a,(hl)
     }
 
-
     // one test for left/right limits ($F0) or < 0 ($FF)
-    if (mrw_sprite.posn[hl].b0 > 240) // $F0
+    if (mrw_sprite.posn[hl].b0 >= 240) // $F0
     {
         //l_0763_disable_rocket:
-        mrw_sprite.ctrl[hl].b0 = 0;
+        mrw_sprite.posn[hl].b0 = 0; // x
+        mrw_sprite.ctrl[hl].b0 = 0; // attribute bits
+
         return;
     }
 
@@ -933,9 +935,9 @@ static void rckt_man(uint8 de)
         HL.word += AF; // add  a,(hl)
     }
 
-    mrw_sprite.posn[hl].b1 = HL.pair.b0; // lower 8-bits to register
+    mrw_sprite.posn[hl].b1 = HL.pair.b0; // lower 8-bits to register: posn.sy<7:0>
 
-    // determine the sign, toggle position.sy:8 on overflow/carry.
+    // determine the sign, toggle posn.sy:8 on overflow/carry
     if (HL.word > 0xFF)
     {
         mrw_sprite.ctrl[hl].b1 |= 0x01;
@@ -950,10 +952,12 @@ static void rckt_man(uint8 de)
     if (HL.word < 40 || HL.word > 312) // disable_rocket_wposn
     {
         // l_0760_disable_rocket_wposn:
-        mrw_sprite.posn[hl].b0 = 0; // x
 
         //l_0763_disable_rocket:
-        mrw_sprite.ctrl[hl].b0 = 0;
+        mrw_sprite.posn[hl].b0 = 0; // x
+        mrw_sprite.ctrl[hl].b0 = 0; // attribute bits
+
+        // ret
     }
 
     // lower-byte of pointer to object/sprite in L is passed through to
@@ -987,9 +991,9 @@ static void rckt_man(uint8 de)
 ;;  Description:
 ;;   rocket hit detection
 ;; IN:
-;;  E == pointer/index to rocket object/sprite passed through to
-;;       j_07C2 (odd, i.e. offset to b1)
-;;  HL == pointer to sprite.posn[], starting object to test ... 0, or
+;;  E == pointer/index to rocket object, passed through to
+;;       hitd_dspchr_rckt (odd, i.e. offset to b1)
+;;  HL == pointer to starting object in sprite.posn[] to test ... 0, or
 ;;        +8 skips 4 objects... see explanation at l_0757.
 ;;  B == count ... $30, or ($30 - 4) as per explanation above.
 ;; OUT:
@@ -1011,8 +1015,7 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
     {
         uint8 AF;
 
-        // obj_status[L].state<7> ... $80==inactive object
-        // b_9200[L].b0 ... $81 = hit notification already in progress
+        // if (obj_status[L].state<7>  ||  hit_notif<7> )
 
         if (INACTIVE != (sprt_mctl_objs[hl].state |
                          sprt_hit_notif[hl])) // else  jr   c,l_07B4_next_object
@@ -1028,9 +1031,7 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
                 // test dX and dY for within +/- 6 pixels, using the addition
                 // offset with "Cy" so only 1 test needed for ( d>-6 && d<+6 )
 
-                // check Y coordinate
-
-                // set .sY<8:1>
+                // check Y coordinate ... set .sY<8:1>
                 tmpA.pair.b1 = mrw_sprite.ctrl[hl].b1; // .sy<8>
                 tmpA.pair.b0 = mrw_sprite.posn[hl].b1; // .sy<7:0>
                 // dec  l
@@ -1159,8 +1160,8 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
 {
     uint8 A;
 
-    mrw_sprite.posn[E].b0 = 0; // ld   (de),a ... sX<7:0>
-    mrw_sprite.ctrl[E].b0 = 0; // ld   (de),a
+    mrw_sprite.posn[E].b1 = 0; // ld   (de),a ... sX<7:0>
+    mrw_sprite.ctrl[E].b1 = 0; // ld   (de),a
 
     // jp   z,l_08CA_ ... green_boss (non-moving)
     if (0 == mrw_sprite.cclr[HL].b1) // and  a
@@ -1224,11 +1225,10 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
         {
             // l_0849: handle special cases of moving objects
 
-            // if (hit == captured ship)
+            // if (color map == captured fighter)  $07
 
             // jr   l_08B0
 
-            // else if ( hit bonus-bee or clone bonus-bee )
             // l_0852:
 
             // color map 1 ... blue boss hit once
@@ -2261,7 +2261,6 @@ static void mctl_posn_set(uint8 mpidx)
                     }
                     hl16.pair.b0 = L; // what about L?
                     // l_0DB1:
-
                     a16.word = 298 >> 1; // 0x95 ... 354-56
                     if (glbls9200.flip_screen)  a16.word = 56 >> 1; // 0x1C ... 354-298
 
