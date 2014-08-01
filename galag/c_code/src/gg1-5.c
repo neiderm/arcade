@@ -55,6 +55,8 @@ static uint8 hitd_fghtr_notif(uint8);
 static void hitd_fghtr_hit(uint8, uint8, uint8);
 static uint8 hitd_det_fghtr(uint8, uint8, uint8, uint8, uint8);
 static void hitd_det_rckt(uint8, uint8, uint8);
+static uint8 hitd_dspchr_rckt(uint8, uint8, uint8);
+static uint8 hitd_dspchr_fghtr(uint8, uint8, uint8);
 static uint8 hitd_dspchr(uint8, uint8, uint8);
 static void rckt_man(uint8);
 static void mctl_fltpn_dspchr(uint8);
@@ -829,16 +831,17 @@ static uint8 hitd_det_fghtr(uint8 fghtr_idx, uint8 fx, uint8 fy, uint8 start_off
                             // we're hit!
                             // AF==1 if moving alien
                             // nz if fighter hit
-                            hitd_dspchr(1, fghtr_idx, coffs); // jp   j_07C2
+                            hitd_dspchr_fghtr(1, fghtr_idx, coffs); // jp   j_07C2
                             return hit_notif ;
                         }
                     }
                 }
             }
         }
+        // l_06F0
         coffs += 2;
-        b -= 1; // djnz
-    }
+        b -= 1; // djnz while_06B7
+    } // while
 
     return hit_notif;
 }
@@ -1064,9 +1067,7 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
                         {
                             // l_07B9_
 
-
-
-                            if ( 1 != hitd_dspchr(AF, E, hl) )
+                            if ( 1 != hitd_dspchr_rckt(AF, E, hl) )
                             {
                                 return;
                             }
@@ -1112,9 +1113,7 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
                             }
                         }
 
-                        // l_07B9_
-
-                        if ( 1 != hitd_dspchr(AF, E, hl) )
+                        if ( 1 != hitd_dspchr_rckt(AF, E, hl) )
                         {
                             return;
                         }
@@ -1140,28 +1139,79 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
 }
 
 /*=============================================================================
-;; j_07C2()
+;;  Description:
+;;   Detect collisions from the reference of the rocket ... update hit count
+;;   and call common subroutine.
+;; IN:
+;;   AF == (sprt_mctl_objs[hl].state  - 1) & 0xFE
+;;   L == offset/index of destroyed enemy/bomb
+;;   E == offset/index of sprite[rocket.n]
+;; OUT:
+;;  ...
+;; RETURN:
+;;   1 on jp   l_07B4_next_object
+;;   0
+;;---------------------------------------------------------------------------*/
+static uint8 hitd_dspchr_rckt(uint8 AF, uint8 E, uint8 HL)
+{
+    //l_07B9_
+    // ds_plyr_actv._w_hit_ct += 1;
+
+    // make the rocket available to rckt_sprite_init() again:
+    //  z80 code "harmlessly" allowed the passed pointer to .b0 for fighter,
+    //  but .b1 for rocket, so the correct variables are set here.
+    mrw_sprite.posn[E].b1 = 0; // ld   (de),a ... sX<7:0>
+    mrw_sprite.ctrl[E].b1 = 0; // ld   (de),a
+
+    return hitd_dspchr(AF, E, HL);
+}
+
+/*=============================================================================
+;;  Description:
+;;   Detect collisions from the reference of the fighter ... update hit count
+;;   and call common subroutine.
+;; IN:
+;;   AF == (sprt_mctl_objs[hl].state  - 1) & 0xFE
+;;   L == offset/index of destroyed enemy/bomb
+;;   E == offset/index of sprite[rocket.n]
+;; OUT:
+;;  ...
+;; RETURN:
+;;   1 on jp   l_07B4_next_object
+;;   0
+;;---------------------------------------------------------------------------*/
+static uint8 hitd_dspchr_fghtr(uint8 AF, uint8 E, uint8 HL)
+{
+    // z80 code "harmlessly" allowed the passed pointer to .b0 for fighter, but
+    // .b1 for rocket, so the correct variables are set here.
+    //mrw_sprite.posn[E].b0 = 0; // ld   (de),a ... sX<7:0>
+    //mrw_sprite.ctrl[E].b0 = 0; // ld   (de),a
+
+    return hitd_dspchr(AF, E, HL);
+}
+
+/*=============================================================================
+;; hitd_dspchr()
 ;;  Description:
 ;;   collisions are detected from the reference of the rocket or fighter - this
 ;;   function is common to both rocket and fighter hit detection, and
 ;;   dispatches the target appropriately.
 ;; IN:
-;;   AF == (sprt_mctl_objs[hl].state  - 1) & 0xFE
-;;   L == object key, e.g. usually a bug was hit, but could be a bomb
-;;   E == offset/index of rocket sprite + 1
-;;   E == object key + 0, e.g. 9B62 (the ship?)
+;;   L == offset/index of destroyed enemy/bomb
+;;   E == offset/index of rocket[n].b1 ... sprite.posn[RCKTn].y must
+;;        be set to zero as required for correct handling in rckt_sprite_init
+;;   E == offset/index of fighter[n].b0 ... sprite.ctrl[FGHTRn].b0 is set to 0 ... does it matter?
+;;   A' == object status
 ;; OUT:
+;;  ...
 ;; RETURN:
 ;;   1 on jp   l_07B4_next_object
 ;;   0
-;;  ...
 ;;---------------------------------------------------------------------------*/
 static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
 {
     uint8 A;
 
-    mrw_sprite.posn[E].b1 = 0; // ld   (de),a ... sX<7:0>
-    mrw_sprite.ctrl[E].b1 = 0; // ld   (de),a
 
     // jp   z,l_08CA_ ... green_boss (non-moving)
     if (0 == mrw_sprite.cclr[HL].b1) // and  a
