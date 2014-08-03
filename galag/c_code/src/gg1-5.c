@@ -25,12 +25,10 @@ uint16 dbg_step_cnt;
 #endif
 
 
-// sprite-object states and index to motion control pool, uses only
-// even-indexed elements to keep indexing consistent with z80 code
-sprt_mctl_obj_t sprt_mctl_objs[0x40 * 2]; // array of byte-pairs
-
-// rocket-hit notification to f_1DB3 from c_076A, requires 1-byte per object,
-// so only even-bytes are used to keep indexing consistent with z80
+// use only even indices to keep consistent with z80 code:
+// sprite-object states, and index to motion control pool
+sprt_mctl_obj_t sprt_mctl_objs[0x40 * 2];
+// rocket-hit notification to f_1DB3 from c_076A, 1-byte per object
 uint8 sprt_hit_notif[0x30 * 2];
 
 uint8 ds3_92A0_frame_cts[3];
@@ -919,8 +917,7 @@ static void rckt_man(uint8 de)
         return;
     }
 
-    // stash .posn.sX for hit-detection parameter
-    // ld   ixl,a
+    // ld   ixl,a ... rocket.sX passed to hitd_det_rckt
 
     // NOW onto sY...............
 
@@ -938,18 +935,12 @@ static void rckt_man(uint8 de)
         HL.word += AF; // add  a,(hl)
     }
 
-    mrw_sprite.posn[hl].b1 = HL.pair.b0; // lower 8-bits to register: posn.sy<7:0>
+    mrw_sprite.posn[hl].b1 = HL.pair.b0; // .sY<7:0>
 
-    // determine the sign, toggle posn.sy:8 on overflow/carry
-    if (HL.word > 0xFF)
-    {
-        mrw_sprite.ctrl[hl].b1 |= 0x01;
-    }
-    else
-    {
-        mrw_sprite.ctrl[hl].b1 &= ~0x01;
-    }
-    // ld   ixh,a ... stash sy<1:8> for hit-detection parameter (here, it's in AF)
+    // explicit handling of posn.sy:8 i.e. sign, overflow/carry not needed in 16-bit math!
+    mrw_sprite.ctrl[hl].b1 = (mrw_sprite.ctrl[hl].b1 & 0xFE) | (HL.pair.b1 & 0x01);
+
+    // ld   ixh,a ... rocket.sy<8:1>, passed to hitd_det_rckt in IXH
 
     // z80 re-scales and drops bit-0, i.e. thresholds are $14 and $9C
     if (HL.word < 40 || HL.word > 312) // disable_rocket_wposn
@@ -1010,7 +1001,7 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
     // rocket.sy<8:1> (scale factor 2 in order to get it in 8-bits)
     tmp16.pair.b0 = mrw_sprite.posn[E].b1;
     tmp16.pair.b1 = mrw_sprite.ctrl[E].b1;
-    IXH = tmp16.word >> 1;
+    IXH = tmp16.word >> 1; // rocket.sy<8:1> passed in IXH
     IXL = mrw_sprite.posn[E].b0;
 
     // l_076A_while_object:
