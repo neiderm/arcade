@@ -900,12 +900,10 @@ static void rckt_man(uint8 de)
     if (b_92A4_rockt_attribute[de] & 0x40) // bit  6,b ... flipY
     {
         // non-flipped sprite is left facing ... negate X increment
-        mrw_sprite.posn[hl].b0 -= A; // neg
+        A = -A; // neg
     }
-    else
-    {
-        mrw_sprite.posn[hl].b0 += A; // add  a,(hl)
-    }
+    mrw_sprite.posn[hl].b0 += A; // add  a,(hl)
+
 
     // one test for left/right limits ($F0) or < 0 ($FF)
     if (mrw_sprite.posn[hl].b0 >= 240) // $F0
@@ -927,13 +925,10 @@ static void rckt_man(uint8 de)
     if (0 != (b_92A4_rockt_attribute[de] & 0x20)) // bit  5,b ... flipX
     {
         // negate and add dY
-        HL.word -= AF;
+        AF = -AF; // neg
     }
-    else
-    {
-        // add dY
-        HL.word += AF; // add  a,(hl)
-    }
+    // add dY ... adding into an int16 so remind C we're adding a signed int
+    HL.word += (sint8)AF; // add  a,(hl)
 
     mrw_sprite.posn[hl].b1 = HL.pair.b0; // .sY<7:0>
 
