@@ -879,100 +879,91 @@ static void rckt_man(uint8 de)
     // index for rocket 0 or 1,
     uint8 hl = SPR_IDX_RCKT + de * 2; // even indices
 
-    if (0 == mrw_sprite.posn[hl].b0) return;
-
-
-    // if horizontal orientation, dY = A' ... adusted displacement in dY
-    AF = b_92A4_rockt_attribute[de] & 0x07; // I thought it was only bits 1:2 ? ... bit7=orientation, bit6=flipY, bit5=flipX, 1:2=displacement
-
-    A = 6; // maximum displacement in dX
-
-    // if ( vertical orientation )
-    if (b_92A4_rockt_attribute[de] & 0x80) // bit  7,b
+    if (0 != mrw_sprite.posn[hl].b0)
     {
-        //  ex   af,af' ... swap
-        A = b_92A4_rockt_attribute[de] & 0x07; // adusted displacement in dX
-        AF = 6; // maximum displacement in dY
-    }
+        // if horizontal orientation, dY = A' ... adusted displacement in dY
+        AF = b_92A4_rockt_attribute[de] & 0x07; // I thought it was only bits 1:2 ? ... bit7=orientation, bit6=flipY, bit5=flipX, 1:2=displacement
 
-    // l_0713:
-    // l_0719: add new sX increment
-    if (b_92A4_rockt_attribute[de] & 0x40) // bit  6,b ... flipY
-    {
-        // non-flipped sprite is left facing ... negate X increment
-        A = -A; // neg
-    }
-    mrw_sprite.posn[hl].b0 += A; // add  a,(hl)
+        A = 6; // maximum displacement in dX
 
+        // if ( vertical orientation )
+        if (b_92A4_rockt_attribute[de] & 0x80) // bit  7,b
+        {
+            //  ex   af,af' ... swap
+            A = b_92A4_rockt_attribute[de] & 0x07; // adusted displacement in dX
+            AF = 6; // maximum displacement in dY
+        }
 
-    // one test for left/right limits ($F0) or < 0 ($FF)
-    if (mrw_sprite.posn[hl].b0 >= 240) // $F0
-    {
-        //l_0763_disable_rocket:
-        mrw_sprite.posn[hl].b0 = 0; // x
-        mrw_sprite.ctrl[hl].b0 = 0; // attribute bits
+        // l_0713:
+        // l_0719: add new sX increment
+        if (b_92A4_rockt_attribute[de] & 0x40) // bit  6,b ... flipY
+        {
+            // non-flipped sprite is left facing ... negate X increment
+            A = -A; // neg
+        }
+        mrw_sprite.posn[hl].b0 += A; // add  a,(hl)
 
-        return;
-    }
+        // one test for left/right limits ($F0) or < 0 ($FF)
+        if (mrw_sprite.posn[hl].b0 < 240) // $F0
+        {
+            // ld   ixl,a ... rocket.sX passed to hitd_det_rckt
 
-    // ld   ixl,a ... rocket.sX passed to hitd_det_rckt
+            // NOW onto sY
 
-    // NOW onto sY...............
+            HL.pair.b1 = mrw_sprite.ctrl[hl].b1 & 0x01; // rocket.sY<8>
+            HL.pair.b0 = mrw_sprite.posn[hl].b1;
 
-    HL.pair.b1 = mrw_sprite.ctrl[hl].b1 & 0x01; // rocket.sY<8>
-    HL.pair.b0 = mrw_sprite.posn[hl].b1;
+            if (0 != (b_92A4_rockt_attribute[de] & 0x20)) // bit  5,b ... flipX
+            {
+                // negate and add dY
+                AF = -AF; // neg
+            }
+            // add dY ... adding into an int16 so remind C we're adding a signed int
+            HL.word += (sint8)AF; // add  a,(hl)
 
-    if (0 != (b_92A4_rockt_attribute[de] & 0x20)) // bit  5,b ... flipX
-    {
-        // negate and add dY
-        AF = -AF; // neg
-    }
-    // add dY ... adding into an int16 so remind C we're adding a signed int
-    HL.word += (sint8)AF; // add  a,(hl)
+            mrw_sprite.posn[hl].b1 = HL.pair.b0; // .sY<7:0>
 
-    mrw_sprite.posn[hl].b1 = HL.pair.b0; // .sY<7:0>
+            // explicit handling of posn.sy:8 i.e. sign, overflow/carry not needed in 16-bit math!
+            mrw_sprite.ctrl[hl].b1 = (mrw_sprite.ctrl[hl].b1 & 0xFE) | (HL.pair.b1 & 0x01);
 
-    // explicit handling of posn.sy:8 i.e. sign, overflow/carry not needed in 16-bit math!
-    mrw_sprite.ctrl[hl].b1 = (mrw_sprite.ctrl[hl].b1 & 0xFE) | (HL.pair.b1 & 0x01);
+            // ld   ixh,a ... rocket.sy<8:1>, passed to hitd_det_rckt in IXH
 
-    // ld   ixh,a ... rocket.sy<8:1>, passed to hitd_det_rckt in IXH
+            // z80 re-scales and drops bit-0, i.e. thresholds are $14 and $9C
+            if (HL.word >= 40 && HL.word <= 312) // disable_rocket_wposn
+            {
+                // lower-byte of pointer to object/sprite in L is passed through to
+                // j_07C2 (odd, i.e. offset to b1)
+                //   ld   e,l
+                if (0 != task_actv_tbl_0[0x1D]) // capturing boss destroyed, rescued ship spinning
+                {
+                    // ld   hl,#ds_sprite_posn + 0x08             ; skip first 4 objects...
+                    // ld   b,#0x30 - 4
+                    // jr   l_075C_call_hit_detection
 
-    // z80 re-scales and drops bit-0, i.e. thresholds are $14 and $9C
-    if (HL.word < 40 || HL.word > 312) // disable_rocket_wposn
-    {
-        // l_0760_disable_rocket_wposn:
+                    hitd_det_rckt(hl, 0x08, 0x30 - 4);
+                }
+                else
+                {
+                    // jr   z,l_0757_call_hit_detection_all
+
+                    // l_0757_call_hit_detection_all
+                    // reset HL and count to check $30 objects
+                    // hl,#ds_sprite_posn ... i.e. L == 0
+
+                    // l_075C_call_hit_detection
+                    // E=offset_to_rocket_sprite, hl=offset_to_object checked, b==count,
+                    hitd_det_rckt(hl, 0x00, 0x30);
+                }
+                return;
+            }
+        }
 
         //l_0763_disable_rocket:
         mrw_sprite.posn[hl].b0 = 0; // x
         mrw_sprite.ctrl[hl].b0 = 0; // attribute bits
 
         // ret
-    }
-
-    // lower-byte of pointer to object/sprite in L is passed through to
-    // j_07C2 (odd, i.e. offset to b1)
-    //   ld   e,l
-
-    else if (0 != task_actv_tbl_0[0x1D]) // capturing boss destroyed, rescued ship spinning
-    {
-        // ld   hl,#ds_sprite_posn + 0x08             ; skip first 4 objects...
-        // ld   b,#0x30 - 4
-        // jr   l_075C_call_hit_detection
-
-        hitd_det_rckt(hl, 0x08, 0x30 - 4);
-    }
-    else
-    {
-    // jr   z,l_0757_call_hit_detection_all
-
-    // l_0757_call_hit_detection_all
-    // reset HL and count to check $30 objects
-    // hl,#ds_sprite_posn ... i.e. L == 0
-
-    // l_075C_call_hit_detection
-    // E=offset_to_rocket_sprite, hl=offset_to_object checked, b==count,
-        hitd_det_rckt(hl, 0x00, 0x30);
-    }
+    } // if (0 != mrw_sprite.posn[hl].b0)
 }
 
 /*=============================================================================
