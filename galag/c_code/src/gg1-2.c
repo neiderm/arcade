@@ -22,7 +22,6 @@
  ** non-static external definitions this file or others
  */
 fmtn_hpos_t fmtn_hpos; // formation standby positioning
-const uint8 fmtn_hpos_orig[];
 
 /*
  ** static external definitions in this file
@@ -33,7 +32,6 @@ static const uint8 task_enable_def[32];
 // function prototypes
 static void c_build_token_1(uint8 *, uint16 *, uint8);
 static void c_build_token_2(uint8 *, uint16 *);
-static void fghtr_resv_draw(void);
 static void fghtr_resv_tile(uint16, uint8 *, uint8);
 static void bmbr_setup_fltq(uint8, uint16, uint8);
 
@@ -157,6 +155,20 @@ static void bmbr_setup_fltq(uint8 obj_idx, uint16 p_dat, uint8 rotn_flag)
     }
 }
 
+/*=============================================================================
+;; c_player_active_switch()
+;;  Description:
+;;   End a player's turn and/or prep for next player.
+;;   Called when bug nest has already retreated.
+;;   Never on single player game and not at and of player 2's final ship.
+;; IN:
+;;  ...
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+void c_player_active_switch(void)
+{
+}
 
 /*=============================================================================
 ;; gctl_stg_tokens()
@@ -548,7 +560,7 @@ void sprite_tiles_display(uint8 const *p_sptiles_displ)
 ;;
 ;; IN:
 ;;   offset ... 0 on new-screen, $3F on player changeover
-;;   IXL: TODO
+;;   IXL: right shifted offset, either 0 or $3F ($7E)
 ;; OUT:
 ;;  ...
 ;;----------------------------------------------------------------------------*/
@@ -566,7 +578,7 @@ void gctl_stg_fmtn_hpos_init(uint8 IXL)
         // don't bother loading const data to lsb ... see "case 0x04: // _0AA0"
     }
 
-    // X coordinates at origin (10 columns) 8-bits integer, adjusted for
+    // X coordinates at origin (10 columns) 8-bits integer, adjusted if
     // flip-screen
     B = 0;
     while (B < 10)
@@ -583,40 +595,38 @@ void gctl_stg_fmtn_hpos_init(uint8 IXL)
         B++;
     }
 
-    // Y coordinates at origin (6 columns), the byte-data provides bits <8:1>
+    // Y coordinates at origin (6 columns), only bits <8:1> are stored.
     //B = 10; ... ASSERT(B==10)
     while (B < 16)
     {
-        uint16 tmp16 = fmtn_hpos_orig[B] << 1;
+        uint16 tmp16 = fmtn_hpos_orig[B] << 1; // ld   a,(de)
 
         // TODO: add  a,ixl
 
         if (0 == glbls9200.flip_screen) // bit 0,C
         {
             // does not add 1 to $0160-n result ... only bits <8:1> are significant
-            fmtn_hpos.spcoords[B * 2].word = (0x0160 - tmp16) & 0x01FE;
+            fmtn_hpos.spcoords[B * 2].word = (0x0160 - tmp16 - (IXL << 1)) & 0x01FE;
         }
         else
         {
             // flipped
-            fmtn_hpos.spcoords[B * 2].word = tmp16; // make 9-bit integer
+            fmtn_hpos.spcoords[B * 2].word = tmp16 + (IXL << 1); // make 9-bit integer
         }
 
         B++;
-    }
+    } // djnz l_12F2
 
     glbls9200.bug_nest_direction_lr = glbls9200.flip_screen;
 }
 
 
 /*=============================================================================
-;; Initial home-position formation ordinates in pixels.
+;; Pixel values of home-position formation row/column coordinates.
 ;; 8-bits integer for column data (x).
-;; 8-bits row data provides bits <8:1> of sprite-sY, stored for some reason in
-;; "flipped-screen" format.
-;; Diagram below shows how row/column ordinates are stored in
-;; sprt_fmtn_hpos_ord_lut byte indices, doubled since there are two-bytes for
-;; each ordinate in fmtn_hpos.spcoords[]
+;; row data corresponds to bits <8:1> of sprite-sY, stored in "flipped-screen"
+;; format for optimization ($0160 - n).
+;; See description of sprt_fmtn_hpos_ord_lut[]
 ;; |<-------------- COLUMNS ----------------------->|<---------- ROWS ---------->|
 ;;
 ;;  00   02   04   06   08   0A   0C   0E   10   12   14   16   18   1A   1C   1E
@@ -749,7 +759,7 @@ void fghtr_onscreen(void)
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-static void fghtr_resv_draw(void)
+void fghtr_resv_draw(void)
 {
     uint16 HL;
     uint8 E, D;

@@ -111,14 +111,14 @@ typedef struct
     uint8 bmbr_boss_scode[8]; // bonus code/score attributes e.g. "01B501B501B501B5"... 8 bytes, "01B501B501B501B5"
     //   0x18-0x1D ?
     uint8 mcfg_bonus0;        // mach_cfg_bonus[0]...load at game start ... $9980
-    //   0x1F    ; game_tmr_2, player1/2 switch
+    uint8 tmr2;               // game_tmr_2, player1/2 switch
     uint8 p1or2;              // 0==plyr1, 1==plyr2
     uint8 bonus_bee_launch_tmr;
     uint8 b_atk_wv_enbl;      // 0 when respawning player ship
     uint8 b_nbugs;            // b_bugs_actv_nbr
     //   0x24    ; total_hits
     //   0x26    ; shots_fired
-    //   0x28    ; 9AA0[0] ... sound_mgr_status, player1/2 switch
+    uint8 sndflag; // 9AA0[0] ... sound_mgr_status, player1/2 switch
 
 } t_struct_plyr_state;
 
@@ -352,6 +352,7 @@ extern tstruct_b9200 glbls9200;
 extern uint8 ds_99B9_star_ctrl[];
 extern uint8 io_input[];
 extern uint8 ds_bug_collsn[];
+extern uint8 fmtn_mv_tmr; // 99B4_bugnest_onoff_scrn_tmr
 
 /* task_man.c */
 extern t_struct_plyr_state plyr_state_actv;
@@ -434,6 +435,8 @@ void g_mssl_init(void);
 void c_tdelay_3(void);
 void bmbr_setup_fltq_boss(uint8, uint16);
 void bmbr_setup_fltq_drone(uint8, uint16);
+void c_player_active_switch(void);
+void fghtr_resv_draw(void);
 
 /* gg1-5.c */
 void cpu1_rst38(void); //
