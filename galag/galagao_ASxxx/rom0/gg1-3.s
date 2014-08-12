@@ -973,7 +973,7 @@ l_24C2:
 
        inc  l                                     ; .b1
        ld   a,(hl)
-; subtract only in bits<0:7> then flip b9 on Cy
+; subtract only in bits<7:0> then flip b9 on Cy
        sub  #8
        ld   (hl),a
        jr   nc,l_24DA
@@ -1079,7 +1079,6 @@ case_2535:
        jp   l_2416
 
 ; 3 or 6: terminate cylons or bombs that have gone past the sides or bottom of screen
-; active rocket
 case_254D:
        ld   h,#>ds_sprite_posn                    ; read directly from SFRs (not buffer RAM)
        ld   l,e                                   ; object offset
@@ -1096,9 +1095,9 @@ case_254D:
        rrca                                       ; sprite_posn.y<8> into Cy
        ld   a,c
        rra                                        ; sprite_posn.y<8:1> in A
-       cp   #0x0B
+       cp   #22 >> 1                              ; 0x0B
        jr   c,l_2571
-       cp   #0xA5
+       cp   #330 >> 1                             ; 0xA5
        jr   nc,l_2571
 
 ; in range ... if not a bomb then go increment count
@@ -1151,7 +1150,7 @@ l_2596_even_frame:
        ret
 
 ;;=============================================================================
-;; c_25A2()
+;; void gctl_stg_new_atk_wavs_init()
 ;;  Description:
 ;;   Setup the mob to do its evil work. Builds up 5 configuration tables at
 ;;   b_8920 which organizes the mob objects into the flying waves.
