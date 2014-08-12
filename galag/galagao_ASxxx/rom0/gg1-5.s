@@ -181,8 +181,8 @@ db_flv_00f1:
 ; this is probably fill
        .ds 8
 
-; Copy of home position LUT from task_man.
-db_obj_home_posn_RC:
+; Copy of home position LUT from task_man
+sprt_fmtn_hpos:
   .db 0x14,0x06,0x14,0x0c,0x14,0x08,0x14,0x0a,0x1c,0x00,0x1c,0x12,0x1e,0x00,0x1e,0x12
   .db 0x1c,0x02,0x1c,0x10,0x1e,0x02,0x1e,0x10,0x1c,0x04,0x1c,0x0e,0x1e,0x04,0x1e,0x0e
   .db 0x1c,0x06,0x1c,0x0c,0x1e,0x06,0x1e,0x0c,0x1c,0x08,0x1c,0x0a,0x1e,0x08,0x1e,0x0a
@@ -665,7 +665,7 @@ f_05EE:
        jr   z,l_0613
 
 ; ... handle 2-ship configuration
-       ld   hl,#ds_sprite_posn + 0x60             ; ship2 position
+       ld   hl,#ds_sprite_posn + 0x60             ; fighter2 position
        ld   a,(hl)
        and  a
        jr   z,l_0613
@@ -674,14 +674,14 @@ f_05EE:
        ld   a,(b8_ship_collsn_detectd_status)     ; fighter hit notif (2)
        and  a
        jr   z,l_0613
-;60c
-       call hitd_fghtr_hit                        ; handle ship 2 collision
+
+       call hitd_fghtr_hit                        ; fighter2 collision
        xor  a
        ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 0 ... enable capture-mode selection
 
 l_0613:
 ; if ( ship position == 0 ) return
-       ld   hl,#ds_sprite_posn + 0x62             ; ship (1) position
+       ld   hl,#ds_sprite_posn + 0x62             ; fighter1 position
        ld   a,(hl)
        and  a
        ret  z
@@ -713,7 +713,6 @@ l_0639_not_two_ship:
        ld   (ds_99B9_star_ctrl + 0x00),a          ; 0 ... 1 when fighter on screen
        ld   (ds_9200_glbls + 0x17),a              ; 0 ... no_restart_stg (not docked fighters)
 
-; handle ship collision (single-ship player)
 ; hitd_fghtr_hit(tmpSx, SPR_IDX_SHIP + 0, 0)
 
 ;;=============================================================================
@@ -724,7 +723,7 @@ l_0639_not_two_ship:
 ;;   HL == &sprite_posn_base[0x60]  ... ship2 position (if call hitd_fghtr_hit)
 ;;   HL == &sprite_posn_sfr[0x60] ... (if jp  l_064F)
 
-;;   E == object index of fighter1 or fighter2
+;;   E == object/index of fighter1 or fighter2 .b0
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
@@ -743,9 +742,9 @@ l_064F:
        sub  #8
        ld   (hl),a
        ld   h,#>ds_sprite_code
-       ld   (hl),#0x0B
+       ld   (hl),#0x0B                            ; color
        dec  l
-       ld   (hl),#0x20
+       ld   (hl),#0x20                            ; explosion tile
        ld   h,#>b_8800
        ld   (hl),#8                               ; .state, disposition from $80 to "exploding"
        inc  l
@@ -877,7 +876,7 @@ while_06B7:
 
        or   a                                     ; nz if fighter hit
        ex   af,af'
-       jp   hitd_dspchr                           ; handle collision
+       jp   hitd_dspchr                           ; return to 'call hitd_det_fghtr'
 l_06F0:
        inc  l
        inc  l
@@ -888,7 +887,7 @@ l_06F0:
 ;;=============================================================================
 ;; f_06F5()
 ;;  Description:
-;;    rocket hit-detection
+;;    rocket motion and hit-detection manager
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -906,7 +905,7 @@ f_06F5:
 ;;=============================================================================
 ;; rckt_man()
 ;;  Description:
-;;   subroutine for f_06F5
+;;    rocket motion and hit-detection manager
 ;; IN:
 ;;   DE == pointer to rocket "attribute", e.g. &b_92A0_4[0], &b_92A0_4[1]
 ;;         Value is E0 if the ship is oriented normally, not rotated.
@@ -946,15 +945,15 @@ l_0713:
        neg                                        ; .. NOT flipY...negate X offset (non-flipped sprite is leftfacing)
 
 l_0719:
-; add new sX increment
+; add new dX
        add  a,(hl)                                ; dX is 0 unless the ship is spinning/captured
        ld   (hl),a
 
-; one test for left/right limits ($F0) or < 0 ($FF)
+; if (mrw_sprite.posn[hl].b0 >= 240) ... one test for X limits ($F0) or < 0 ($FF)
        cp   #0xF0
        jr   nc,l_0763_disable_rocket
 
-; stash sX for hit-detection parameter
+; rocket.sX passed to hitd_det_rckt
        ld   ixl,a
 
 
@@ -962,17 +961,17 @@ l_0719:
 
        inc  l                                     ; offset[1] ... sprite_posn.sy
 ; get the stashed dY
-; if ( ! flipX ) then  dY = -dY
        ex   af,af'
+; if ( ! flipX ) then  dY = -dY
        bit  5,b                                   ; inverted flipX
        jr   z,l_0729
        neg                                        ; negate dY if NOT flipX (2's comp)
 l_0729:
        ld   c,a                                   ; stash the dY
 
-; add new sY increment ... lower 8-bits to register
+; add new dY to .sY<7:0>
        add  a,(hl)
-       ld   (hl),a
+       ld   (hl),a                                ; sprite.posn[hl].b1
 
 ; determines the sign, toggle position.sy:8 on overflow/carry. simple idea, complicated explanation.
        rra                                        ; Cy from the addition rotated into b7
@@ -985,7 +984,7 @@ l_0729:
        ccf
        rl   (hl)
 
-; stash rocket.sy<8:1> in IXH for hitd_det_rckt
+; rocket.sy<8:1>, passed to hitd_det_rckt in IXH
 l_0738:
        ld   c,(hl)                                ; rocket.sy<8>
        ld   h,#>ds_sprite_posn
@@ -994,7 +993,7 @@ l_0738:
        rra                                        ; rotate bit-8 from Cy into A
        ld   ixh,a                                 ; stash sy<8:1> for hit-detection parameter
 
-; if ( rocket.sY < 40 || rocket.sY > 312 ) then _disable_rocket_wposn
+; if ( rocket.sY < 40 || rocket.sY >= 312 ) then _disable_rocket
        cp   #0x28 >> 1                            ; 0x14
        jr   c,l_0760_disable_rocket_wposn         ; L is offset to sY, so first L--
        cp   #0x138 >> 1                           ; 0x9C
@@ -1029,22 +1028,23 @@ l_075C_call_hit_detection:
        call hitd_det_rckt
        ret
 
-; terminate out of bounds sideways rockets
-; L is offset to sY, so first L-- ... may not need to reset H?
+; terminate out of bounds rockets
 l_0760_disable_rocket_wposn:
-       dec  l                                     ; should be at offset 1, and now 0.
+       dec  l                                     ; .b0 (sX)
        ld   h,#>ds_sprite_posn                    ; x
+
+; when testing X limits, &sprite_posn[0] already in H so skip loading it
 l_0763_disable_rocket:
-       ld   (hl),#0
+       ld   (hl),#0                               ; x
        ld   h,#>ds_sprite_ctrl
-       ld   (hl),#0
+       ld   (hl),#0                               ; attribute bits
 
        ret
 
 ;;=============================================================================
 ;; hitd_det_rckt()
 ;;  Description:
-;;   collision detection... rocket fired from ship.
+;;   rocket hit detection
 ;; IN:
 ;;  E == LSB of pointer to object/sprite passed through to
 ;;       hitd_dspchr (odd, i.e. offset to b1)
@@ -1052,7 +1052,7 @@ l_0763_disable_rocket:
 ;;        +8 skips 4 objects... see explanation at l_0757.
 ;;  B == count ... $30, or ($30 - 4) as per explanation above.
 ;;  IXL == rocket.sx
-;;  IXH == rocket.sy (scale factor 2 in order to get it in 8-bits)
+;;  IXH == rocket.sy<8:1>
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
@@ -1138,14 +1138,14 @@ l_07B4_next_object:
 ;;   Detect collisions from the reference of the rocket ... update hit count
 ;;   and call common subroutine.
 ;; IN:
-;;   L == offset/index of enemy
-;;   E == offset/index of rocket sprite + 1
-;;   E == offset/index + 0, e.g. 9B62 (the fighter ship)
+;;   L == offset/index of destroyed enemy/bomb sprite[n].b1
+;;   E == offset/index of sprite[rocket.n].b1
 ;;   A' == object status
 ;; OUT:
 ;;  ...
 ;; RETURN:
-;;  get out by l_07B4_next_object or ret
+;;   1 on jp   l_07B4_next_object
+;;   0
 ;;-----------------------------------------------------------------------------
 hitd_dspchr_rckt:
 
@@ -1153,7 +1153,7 @@ hitd_dspchr_rckt:
        ld   hl,(ds_plyr_actv +_w_hit_ct)
        inc  hl
        ld   (ds_plyr_actv +_w_hit_ct),hl
-       ld   l,a
+       ld   l,a                                   ; restore L
 
 ; hitd_dspchr
 
@@ -1164,25 +1164,26 @@ hitd_dspchr_rckt:
 ;;   function is common to both rocket and fighter hit detection, and
 ;;   dispatches the target appropriately.
 ;; IN:
-;;   L == offset/index of destroyed bug, or a bomb
-;;   E == offset/index of rocket sprite + 1
-;;   E == offset/index + 0, e.g. 9B62 (the fighter ship)
+;;   L == offset/index of destroyed enemy/bomb sprite[n].b1
+;;   E == offset/index of rocket[n].b1 ... sprite.posn[RCKTn].y must
+;;        be set to zero as required for correct handling in rckt_sprite_init
+;;   E == offset/index of fighter[n].b0 ... sprite.ctrl[FGHTRn].b0 is set to 0 ... does it matter?
 ;;   A' == object status
 ;; OUT:
 ;;  ...
 ;; RETURN:
-;;
+;;  ...
 ;;-----------------------------------------------------------------------------
 hitd_dspchr:
-       ld   d,#>ds_sprite_posn                    ; _sprite_posn[L].b0 = 0 ... sX<7:0>
+       ld   d,#>ds_sprite_posn                    ; _sprite_posn[E].b0 = 0 ... sX
        xor  a
        ld   (de),a
-       ld   d,#>ds_sprite_ctrl                    ; _sprite_ctrl[L].b0 = 0
+       ld   d,#>ds_sprite_ctrl                    ; _sprite_ctrl[E].b0 = 0 ... attributes
        ld   (de),a
 
        inc  l
-       ld   h,#>ds_sprite_code
-       ld   a,(hl)                                ; sprite.cclr.b1 ...
+       ld   h,#>ds_sprite_code                    ; sprite.cclr.b1 ...
+       ld   a,(hl)
        ld   c,a                                   ; ... for later ....
        and  a
        jp   z,l_08CA_hit_green_boss               ; color map 0 is the "green" boss
@@ -1549,7 +1550,7 @@ l_0963:
 ; diving attacks stop and bugs go home
 case_0968:  ; $0E
        ld   e,0x10(ix)                            ; home_posn_rc[ obj_id ]
-       ld   d,#>db_obj_home_posn_RC               ; home_posn_rc[ ix($10) ]
+       ld   d,#>sprt_fmtn_hpos                    ; home_posn_rc[ ix($10) ]
        ld   a,(de)                                ; row position index
        ld   e,a
        ld   d,#>ds_hpos_loc_orig                  ; b1: copy of origin data
@@ -1771,7 +1772,7 @@ case_0AA0:  ; $04
        ld   h,#>b_8800
        ld   (hl),#9                               ; disposition = 9: diving/homing (currently 3)
 
-       ld   h,#>db_obj_home_posn_RC               ; home_posn_rc[ ix($10) ]
+       ld   h,#>sprt_fmtn_hpos                    ; home_posn_rc[ ix($10) ]
        ld   c,(hl)                                ; row index
        inc  l
        ld   l,(hl)                                ; column index
@@ -1909,7 +1910,7 @@ case_0B5F:  ; $06
 
        ld   e,0x10(ix)                            ; home_posn_rc[ obj_id + 1 ]
        inc  e
-       ld   d,#>db_obj_home_posn_RC               ; home_posn_rc[ ix($10) + 1 ] ... column position index
+       ld   d,#>sprt_fmtn_hpos                    ; home_posn_rc[ ix($10) + 1 ] ... column position index
        ld   a,(de)
        ld   e,a
        ld   d,#>ds_hpos_spcoords                  ; col pix coordinate, lsb only
