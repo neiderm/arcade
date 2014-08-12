@@ -222,7 +222,7 @@ c_1083:
 ;; IN:
 ;;   HL == &b_8800[n]
 ;;   DE == pointer to table in cpu-sub1 code space
-;;   A` ==
+;;   A' ==
 ;;        bit-0: set by c_1083 and c_1079
 ;;        bit-7: flag set for negative rotation angle
 ;; OUT:
@@ -361,26 +361,26 @@ l_111C:
        ld   de,#ds_susp_plyr_obj_data
        ld   b,#0x30
 l_112D:
-       ld   a,(hl)
+       ld   a,(hl)                                ; &sprt_mctl_objs[n]
        ld   c,a
        ld   h,#>ds_sprite_code
        ld   a,(hl)
        and  #0x7F
        dec  c
        jr   nz,l_1142                             ; starts at $80?
-       and  #0x78                                 ; 1137
+       and  #0x78                                 ; sprite[n].cclr.code
        ld   c,a
        inc  l
-       ld   a,(hl)
+       ld   a,(hl)                                ; sprite[n].cclr.colr
        dec  l
        and  #0x07
        or   c
        or   #0x80
 l_1142:
-       ex   de,hl
+       ex   de,hl                                 ; hl := &susp_plyr_obj_data[n]
        ld   c,(hl)                                ; hl==98b0, de==8b00
        ld   (hl),a
-       ex   de,hl
+       ex   de,hl                                 ; hl := sprite[n].cclr.code
        bit  7,c
        jr   z,l_115A
        ld   a,c                                   ; 114a, player 2->plyr 1
@@ -394,11 +394,13 @@ l_1142:
        dec  l
        ld   a,#1
        jr   l_1161
+
 l_115A:
        ld   (hl),c                                ; hl==8b00
        ld   h,#>ds_sprite_posn
        ld   (hl),#0                               ; hl==9300
        ld   a,#0x80
+
 l_1161:
        ld   h,#>b_8800
        ld   (hl),a
@@ -419,13 +421,13 @@ l_1171:
        inc  l
        inc  e
        djnz l_1171
+
        xor  a
        ld   (ds_cpu0_task_actv + 0),a             ; 0
        ret
-; end 110c
 
 ;;=============================================================================
-;; c_new_level_tokens()
+;; gctl_stg_tokens()
 ;;  Description:
 ;;   new stage setup (c_new_stage_, plyr_changeover)
 ;; IN:
@@ -713,7 +715,7 @@ task_enable_tbl_def:
   .db  0x00 ; f_17B2
   .db  0x00 ; f_1700  ; Ship-update in training/demo mode.
   .db  0x00 ; f_1A80
-  .db  0x01 ; f_0857  ; sprite coordinates for demo
+  .db  0x01 ; f_0857  ; triggers various parts of gameplay based on parameters
   .db  0x00 ; f_0827
   .db  0x00 ; f_0827
 
@@ -754,10 +756,11 @@ task_enable_tbl_def:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 c_game_or_demo_init:
-       ld   hl,#ds_sprite_code + 0x64             ; bullet object
-       ld   de,#0x0900 + 0x0030                   ; temp store two 8-bit values ... $30 is a bullet
+       ld   hl,#ds_sprite_code + 0x64             ; rocket object
+       ld   de,#0x0900 + 0x0030                   ; temp store two 8-bit values ... $30 is a rocket
        ld   c,#0
-       ld   b,#0x0A
+       ld   b,#10
+
 l_1273_while:
        ld   (hl),e                                ; e.g. (8B64):=$30
        ld   h,#>ds_sprite_posn
@@ -774,14 +777,15 @@ l_1273_while:
        cp   #9
        jr   nz,l_1289
        ld   c,#1
-       ld   d,#0x0B
+       ld   d,#0x0B                               ; bomb color code
 
 l_1289:
        djnz l_1273_while                          ; B--
+
        ret
 
 ;;=============================================================================
-;; c_128C()
+;; sprite_tiles_display()
 ;;  Description:
 ;;   Display sprite tiles in specific arrangements loaded from table data.
 ;;   This is for demo or game-start (bonus-info ) screen but not gameplay.
@@ -855,7 +859,7 @@ l_12A6:
        ret
 
 ;;=============================================================================
-;; c_12C3()
+;; gctl_stg_fmtn_hpos_init()
 ;;  Description:
 ;;   plyr_changeover or new_stg_setup, also for start of demo "stage"....after
 ;;   the rank icons are shown and the text is shown i.e. "game over" or "stage x"
@@ -870,13 +874,13 @@ c_12C3:
        ld   c,a
 
 ; init formation location tracking structure: relative (offset) initialize to 0
-; and origin coordingate bits<8:1> from data (copy of origin coordinate from
+; and origin coordinate bits<8:1> from data (copy of origin coordinate from
 ; CPU0 data as it would be outside of address space of CPU1)
        ld   hl,#ds_hpos_loc_t                     ; init home_posn_loc[]
        ld   de,#db_fmtn_hpos_orig
        ld   b,#16                                 ; table size
 l_12D1:
-       ld   (hl),#0                               ; pair.b0 i.e. ds_hpos_loc_offs
+       ld   (hl),#0                               ; fmtn_hpos.offs[]
        inc  l
        ld   a,(de)
        inc  de
@@ -891,31 +895,32 @@ l_12D1:
 l_12E2:
        ld   a,(de)                                ; home_posn_ini[B]
        inc  de
+
        bit  0,c                                   ; test if flip_screen
        jr   z,l_12EB
        add  a,#0x0D                               ; flipped
        cpl
+
 l_12EB:
        ld   (hl),a                                ; store lsb
        inc  l
        inc  l                                     ; no msb to store
        djnz l_12E2
 
-; Y coordinates at origin (6 bytes) to even offsets. Offset argument
-; (in ixl) is added and result adjusted for flip-screen.
-; Only bits 1-8 are stored in the LUT. For non-inverted
-; screen, I find it easiest to think of the default coordinates in the sense
-; of negative values that simply need to be offset and "un-negated" (by
-; taking 1's compliment) for use in non-inverted screen configuration.
+; Y coordinates at origin (6 bytes) to even offsets. Offset argument (in ixl)
+; is added and result adjusted for flip-screen. Only bits <8:1> are stored.
+; For non-inverted screen, equivalent of "$0160 - n" is implemented.
        ld   b,#6
 l_12F2:
        ld   a,(de)                                ; db_fmtn_hpos_orig[B]
        add  a,ixl
        inc  de
+
        bit  0,c                                   ; test if flip_screen
        jr   nz,l_12FD
        add  a,#0x4F                               ; add offset
        cpl                                        ; negate
+
 l_12FD:
        sla  a                                     ; Cy now contains bit-8
        ld   (hl),a
@@ -1064,7 +1069,7 @@ l_135A:
        ret
 
 ;;=============================================================================
-;; draw_resv_ships()
+;; fghtr_resv_draw()
 ;;  Description:
 ;;   Draws up to 6 reserve ships in the status area of the screen, calling
 ;;   the subroutine 4 times to build the ship icons from 4 tiles.
