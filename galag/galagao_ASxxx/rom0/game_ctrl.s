@@ -145,7 +145,7 @@ l_032A:
        ld   (ds_cpu0_task_actv + 0x1E),a          ; $20
 
 ; credit_cnt = io_input[0]
-       ld   a,(ds3_99B5_io_input + 0)             ; credit_count
+       ld   a,(ds3_99B5_io_input + 0x00)          ; credit_count
        ld   (b8_99B8_credit_cnt),a                ; credit_cnt = io_input[credit_count]
 
 ; cpu0_task_activ[0x1E] = 0
@@ -234,7 +234,7 @@ l_038D_while:
 
 l_game_state_ready:
        xor  a
-       ld   (ds_9200_glbls + 0x0B),a              ; 0 ... flying_bug_attck_condtn
+       ld   (ds_9200_glbls + 0x0B),a              ; 0 ... glbl_enemy_enbl: cleared in case demo was running
        ld   c,#0x13                               ; C = string_out_pe_index
        rst  0x30                                  ; string_out_pe "(c) 1981 NAMCO LTD"
        ld   c,#1                                  ; C = string_out_pe_index
@@ -552,7 +552,7 @@ l_04C1_while:
 
 ; plyr_state_actv.b_nbugs = b_bugs_actv_nbr
        ld   a,(b_bugs_actv_nbr)
-       ld   (ds_plyr_actv +_b_nbugs),a
+       ld   (ds_plyr_actv +_b_enmy_ct_actv),a
 
 ; check for "not (normal) end of stage conditions":
 
@@ -584,7 +584,7 @@ l_04DC_break:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 gctl_plyr_terminate:
-; if ( active_plyr_state.num_resv_ships-- > 0 )
+; if ( active_plyr_state.num_resv_ships-- == 0 )
        ld   hl,#ds_plyr_actv +_b_nships
        ld   a,(hl)
        dec  (hl)
@@ -608,6 +608,7 @@ l_04FD_end_of_game:
        call c_tdelay_3
        call c_tdelay_3
 
+;  while (0 != task_actv_tbl_0[0x18]){;}
        ld   hl,#ds_cpu0_task_actv + 0x18         ; f_2222 (Boss starts tractor beam) wait for task inactive
 l_0509_while:
        ld   a,(hl)
@@ -649,14 +650,15 @@ l_0540:
 
        call c_sctrl_playfld_clr
        call c_top5_dlg_proc                       ; returns immediately if not in top-5
+
        xor  a
        ld   (b_9AA0 + 0x10),a                     ; 0 ... sound-fx count/enable registers, hi-score dialog?
+
        ld   hl,#b_9AA0 + 0x0C                     ; sound-fx count/enable registers, hi-score dialog
        ld   de,#b_9AA0 + 0x16                     ; sound-fx count/enable registers, hi-score dialog
-
 l_0554:
-       ld   a,(de)
-       ld   b,(hl)
+       ld   a,(de)                                ; sound_fx[0x16]
+       ld   b,(hl)                                ; sound_fx[0x0C]
        or   b
        jr   z,l_0562
        inc  b
@@ -697,11 +699,10 @@ j_0579_terminate:
        ld   a,(b8_99B3_two_plyr_game)
        and  a
        jp   z,j_0604_plyr_respawn_1P              ; will finally jp gctl_game_runner
-; } else if ( susp plyr resv ship ct == -1 )
+; } else if ( susp plyr resv ship ct == -1  || stage_rst_flag != 1 )
        ld   a,(ds_plyr_susp +_b_nships)           ; -1 if no resv ships remain
        inc  a
        jp   z,gctl_plyr_startup                   ; allow actv plyr respawn if susp plyr out of ships
-;  || ( stage_rst_flag != 1)
 ; note: stage_rst_flag == 0 would also test true but that would make no sense here
        ld   a,(ds_9200_glbls + 0x13)              ; restart stage flag
        dec  a
@@ -741,23 +742,22 @@ l_05A3_while:
        ld   a,(b_9AA0 + 0x00)                     ; plyr_actv.b_sndflag
        ld   (ds_plyr_actv +_b_sndflag),a          ; 9AA0[0]
        ld   a,(ds4_game_tmrs + 2)
-       ld   (ds_plyr_actv +_b_plyr_swap),a        ; game_tmr[2]
+       ld   (ds_plyr_actv +_b_plyr_swap_tmr),a    ; game_tmr[2]
        call c_player_active_switch
        call c_2C00                                ; new stage setup
-       ld   a,(ds_plyr_actv +_b_plyr_swap)        ; game_tmr[2]
+       ld   a,(ds_plyr_actv +_b_plyr_swap_tmr)    ; game_tmr[2]
        ld   (ds4_game_tmrs + 2),a                 ; actv_plyr_state[0x1F]
        ld   a,(ds_plyr_actv +_b_sndflag)          ; 9AA0[0]
        ld   (b_9AA0 + 0x00),a                     ; = plyr_actv.b_sndflag
        call draw_resv_ships
 
-; bug ct==0 indicates player was previously destroyed by collision with last bug in the round
-; if ( actv plyr bug ct == 0 ) {
-       ld   a,(ds_plyr_actv +_b_nbugs)
+; if ( _enmy_ct_actv != 0 ) ...
+       ld   a,(ds_plyr_actv +_b_enmy_ct_actv)
        and  a
        jr   z,l_05D1
-; } else {
-       call c_25A2                                ; mob setup
-; }
+; ... then ... _ct_actv == 0 indicates player was previously destroyed by collision with last enemy in the round
+       call c_25A2                                ; gctl_stg_new_atk_wavs_init()
+
 ; setting up a new screen (changing players)
 l_05D1:
 ;  screen_is_flipped = (cab_type==Table & Plyr2up )
@@ -768,6 +768,7 @@ l_05D1:
        ld   (0xA007),a                            ; sfr_flip_screen
        ld   (b_9215_flip_screen),a
 
+; gctl_stg_fmtn_hpos_init
        ld   a,#0x3F
        call c_12C3                                ; A==$3F ... set MOB coordinates, player changeover
 
@@ -777,7 +778,7 @@ l_05D1:
        call c_new_level_tokens                    ; Cy' == 1, A == don't care
 
 ;  if ( active_plyr.bug_ct == 0 ) {{
-       ld   a,(ds_plyr_actv +_b_nbugs)
+       ld   a,(ds_plyr_actv +_b_enmy_ct_actv)
        and  a
        jr   z,gctl_plyr_start_stg_init            ; ends up at _plyr_setup
 ;  }}
@@ -812,7 +813,7 @@ l_05FD:
 
 j_0604_plyr_respawn_1P:
 ;  if ( active_plyr.bug_count > 0 ) {
-       ld   a,(ds_plyr_actv +_b_nbugs)
+       ld   a,(ds_plyr_actv +_b_enmy_ct_actv)
        and  a
        jr   nz,gctl_plyr_respawn_wait
 ;  } else {
@@ -1761,7 +1762,7 @@ l_09E1_update_game_state:
        dec  a                                     ; ATTRACT_MODE - 1 ==0
        jr   nz,l_09FF_check_credits_used          ; if (!ATTRACT_MODE)
 
-       ld   a,(ds3_99B5_io_input + 0)             ; io_input[credit_count]
+       ld   a,(ds3_99B5_io_input + 0x00)          ; io_input[credit_count]
        and  a
        jr   z,l_09FF_check_credits_used           ; if io_credit_count == 0
 
@@ -1785,7 +1786,7 @@ l_09FF_check_credits_used:
 
 ; A = credits_counted - io_input[credit_count]  ... credits_used
 ; if ( A == 0 )  return
-       ld   a,(ds3_99B5_io_input + 0)             ; io_input[credit_count] ... in BCD!
+       ld   a,(ds3_99B5_io_input + 0x00)          ; io_input[credit_count] ... in BCD!
        ld   c,a
        ld   a,(b8_99B8_credit_cnt)                ; BCD
        ld   b,a                                   ; stash the previous credit count

@@ -41,11 +41,11 @@ _STRUCT  ; plyr_state
   _DS  _ds_bmbr_boss_scode   8   ; 0x10  bonus code/score attributes e.g. "01B501B501B501B5"
   _DS  _ds_affay6            6   ; 0x18-0x1D ?
   _DS  _b_mcfg_bonus         1   ; 0x1E  load at game start from w_mchn_cfg_bonus ... $9980
-  _DS  _b_plyr_swap          1   ; 0x1F  game_tmr_2, player1/2 switch
+  _DS  _b_plyr_swap_tmr      1   ; 0x1F  game_tmr_2, player1/2 switch
   _DS  _b_plyr_nbr           1   ; 0x20  0==plyr1, 1==plyr2
   _DS  _b_bbee_tmr           1   ; 0x21  bonus bee launch timer
   _DS  _b_atk_wv_enbl        1   ; 0x22  attack_wave_enable (0 when respawning player ship)
-  _DS  _b_nbugs              1   ; 0x23  bugs_actv_nbr
+  _DS  _b_enmy_ct_actv       1   ; 0x23  bugs_actv_nbr
   _DS  _w_hit_ct             2   ; 0x24  game number of hits
   _DS  _w_shot_ct            2   ; 0x26  game shots fired count
   _DS  _b_sndflag            1   ; 0x28  9AA0[0] ... sound mgr
