@@ -23,11 +23,10 @@
 /*
  ** non-static external definitions this file or others
  */
+uint8 fmtn_mv_tmr; // _onoff_scrn_tmr
 uint8 ds_bug_collsn[0x10];
-
 uint8 b_bug_flyng_hits_p_round; // _handle_end_challeng_stg
 uint8 ds_99B9_star_ctrl[6]; // 1 when ship on screen
-
 uint8 io_input[3]; // TODO: owned by galag.c
 
 tstruct_b9200 glbls9200;
@@ -609,13 +608,14 @@ l_04DC_break:
 ;;---------------------------------------------------------------------------*/
 static int gctl_plyr_terminate(void)
 {
-    if ( plyr_state_actv.num_ships-- == 0 )
+    if ( plyr_state_actv.num_ships-- == 0 ) // jp   nz,j_0579_terminate
     {
         // ... do game-over stuff for active player
         if (0 != gctl_two_plyr_game)
         {
             // ... handle two player game-over
             // ld   hl,#m_tile_ram + 0x0240 + 0x0E
+            c_string_out(0x0240 + 0x0E, plyr_state_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
         }
 
         //l_04FD_end_of_game:
@@ -625,7 +625,9 @@ static int gctl_plyr_terminate(void)
         c_tdelay_3();
 
         while (0 != task_actv_tbl_0[0x18]){;} // f_2222 (Boss starts tractor beam)
-
+        {
+            _updatescreen(1);
+        }
 
         memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C); // 12 objects
 
@@ -633,34 +635,38 @@ static int gctl_plyr_terminate(void)
         c_sctrl_playfld_clr();
 
 
-// l_0554: sync/wait for hi-score dlg music
-
-// l_055F: ... not sure how long the delay is
-//       halt                                       ; hi-score, finished name entry (wait for music to stop)
-//       jr   l_0554
+        // l_0554: sync/wait for hi-score dlg music
+        while (0 != b_9AA0[0x0C] || 0 != b_9AA0[0x16]) // jr   z,l_0562
+        {
+            if (1 == b_9AA0[0x0C]) // jr   z,l_055F
+            {
+                // i don't know
+                b_9AA0[0x0C] = 1; // ld   (hl),#1
+            }
+            // l_055F:
+            //  waiting for either a maskable or nonmaskable interrupt (with the mask enabled) before
+            //  operation can resume.
+            // halt ... hi-score, finished name entry (wait for music to stop)
+        } // //jr   l_0554
 
        //l_0562:
        c_sctrl_playfld_clr(); // clear screen at end of game
 
 
-       // if 1 player game, we are done, else if 2 plyr game, check if suspended plyr resv ship count >= 0.
-       if (0 != gctl_two_plyr_game)
+       // num_ships == -1 when no resv ships remain
+       if (0 == gctl_two_plyr_game || -1 == plyr_state_susp.num_ships)
        {
+           // jp   z,j_06DE_end_game_halt
+
+           return 1; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner < g_main < g_exec
        }
-       else // if ( susp plyr resv ships == -1 )
+       else if (glbls9200.restart_stage > 1)
        {
+       // jr   nz,j_058E_plyr_chg
        }
-       // else if ( stage_rst_flag > 1 )
-       //{
-       // jr   nz,j_058E_handle_plyr_changeover
-       //}
+    }
 
-       //jp   z,j_06DE_end_game_halt                ; return if 1 plyr game
-       return 1;
-
-    } // jp   nz,j_0579_terminate_active_plyr
-
-// j_0579_terminate_active_plyr:
+    // _terminate_active_plyr
     if (0 == gctl_two_plyr_game)
     {
         gctl_plyr_respawn_1P(); //  jp   z,j_0604_plyr_respawn_1P
@@ -674,11 +680,89 @@ static int gctl_plyr_terminate(void)
     else if ( -1 == plyr_state_susp.num_ships  // if susp plyr out of ships
               || 1 != glbls9200.restart_stage )
     {
-// allow actv plyr respawn if susp plyr out of ships or on capture ship event
+        // allow actv plyr respawn if susp plyr out of ships or on capture ship event
         gctl_plyr_startup();
+
+        // jp   nz,_plyr_startup: must return from here
     }
-    // else ... j_058E_handle_plyr_changeover:
-// j_058E_handle_plyr_changeover:
+
+    // j_058E_plyr_chg:
+    if (0 != b_bugs_actv_nbr)
+    {
+        // l_0594
+        while (0 != b_bugs_flying_nbr)
+        {
+            ds4_game_tmrs[2] -= 1; // jr   nz,l_0540
+            _updatescreen(1);
+        } // jr   nz,l_0594
+    }
+
+    // l_059A_prep
+    fmtn_mv_tmr = 0 ; // _onoff_scrn_tmr
+    task_actv_tbl_0[0x0E] = 1; // f_1D32
+
+    // l_05A3_while: wait for formation to exit ... completion of f_1D32
+    while (0 != task_actv_tbl_0[0x0E])
+    {
+        _updatescreen(1);
+    } // jr   nz,l_0594
+
+    // exchange player data
+    plyr_state_actv.sndflag = b_9AA0[0];
+    plyr_state_actv.tmr2 = ds4_game_tmrs[2];
+    c_player_active_switch();
+    gctl_stg_bombr_setparms(); // new stage setup
+    b_9AA0[0] = plyr_state_actv.sndflag;
+    ds4_game_tmrs[2] = plyr_state_actv.tmr2;
+    fghtr_resv_draw();
+
+    // nbugs==0 indicates player was previously destroyed by collision
+    // with last evildoer in the round
+    if (0 != plyr_state_actv.b_nbugs)
+    {
+        gctl_stg_new_atk_wavs_init();
+    }
+
+    // setting up a new screen (changing players)
+    glbls9200.flip_screen = 0; // flipped = (cab_type==Table & Plyr2up )
+    // ld   (0xA007),a ... sfr_flip_screen
+
+    // set origin coordinates of formation elements (rows are offset $3E * 2 == $7E)
+    gctl_stg_fmtn_hpos_init(0x7E / 2); // ld   a,#0x3F
+
+    // set Cy to disable sound clicks for level tokens on player change
+    // (value of A is irrelevant)
+    gctl_stg_tokens(1);
+
+    if (0 == plyr_state_actv.b_nbugs)
+    {
+        gctl_plyr_start_stg_init();
+
+//return gctl_stg_restart_hdlr
+//gctl_supv_stage
+//gctl_game_runner
+
+    }
+    else
+    {
+        uint16 HL;
+        HL = j_string_out_pe(1, -1, 0x03); // string_out_pe "READY"
+    }
+
+    fmtn_mv_tmr = 0x80 ; // _onoff_scrn_tmr
+
+    task_actv_tbl_0[0x0E] = 1; // f_1D32: moves formation on/off screen
+
+    // l_05FD: wait for formation to appear ... completion of f_1D32
+    while (0 != task_actv_tbl_0[0x0E])
+    {
+        _updatescreen(1);
+    } // jr   nz,l_0594
+
+
+
+    // jp   gctl_plyr_startup: must return from here
+
 
     return 0;
 }
