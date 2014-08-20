@@ -962,7 +962,18 @@ static const uint8 d_bmbr_boss_wingm_idcs[] =
 ;;---------------------------------------------------------------------------*/
 void f_1D32(void)
 {
+    uint8 tmr;
+    uint8 A;
 
+    tmr = fmtn_mv_tmr & 0x7F; // and  #0x7F
+
+    if (0x7E != tmr) // jr   z,l_1D72
+    {
+        fmtn_mv_tmr += 1;
+
+    }
+
+    task_actv_tbl_0[0x0E] = A;
 }
 
 /*=============================================================================
@@ -1295,13 +1306,16 @@ static void rckt_sprite_init(void)
         E = SPR_IDX_RCKT1; // inc  e
     }
     else
+    {
         return; // ret  nz ... no rocket available
+    }
 
     // l_1F1E:
 
     // bit  2,(hl)                                ; no idea
     // jr   z,l_1F2B
 
+    // l_1F2B
     mrw_sprite.ctrl[E].b1 = mrw_sprite.ctrl[SPR_IDX_SHIP].b1; // .sy<8>
 
     mrw_sprite.posn[E].b0 = mrw_sprite.posn[SPR_IDX_SHIP].b0; // .sX
@@ -1340,6 +1354,7 @@ static void rckt_sprite_init(void)
     }
     // else ... no orientation swap needed, use sprite code for dS
 
+    // l_1F5E
     C = A << 1; // "orientation" bit into bit-7 ...
 
     // sprite.ctrl bits ...  flipx into bit:5, flipy into bit:6
