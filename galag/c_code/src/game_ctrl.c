@@ -58,6 +58,7 @@ static const uint8 d_08EB[][3];
 
 
 // function prototypes
+static void g_halt(void);
 static void gctl_plyr_init(void);
 static void gctl_score_init(uint8, uint16);
 static void gctl_bonus_info_line_disp(uint8, uint8, uint8);
@@ -613,17 +614,17 @@ static int gctl_plyr_terminate(void)
         // ... do game-over stuff for active player
         if (0 != gctl_two_plyr_game)
         {
-            // ... handle two player game-over
+            // ... adjust message text for two player game-over
             // ld   hl,#m_tile_ram + 0x0240 + 0x0E
             c_string_out(0x0240 + 0x0E, plyr_state_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
         }
 
-        //l_04FD_end_of_game:
-
+        //l_04FD_end
         j_string_out_pe(1, -1, 0x02); // "GAME OVER"
         c_tdelay_3();
         c_tdelay_3();
 
+        // block while active tractor beam completes
         while (0 != task_actv_tbl_0[0x18]){;} // f_2222 (Boss starts tractor beam)
         {
             _updatescreen(1);
@@ -636,9 +637,9 @@ static int gctl_plyr_terminate(void)
 
 
         // l_0554: sync/wait for hi-score dlg music
-        while (0 != b_9AA0[0x0C] || 0 != b_9AA0[0x16]) // jr   z,l_0562
+        while (0 != b_9AA0[0x0C] && 0 != b_9AA0[0x16]) // jr   z,l_0562
         {
-            if (1 == b_9AA0[0x0C]) // jr   z,l_055F
+            if (1 != b_9AA0[0x0C]) // jr   z,l_055F
             {
                 // i don't know
                 b_9AA0[0x0C] = 1; // ld   (hl),#1
@@ -652,12 +653,10 @@ static int gctl_plyr_terminate(void)
        //l_0562:
        c_sctrl_playfld_clr(); // clear screen at end of game
 
-
        // num_ships == -1 when no resv ships remain
        if (0 == gctl_two_plyr_game || -1 == plyr_state_susp.num_ships)
        {
-           // jp   z,j_06DE_end_game_halt
-
+           g_halt(); // jp   z,end_game_halt ... only place to reference this symbol
            return 1; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner < g_main < g_exec
        }
        else if (glbls9200.restart_stage > 1)
@@ -670,20 +669,14 @@ static int gctl_plyr_terminate(void)
     if (0 == gctl_two_plyr_game)
     {
         gctl_plyr_respawn_1P(); //  jp   z,j_0604_plyr_respawn_1P
-
-        //...jr gctl_plyr_respawn_wait/gctl_fghtr_rdy/jp gctl_game_runner
-
-        // Needs to be return'd immediately from gctl_stg_restart_hdlr()
-        // and gctl_fghtr_rdy
-        return 0;
+        return 0; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner
     }
-    else if ( -1 == plyr_state_susp.num_ships  // if susp plyr out of ships
+    else if ( -1 == plyr_state_susp.num_ships  // if susp plyr fighters supply exhausted
               || 1 != glbls9200.restart_stage )
     {
-        // allow actv plyr respawn if susp plyr out of ships or on capture ship event
-        gctl_plyr_startup();
-
-        // jp   nz,_plyr_startup: must return from here
+        // allow actv plyr respawn if susp plyr fighters depleted, or on capture event
+        gctl_plyr_startup(); // jp   ..,gctl_plyr_startup
+        return 0;
     }
 
     // j_058E_plyr_chg:
@@ -716,7 +709,7 @@ static int gctl_plyr_terminate(void)
     ds4_game_tmrs[2] = plyr_state_actv.tmr2;
     fghtr_resv_draw();
 
-    // nbugs==0 indicates player was previously destroyed by collision
+    // check if player was previously destroyed by collision
     // with last evildoer in the round
     if (0 != plyr_state_actv.b_nbugs)
     {
@@ -734,6 +727,8 @@ static int gctl_plyr_terminate(void)
     // (value of A is irrelevant)
     gctl_stg_tokens(1);
 
+    // check if player was previously destroyed by collision
+    // with last evildoer in the round
     if (0 == plyr_state_actv.b_nbugs)
     {
         gctl_plyr_start_stg_init();
@@ -973,6 +968,20 @@ static void gctl_chllng_stg_end(void)
     j_string_out_pe(1, -1, 0x0B); // erase "PERFECT !")
 
     // j_04DC_new_stage_setup
+}
+
+/*=============================================================================
+;; g_halt()
+;;  Description:
+;;    "call'd" when one (or both) players exhausted supply of ships.
+;;    Resumes at g_main.
+;; IN:
+;;  ...
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+void g_halt(void)
+{
 }
 
 /*=============================================================================
