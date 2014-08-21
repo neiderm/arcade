@@ -668,7 +668,13 @@ static int gctl_plyr_terminate(void)
     // _terminate_active_plyr
     if (0 == gctl_two_plyr_game)
     {
-        gctl_plyr_respawn_1P(); //  jp   z,j_0604_plyr_respawn_1P
+        // jp   z,j_0604_plyr_respawn_1P
+        if (0 == plyr_state_actv.b_nbugs)
+        {
+            gctl_stg_splash_scrn(); // respawn_1P ... blocks on busy-loop
+        }
+        gctl_plyr_respawn_wait(); // ... READY
+
         return 0; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner
     }
     else if ( -1 == plyr_state_susp.num_ships  // if susp plyr fighters supply exhausted
@@ -762,21 +768,6 @@ static int gctl_plyr_terminate(void)
     return 0;
 }
 
-
-/*=============================================================================
-; Prepare "respawn" for 1 player game.
-; If the terminated ship was crashed by the last bug of the stage, then new
-; stage setup needs done.
-; Out of term_actv_plyr (if not 2p game)
-;;--------------------------------------------------------------------------- */
-static void gctl_plyr_respawn_1P(void)
-{
-    if (0 == plyr_state_actv.b_nbugs)
-    {
-        gctl_stg_splash_scrn(); // respawn_1P ... blocks on busy-loop
-    }
-    gctl_plyr_respawn_wait();
-}
 
 /*=============================================================================
 ;;  gctl_plyr_start_stg_init
