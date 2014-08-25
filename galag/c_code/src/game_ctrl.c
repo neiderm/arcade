@@ -71,8 +71,6 @@ static void gctl_score_digit_incr(uint16, uint8);
 static int gctl_supv_stage();
 static void gctl_chllng_stg_end(void);
 static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8);
-static void gctl_plyr_start_stg_init(void);
-static void gctl_plyr_respawn_1P(void);
 static int gctl_plyr_terminate(void);
 static void gctl_plyr_startup(void);
 static int gctl_game_runner(void);
@@ -339,7 +337,9 @@ int g_main(void)
     plyr_state_actv.mcfg_bonus0 = mchn_cfg.bonus[0];
     plyr_state_susp.mcfg_bonus0 = mchn_cfg.bonus[0];
 
-    gctl_plyr_start_stg_init();  // jp   _start_stg_init
+    // jp   _stg_init ...
+    gctl_stg_splash_scrn(); // puts "STAGE X", _stg_new_env_init ... blocks on busy-loop
+    gctl_plyr_startup();
 
     // blocks here unless broken off by ESC key or gameover
     return gctl_game_runner();
@@ -570,8 +570,7 @@ static int gctl_stg_restart_hdlr(void)
     // player terminated?
     if (0 != glbls9200.restart_stage || b_bugs_actv_nbr > 0)
     {
-        return gctl_plyr_terminate();
-        //   jr   nz,gctl_plyr_terminate
+        return gctl_plyr_terminate(); // jr   nz,_plyr_terminate
 
         // jp   gctl_game_runner (from gctl_fghtr_rdy)
     }
@@ -586,13 +585,10 @@ static int gctl_stg_restart_hdlr(void)
 l_04DC_break:
     // end of stage
 
-    gctl_stg_splash_scrn(); // cleared stage ... short delay no ESC
-    gctl_fghtr_rdy();  // jp   j_0632_gctl_fghtr_rdy
+    gctl_stg_splash_scrn();
+    gctl_fghtr_rdy();  // jp   _fghtr_rdy
 
-
-    // returns gctl_plyr_terminate above
-    // returns from gctl_supv_stage and then return to gctl_game_runner
-    return 0; // jp   jp_045E_gctl_game_runner
+    return 0; // _game_runner
 }
 
 /*=============================================================================
@@ -673,7 +669,7 @@ static int gctl_plyr_terminate(void)
         {
             gctl_stg_splash_scrn(); // respawn_1P ... blocks on busy-loop
         }
-        gctl_plyr_respawn_wait(); // ... READY
+        gctl_plyr_respawn_wait(); // jr   _plyr_respawn_wait ... READY
 
         return 0; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner
     }
@@ -737,7 +733,10 @@ static int gctl_plyr_terminate(void)
     // with last evildoer in the round
     if (0 == plyr_state_actv.b_nbugs)
     {
-        gctl_plyr_start_stg_init();
+        // jr   z,_plyr_start_stg_init ...
+        gctl_stg_splash_scrn(); // puts "STAGE X", _stg_new_env_init ... blocks on busy-loop
+        gctl_plyr_startup();
+
 
 //return gctl_stg_restart_hdlr
 //gctl_supv_stage
@@ -770,22 +769,14 @@ static int gctl_plyr_terminate(void)
 
 
 /*=============================================================================
-;;  gctl_plyr_start_stg_init
-;;  Description:
-;;   Player entry/changeover with new stage setup, e.g. beginning of game for
-;;   for P1 (or P2 on multiplayer game) ... multiplayer game introduces the
-;;   possibility of either player re-entering the game with 0 enemy count due
-;;   to termination of last enemy of a stage by destruction of the fighter.
-;;   If on a new game, PLAYER 1 text has been erased.
-;;   Need to return int to handle ESC and get out from _stg_splash_scrn
-;;
-;;--------------------------------------------------------------------------- */
-static void gctl_plyr_start_stg_init(void)
-{
-    gctl_stg_splash_scrn(); // start_stg_init, shows "STAGE X" and does setup ... blocks on busy-loop
+; Player respawn with stage setup (i.e. when plyr.enemys = 0, i.e. player
+; change, or at start of new game loop.
+;;----------------------------------------------------------------------------*/
+// gctl_plyr_respawn_splsh:
+//       call gctl_stg_splash_scrn                  ; shows "STAGE X"
 
-    gctl_plyr_startup();
-}
+// gctl_plyr_respawn_plyrup:
+
 
 /*=============================================================================
 ;;  gctl_plyr_startup:
