@@ -71,6 +71,7 @@ static void gctl_score_digit_incr(uint16, uint8);
 static int gctl_supv_stage();
 static void gctl_chllng_stg_end(void);
 static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8);
+static void gctl_plyr_respawn_splsh(void);
 static int gctl_plyr_terminate(void);
 static void gctl_plyr_startup(void);
 static int gctl_game_runner(void);
@@ -338,12 +339,10 @@ int g_main(void)
     plyr_state_susp.mcfg_bonus0 = mchn_cfg.bonus[0];
 
     // jp   _stg_init ...
-    gctl_stg_splash_scrn(); // puts "STAGE X", _stg_new_env_init ... blocks on busy-loop
-    gctl_plyr_startup();
+    gctl_plyr_respawn_splsh();
 
     // blocks here unless broken off by ESC key or gameover
     return gctl_game_runner();
-
 }
 
 /*=============================================================================
@@ -607,10 +606,12 @@ static int gctl_plyr_terminate(void)
 {
     if ( plyr_state_actv.num_ships-- == 0 ) // jp   nz,j_0579_terminate
     {
-        // ... do game-over stuff for active player
+        // ... handle game-over Results, Shots Fired etc.
+        // if not 2 player OR suspended player has 0 reserve fighter then halt.
+
         if (0 != gctl_two_plyr_game)
         {
-            // ... adjust message text for two player game-over
+            // ... adjust message text for two player
             // ld   hl,#m_tile_ram + 0x0240 + 0x0E
             c_string_out(0x0240 + 0x0E, plyr_state_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
         }
@@ -661,10 +662,11 @@ static int gctl_plyr_terminate(void)
        }
     }
 
+
     // _terminate_active_plyr
-    if (0 == gctl_two_plyr_game)
+    if (0 == gctl_two_plyr_game) // jp   z,_plyr_respawn_1P`
     {
-        // jp   z,j_0604_plyr_respawn_1P
+        // _plyr_respawn_1P:
         if (0 == plyr_state_actv.b_nbugs)
         {
             gctl_stg_splash_scrn(); // respawn_1P ... blocks on busy-loop
@@ -673,15 +675,17 @@ static int gctl_plyr_terminate(void)
 
         return 0; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner
     }
-    else if ( -1 == plyr_state_susp.num_ships  // if susp plyr fighters supply exhausted
+    else if ( -1 == plyr_state_susp.num_ships  // -1 when .resv_fghtrs exhausted
               || 1 != glbls9200.restart_stage )
     {
         // allow actv plyr respawn if susp plyr fighters depleted, or on capture event
-        gctl_plyr_startup(); // jp   ..,gctl_plyr_startup
+        gctl_plyr_startup(); // jp   ..,_plyr_startup
+
         return 0;
     }
 
-    // j_058E_plyr_chg:
+
+    // _plyr_chg:
     if (0 != b_bugs_actv_nbr)
     {
         // l_0594
@@ -733,20 +737,14 @@ static int gctl_plyr_terminate(void)
     // with last evildoer in the round
     if (0 == plyr_state_actv.b_nbugs)
     {
-        // jr   z,_plyr_start_stg_init ...
-        gctl_stg_splash_scrn(); // puts "STAGE X", _stg_new_env_init ... blocks on busy-loop
-        gctl_plyr_startup();
+        // jr   z, plyr_respawn_splsh
+        gctl_plyr_respawn_splsh();
 
-
-//return gctl_stg_restart_hdlr
-//gctl_supv_stage
-//gctl_game_runner
-
+        return 0;
     }
     else
     {
-        uint16 HL;
-        HL = j_string_out_pe(1, -1, 0x03); // string_out_pe "READY"
+        j_string_out_pe(1, -1, 0x03); // string_out_pe "READY"
     }
 
     fmtn_mv_tmr = 0x80 ; // _onoff_scrn_tmr
@@ -761,7 +759,7 @@ static int gctl_plyr_terminate(void)
 
 
 
-    // jp   gctl_plyr_startup: must return from here
+    gctl_plyr_startup(); // jp   _plyr_startup
 
 
     return 0;
@@ -779,7 +777,28 @@ static int gctl_plyr_terminate(void)
 
 
 /*=============================================================================
-;;  gctl_plyr_startup:
+;; gctl_plyr_start_stg_init
+;; Description:
+;; Player entry/changeover with new stage setup, e.g. beginning of game for
+;; for P1 (or P2 on multiplayer game) ... multiplayer game introduces the
+;; possibility of either player re-entering the game with 0 enemy count due
+;; to termination of last enemy of a stage by destruction of the fighter.
+;; If on a new game, PLAYER 1 text has been erased.
+;; Need to return int to handle ESC and get out from _stg_splash_scrn
+;;
+; Player respawn with stage setup (i.e. when plyr.enemys = 0, i.e. player
+; change, or at start of new game loop.
+;;----------------------------------------------------------------------------*/
+static void gctl_plyr_respawn_splsh(void)
+{
+    gctl_stg_splash_scrn();
+
+//_respawn_plyrup:
+    gctl_plyr_startup();
+}
+
+/*=============================================================================
+;;  gctl_plyr_respawn_plyrup:
 ;;  Description:
 ;;   Setup a new player... every time the player is changed on a 2P game or once
 ;;   at first ship of new 1P game. Shows Player 1 (2) text on stage restart.
@@ -806,7 +825,7 @@ static void gctl_plyr_respawn_wait(void)
     uint8 A;
 
     // "credit X" is wiped and reserve ships appear on lower left of screen
-    gctl_plyr_respawn_fghtr(); // there is only one reference to this so it could be inlined.
+    gctl_plyr_respawn_fghtr();
 
     // ds4_game_tmrs[2] was set to 120 by new_stg_game_or_demo
 
