@@ -73,6 +73,7 @@ static void gctl_chllng_stg_end(void);
 static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8);
 static void gctl_plyr_respawn_splsh(void);
 static int gctl_plyr_terminate(void);
+static void plyr_chg(void);
 static void gctl_plyr_startup(void);
 static int gctl_game_runner(void);
 static uint8 c_08AD(uint8 const *);
@@ -658,7 +659,10 @@ static int gctl_plyr_terminate(void)
        }
        else if (glbls9200.restart_stage > 1)
        {
-       // jr   nz,j_058E_plyr_chg
+            //    jr   nz,_plyr_chg
+            //    jp   _plyr_startup
+            plyr_chg(); // jr   nz,_plyr_chg
+            return 0;
        }
     }
 
@@ -679,12 +683,22 @@ static int gctl_plyr_terminate(void)
               || 1 != glbls9200.restart_stage )
     {
         // allow actv plyr respawn if susp plyr fighters depleted, or on capture event
-        gctl_plyr_startup(); // jp   ..,_plyr_startup
+        gctl_plyr_startup(); // jp   ..,_plyr_startup ... "Player X" text + _respawn_wait
 
         return 0;
     }
 
+    plyr_chg();
+    return 0;
+}
 
+
+/*=============================================================================
+;; plyr_chg
+;; Description:
+;;----------------------------------------------------------------------------*/
+static void plyr_chg(void)
+{
     // _plyr_chg:
     if (0 != b_bugs_actv_nbr)
     {
@@ -696,7 +710,7 @@ static int gctl_plyr_terminate(void)
         } // jr   nz,l_0594
     }
 
-    // l_059A_prep
+    // l_059A_prep: set up for formation to exit
     fmtn_mv_tmr = 0 ; // _onoff_scrn_tmr
     task_actv_tbl_0[0x0E] = 1; // f_1D32
 
@@ -742,10 +756,8 @@ static int gctl_plyr_terminate(void)
 
         return 0;
     }
-    else
-    {
-        j_string_out_pe(1, -1, 0x03); // string_out_pe "READY"
-    }
+
+    j_string_out_pe(1, -1, 0x03); // string_out_pe "READY"
 
     fmtn_mv_tmr = 0x80 ; // _onoff_scrn_tmr
 
@@ -757,23 +769,19 @@ static int gctl_plyr_terminate(void)
         _updatescreen(1);
     } // jr   nz,l_0594
 
-
-
-    gctl_plyr_startup(); // jp   _plyr_startup
-
-
-    return 0;
+    gctl_plyr_startup(); // jp   _plyr_startup ... _plyr_respawn_plyrup
 }
 
 
 /*=============================================================================
 ; Player respawn with stage setup (i.e. when plyr.enemys = 0, i.e. player
 ; change, or at start of new game loop.
+; Only 1 reference to this and no "fall-through" so it should be inlined.
 ;;----------------------------------------------------------------------------*/
-// gctl_plyr_respawn_splsh:
-//       call gctl_stg_splash_scrn                  ; shows "STAGE X"
+// gctl_plyr_respawn_1up:
+//        if (0 == plyr_state_actv.b_nbugs)  _stg_splash_scrn();
 
-// gctl_plyr_respawn_plyrup:
+//        gctl_plyr_respawn_wait(); // jr   _plyr_respawn_wait ... READY
 
 
 /*=============================================================================
@@ -844,7 +852,7 @@ static void gctl_plyr_respawn_wait(void)
 }
 
 /*=============================================================================
-;;  j_0632_gctl_fghtr_rdy
+;;  gctl_plyr_respawn_rdy
 ;;  Description:
 ;;   Out of stg_restart_hdlr or plyr_respawn
 ;;   Readies fighter operation active by enabling rockets and hit-detection
