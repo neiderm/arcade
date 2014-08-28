@@ -6,7 +6,7 @@
 ;;
 ;;  j_Game_init:
 ;;      One time entry from power-up routines.
-;;  j_Game_start:
+;;  g_main:
 ;;      Initializes game state. Starts with Title Screen, or "Press Start"
 ;;      screen if credit available.
 ;;  gctl_plyr_start_stg_init:
@@ -169,7 +169,7 @@ l_032A:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-j_Game_start:
+g_main:
        xor  a
        ld   (0xA007),a                            ; 0 (not_flipped)
        ld   (b_9215_flip_screen),a                ; 0 (not_flipped)
@@ -590,25 +590,25 @@ gctl_plyr_terminate:
        dec  (hl)
        and  a
        jp   nz,j_0579_terminate                   ; active ship terminated but not game over
-; then ... do game-over stuff for active player
-;   if ( 0 != two_plyr_game ) ...
+;  if  ( two_plyr_game ) ...
        ld   a,(b8_99B3_two_plyr_game)
        and  a
        jr   z,l_04FD_end_of_game
-;   ... then ... handle two player game-over
+;  then ... adjust message text for two player game-over
        ld   hl,#m_tile_ram + 0x0240 + 0x0E
        ld   a,(ds_plyr_actv +_b_plyr_nbr)         ; 0==plyr1, 1==plyr2
        add  a,#4
-       ld   c,a                                   ; index into string table
+       ld   c,a                                   ; string index
        call c_string_out                          ; "PLAYER X" (for "PLAYER X GAME OVER")
 
 l_04FD_end_of_game:
-       ld   c,#2                                  ; C=string_out_pe_index
+       ld   c,#0x02                               ; string index
        rst  0x30                                  ; string_out_pe "GAME OVER"
+
        call c_tdelay_3
        call c_tdelay_3
 
-;  while (0 != task_actv_tbl_0[0x18]){;}
+;  while (0 != task_actv_tbl_0[0x18]){;} ... block if tractor beam completing
        ld   hl,#ds_cpu0_task_actv + 0x18         ; f_2222 (Boss starts tractor beam) wait for task inactive
 l_0509_while:
        ld   a,(hl)
@@ -616,28 +616,33 @@ l_0509_while:
        jr   nz,l_0509_while
 
        rst  0x28                                  ; memset(mctl_mpool,0,$$14 * 12)
+
        call c_sctrl_sprite_ram_clr
        call c_sctrl_playfld_clr
 
-       ld   c,#0x15                               ; C=string_out_pe_index
+       ld   c,#0x15                               ; string index
        rst  0x30                                  ; string_out_pe ("-RESULTS-")
-       ld   c,#0x16
+       ld   c,#0x16                               ; string index
        rst  0x30                                  ; string_out_pe ("SHOTS FIRED")
 
        ld   de,#m_tile_ram + 0x0120 + 0x12
        ld   hl,(ds_plyr_actv +_w_shot_ct)         ; puts game shots fired count
        call c_text_out_i_to_d                     ; puts game shots fired count
 
-       ld   c,#0x18                               ; C=string_out_pe_index
+       ld   c,#0x18                               ; string index
        rst  0x30                                  ; string_out_pe ("NUMBER OF HITS")
+
        ld   de,#m_tile_ram + 0x0120 + 0x15
        ld   hl,(ds_plyr_actv +_w_hit_ct)          ; puts game number of hits
        call c_text_out_i_to_d                     ; puts game number of hits
-       ld   c,#0x19
+
+       ld   c,#0x19                               ; string index
        rst  0x30                                  ; string_out_pe ("HIT-MISS RATIO")
+
        call c_0A72_puts_hitmiss_ratio
-       ex   de,hl
-       ld   c,#0x1A                               ; index into string table
+
+       ex   de,hl                                 ; HL becomes c_string_out<IN:position in tile RAM>
+       ld   c,#0x1A                               ; string index
        call c_string_out                          ; "%" after hit-miss number
 
        ; wait for the timer
@@ -654,6 +659,7 @@ l_0540:
        xor  a
        ld   (b_9AA0 + 0x10),a                     ; 0 ... sound-fx count/enable registers, hi-score dialog?
 
+; while (0 != b_9AA0[0x0C] || 0 != b_9AA0[0x16])
        ld   hl,#b_9AA0 + 0x0C                     ; sound-fx count/enable registers, hi-score dialog
        ld   de,#b_9AA0 + 0x16                     ; sound-fx count/enable registers, hi-score dialog
 l_0554:
@@ -674,41 +680,42 @@ l_055F:
 l_0562:
        call c_sctrl_playfld_clr                   ; clear screen at end of game
 
-; If 1 player game, we are done, else if 2 plyr game, check if suspended plyr resv ship count >= 0.
-;   if ( !two_plyr_game ) {
+; done game over stuff for active player, so if 1P game or
+; plyr_susp.resv_fghtrs exhausted then halt
+
+; if ( !two_plyr_game || -1 == plyr_susp.resv_fghtrs ) then halt
        ld   a,(b8_99B3_two_plyr_game)
        and  a
-       jp   z,j_06DE_end_game_halt                ; return if 1 plyr game
-;   } else if ( susp plyr resv ships == -1 ) {
+       jp   z,g_halt                              ; jp   g_main
        ld   a,(ds_plyr_susp +_b_nships)           ; -1 if no resv ships remain
        inc  a
-       jp   z,j_06DE_end_game_halt
-;   }
-;   else if ( stage_rst_flag > 1 ) {
-;      check for stg_restart flag, indicating a fighter-capture event.
-;      I'm not sure what we gain by checking this.. it still ends up in handle_plyr_change...
-       ld   a,(ds_9200_glbls + 0x13)              ; check if active plyr (final) ship captured (restart stage flag == 2)
+       jp   z,g_halt                              ; jp   g_main
+
+; else if ( stage_rst_flag != 1 ) ... _plyr_chg()
+;   indicates fighter-capture event
+       ld   a,(ds_9200_glbls + 0x13)              ; restart stage flag
        dec  a
        jr   nz,j_058E_plyr_chg
-;   }
-;   else
-;    { terminate_active_plyr }
 
 j_0579_terminate:
 ; if ( !two_plyr_game ) {
        ld   a,(b8_99B3_two_plyr_game)
        and  a
-       jp   z,j_0604_plyr_respawn_1P              ; will finally jp gctl_game_runner
-; } else if ( susp plyr resv ship ct == -1  || stage_rst_flag != 1 )
-       ld   a,(ds_plyr_susp +_b_nships)           ; -1 if no resv ships remain
+       jp   z,j_0604_plyr_respawn_1P              ; plyr_respawn_1P < plyr_respawn_wait < fghtr_rdy < game_runner
+
+; } else if ( plyr_susp.resv_fghtrs == -1  || stage_rst_flag != 0 )
+       ld   a,(ds_plyr_susp +_b_nships)           ; -1 when .resv_fghtrs exhausted
        inc  a
        jp   z,gctl_plyr_startup                   ; allow actv plyr respawn if susp plyr out of ships
 ; note: stage_rst_flag == 0 would also test true but that would make no sense here
-       ld   a,(ds_9200_glbls + 0x13)              ; restart stage flag
+       ld   a,(ds_9200_glbls + 0x13)              ; restart_stage
        dec  a
        jp   nz,gctl_plyr_startup                  ; allows active plyr to respawn on capture ship event
 ; }
 ; else { do player change }
+
+
+;;=============================================================================
 
 j_058E_plyr_chg:
 ; if ( nr of bugs == 0 ) {{
@@ -732,7 +739,7 @@ l_059A_prep:
        ld   hl,#ds_cpu0_task_actv + 0x0E          ; 1 ... f_1D32
        ld   (hl),a
 
-; Waits for bug nest to exit ... completion of f_1D32 (status actv_task_tbl[$0E])
+; wait for formation to exit ... completion of f_1D32 (status actv_task_tbl[$0E])
 l_05A3_while:
        ld   a,(hl)
        and  a
@@ -755,7 +762,7 @@ l_05A3_while:
        ld   a,(ds_plyr_actv +_b_enmy_ct_actv)
        and  a
        jr   z,l_05D1
-; ... then ... _ct_actv == 0 indicates player was previously destroyed by collision with last enemy in the round
+; ... then ... player was previously destroyed by collision with last enemy in the round
        call c_25A2                                ; gctl_stg_new_atk_wavs_init()
 
 ; setting up a new screen (changing players)
@@ -780,9 +787,9 @@ l_05D1:
 ;  if ( active_plyr.bug_ct == 0 ) {{
        ld   a,(ds_plyr_actv +_b_enmy_ct_actv)
        and  a
-       jr   z,gctl_plyr_start_stg_init            ; ends up at _plyr_setup
-;  }}
-;  else {{
+       jr   z,gctl_plyr_start_stg_init            ; _plyr_startup > _new_stg_ <-  _plyr_startup
+
+; else ...
        ld   c,#3                                  ; C=string_out_pe_index
        rst  0x30                                  ; string_out_pe "READY"
 
@@ -795,31 +802,30 @@ l_05D1:
        ld   hl,#ds_cpu0_task_actv + 0x0E          ; 1 ... f_1D32
        ld   a,#1
        ld   (hl),a
-; 900E becomes 0 when count at 99B4-DE=0
-; while ( *($900e ) == 1 ) {
+
+; while ( cpu0_task_actv[$0E] ) ... wait for the task to timeout
 l_05FD:
        ld   a,(hl)
        and  a
        jr   nz,l_05FD
-;   }
+
        jp   gctl_plyr_startup                     ; reloaded suspended plyr, bug nest reloaded... ready!
-; }}
 
 
 ;;=============================================================================
-; Prepare "respawn" for 1 player game.
-; If the terminated ship was crashed by the last bug of the stage, then new
-; stage setup needs done.
+; "respawn" for 1 player game.
+; If fighter terminated by last enemy of the stage, then init new stage.
+; Only reference is from _terminate() so it should be "inlined" there.
 
 j_0604_plyr_respawn_1P:
-;  if ( active_plyr.bug_count > 0 ) {
+; if (0 == plyr_state_actv.b_nbugs) ...
        ld   a,(ds_plyr_actv +_b_enmy_ct_actv)
        and  a
        jr   nz,gctl_plyr_respawn_wait
-;  } else {
+; ... then ...
        call gctl_stg_splash_scrn                  ; new stage setup, shows "STAGE X"
        jr   gctl_plyr_respawn_wait
-;  }
+
 
 
 ;;=============================================================================
@@ -829,9 +835,11 @@ j_0604_plyr_respawn_1P:
 gctl_plyr_start_stg_init:
        call gctl_stg_splash_scrn                  ; shows "STAGE X" and does setup
 
+       ;; gctl_plyr_startup()
+
 ;;-----------------------------------------------------------------------------
 ; Setup a new player... every time the player is changed on a 2P game or once
-; at first ship of new 1P game. Shows Player 1 (2) text on stage restart.
+; at first fighter of new 1P game. Player X text shown, stage restart.
 ;
 gctl_plyr_startup:
        ld   a,(ds_plyr_actv +_b_plyr_nbr)         ; 0==plyr1, 1==plyr2
@@ -997,16 +1005,16 @@ l_06BA:
 
 
 ;;=============================================================================
-;; j_06DE_end_game_halt()
+;; g_halt()
 ;;  Description:
 ;;    "call'd" when one (or both) players exhausted supply of ships.
-;;    Finish up game operation and jp back to start of giant Game Loop.
+;;    Resumes at g_main.
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-j_06DE_end_game_halt:
+g_halt:
        halt                                       ; screen is now cleared at end of game
        di
 
@@ -1045,15 +1053,16 @@ l_06E0_while_wait_io_ackrdy:
        add  a,(hl)
        daa
        ld   (hl),a
-       jp   nc,j_Game_start                       ; finished update total_plays_bcd
+       jp   nc,g_main                             ; finished update total_plays_bcd
        dec  hl                                    ; w_total_plays_bcd (get msb ...100s,1000s place)
        ld   a,(hl)
        add  a,#0x01
        daa
        ld   (hl),a
-       jp   j_Game_start                          ; finished update total_plays_bcd
+       jp   g_main                                ; finished update total_plays_bcd
 
 ;;=============================================================================
+;; const data for g_halt()
 d_0725:
        .db 0x02,0x02,0x02
 
