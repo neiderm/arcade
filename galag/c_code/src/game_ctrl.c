@@ -62,21 +62,22 @@ static void g_halt(void);
 static void gctl_plyr_init(void);
 static void gctl_score_init(uint8, uint16);
 static void gctl_bonus_info_line_disp(uint8, uint8, uint8);
-static void gctl_plyr_respawn_wait(void);
 static void gctl_1up2up_displ(uint8);
-static void gctl_fghtr_rdy(void);
 static void gctl_1up2up_blink(uint8 const *, uint16, uint8);
 static void gctl_supv_score(void);
 static void gctl_score_digit_incr(uint16, uint8);
 static int gctl_supv_stage();
 static void gctl_chllng_stg_end(void);
 static uint8 gctl_bmbr_enbl_tmrs_set(uint8, uint8);
-static void gctl_plyr_respawn_splsh(void);
 static int gctl_plyr_terminate(void);
-static void plyr_chg(void);
-static void gctl_plyr_startup(void);
 static int gctl_game_runner(void);
 static uint8 c_08AD(uint8 const *);
+
+static void plyr_chg(void);
+static void plyr_respawn_splsh(void);
+static void plyr_respawn_plyrup(void);
+static void plyr_respawn_wait(void);
+static void plyr_respawn_rdy(void);
 
 
 /*=============================================================================
@@ -340,7 +341,7 @@ int g_main(void)
     plyr_state_susp.mcfg_bonus0 = mchn_cfg.bonus[0];
 
     // jp   _stg_init ...
-    gctl_plyr_respawn_splsh();
+    plyr_respawn_splsh();
 
     // blocks here unless broken off by ESC key or gameover
     return gctl_game_runner();
@@ -535,8 +536,8 @@ static int gctl_stg_restart_hdlr(void)
 
             if (b_bugs_actv_nbr > 0)
             {
-                return 0;
-                // jp   nz,gctl_game_runner  ; continue round w/ second (docked) ship... return to Game Runner Loop
+                // continue round w/ second (docked) fighter
+                return 0; // jp   nz,_game_runner
             }
 
             // l_04B9_while_:
@@ -558,7 +559,7 @@ static int gctl_stg_restart_hdlr(void)
         }
         // l_04C1_while_wait_explosion_tmr:
     }
-    while (ds4_game_tmrs[3] > 0);
+    while (ds4_game_tmrs[3] > 0); // jr   nz,l_04A4_wait
 
     gctl_supv_score();
 
@@ -571,14 +572,11 @@ static int gctl_stg_restart_hdlr(void)
     if (0 != glbls9200.restart_stage || b_bugs_actv_nbr > 0)
     {
         return gctl_plyr_terminate(); // jr   nz,_plyr_terminate
-
-        // jp   gctl_game_runner (from gctl_fghtr_rdy)
     }
 
-    // challenge stage? (I can't remember what puts us here on challenge stage)
+    // challenge stage?
     if (0 == plyr_state_actv.not_chllng_stg)
     {
-        // jp's back to 04DC_new_stage_setup
         gctl_chllng_stg_end(); // blocks on busy-loops
     }
 
@@ -586,7 +584,7 @@ l_04DC_break:
     // end of stage
 
     gctl_stg_splash_scrn();
-    gctl_fghtr_rdy();  // jp   _fghtr_rdy
+    plyr_respawn_rdy();  // jp   _fghtr_rdy
 
     return 0; // _game_runner
 }
@@ -622,7 +620,7 @@ static int gctl_plyr_terminate(void)
         c_tdelay_3();
         c_tdelay_3();
 
-        // block while active tractor beam completes
+        // block if tractor beam completing
         while (0 != task_actv_tbl_0[0x18]){;} // f_2222 (Boss starts tractor beam)
         {
             _updatescreen(1);
@@ -675,15 +673,15 @@ static int gctl_plyr_terminate(void)
         {
             gctl_stg_splash_scrn(); // respawn_1P ... blocks on busy-loop
         }
-        gctl_plyr_respawn_wait(); // jr   _plyr_respawn_wait ... READY
+        plyr_respawn_wait(); // jr   _plyr_respawn_wait ... READY
 
         return 0; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner
     }
     else if ( -1 == plyr_state_susp.num_ships  // -1 when .resv_fghtrs exhausted
-              || 1 != glbls9200.restart_stage )
+              || 0 != glbls9200.restart_stage )
     {
         // allow actv plyr respawn if susp plyr fighters depleted, or on capture event
-        gctl_plyr_startup(); // jp   ..,_plyr_startup ... "Player X" text + _respawn_wait
+        plyr_respawn_plyrup(); // jp   ..,_plyr_respawn_plyrup ... "Player X" text + _respawn_wait
 
         return 0;
     }
@@ -752,7 +750,7 @@ static void plyr_chg(void)
     if (0 == plyr_state_actv.b_nbugs)
     {
         // jr   z, plyr_respawn_splsh
-        gctl_plyr_respawn_splsh();
+        plyr_respawn_splsh();
 
         return 0;
     }
@@ -769,7 +767,7 @@ static void plyr_chg(void)
         _updatescreen(1);
     } // jr   nz,l_0594
 
-    gctl_plyr_startup(); // jp   _plyr_startup ... _plyr_respawn_plyrup
+    plyr_respawn_plyrup(); // jp   _plyr_respawn_plyrup ... _plyr_respawn_plyrup
 }
 
 
@@ -797,12 +795,12 @@ static void plyr_chg(void)
 ; Player respawn with stage setup (i.e. when plyr.enemys = 0, i.e. player
 ; change, or at start of new game loop.
 ;;----------------------------------------------------------------------------*/
-static void gctl_plyr_respawn_splsh(void)
+static void plyr_respawn_splsh(void)
 {
     gctl_stg_splash_scrn();
 
 //_respawn_plyrup:
-    gctl_plyr_startup();
+    plyr_respawn_plyrup();
 }
 
 /*=============================================================================
@@ -813,22 +811,22 @@ static void gctl_plyr_respawn_splsh(void)
 ;;   Out of "new_stage" or "plyr_changeover"
 ;;
 ;;----------------------------------------------------------------------------*/
-static void gctl_plyr_startup(void)
+static void plyr_respawn_plyrup(void)
 {
     // P1 text is index 4, P2 is index 5
     c_string_out(0x0260 + 0x0E, plyr_state_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
 
     // respawn always followed by fghtr_rdy
-    gctl_plyr_respawn_wait();
+    plyr_respawn_wait();
 }
 
 /*=============================================================================
-;;  gctl_plyr_respawn_wait
+;;  plyr_respawn_wait
 ;;  Description:
 ;;   Player respawn with timing
 ;;
 ;;----------------------------------------------------------------------------*/
-static void gctl_plyr_respawn_wait(void)
+static void plyr_respawn_wait(void)
 {
     uint8 A;
 
@@ -848,7 +846,7 @@ static void gctl_plyr_respawn_wait(void)
 
     c_tdelay_3(); // short delay for fighter respwn, no ESC
 
-    gctl_fghtr_rdy();
+    plyr_respawn_rdy();
 }
 
 /*=============================================================================
@@ -858,7 +856,7 @@ static void gctl_plyr_respawn_wait(void)
 ;;   Readies fighter operation active by enabling rockets and hit-detection
 ;;
 ;;----------------------------------------------------------------------------*/
-static void gctl_fghtr_rdy(void)
+static void plyr_respawn_rdy(void)
 {
     task_actv_tbl_0[0x15] = 1; // f_1F04 ...fire button input
     //ds_cpu1_task_en[0x05] = 1;  // (enable cpu1:f_05EE ... fighter hit detection)
@@ -974,9 +972,9 @@ static void gctl_chllng_stg_end(void)
     // erase "Special Bonus 10000 Pts" (or Bonus xxxx)
     c_string_out(0x03A0 + 0x13, 0x0B);
 
-    j_string_out_pe(1, -1, 0x0B); // erase "PERFECT !")
+    j_string_out_pe(1, -1, 0x0B); // erase "PERFECT !"
 
-    // j_04DC_new_stage_setup
+    // jp   l_04DC_break
 }
 
 /*=============================================================================
