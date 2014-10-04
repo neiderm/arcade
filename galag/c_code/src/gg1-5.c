@@ -173,12 +173,29 @@ static const uint8 flv_d_00f1[] =
 };
 
 
-// Look up table, indices into fmtn_hpos_ arrays for home-position
-// ordinates of sprt_mctl_objs[] i.e. indexed as per sprt_mctl_objs and
-// sprite registers. Table entries are pre-multiplied by two to provide byte
-// offsets into fmtn_hpos_ arrays (two-bytes for each pixel ordinate). Saves a
-//  considerable amount of RAM since there are only 16 unique ordinates that
-// have to be stored.
+/*=============================================================================
+;; Assignment of sprite-objects in formation:
+;;
+;;                  00 02 04 06 08 0A 0C 0E 10 12
+;;
+;;     14                    00 04 06 02          ; captured fighters (00, 02, 04 used as icons on push-start-btn screen)
+;;     16                    30 34 36 32          ; bosses
+;;     18              40 48 50 58 5A 52 4A 42    ; drones, escorts
+;;     1A              44 4C 54 5C 5E 56 4E 46
+;;     1C           08 10 18 20 28 2A 22 1A 12 0A
+;;     1E           0C 14 1C 24 2C 2E 26 1E 16 0E
+;;
+;;     organization of row and column pixel position LUTs
+;;
+;;      |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
+;;
+;;      00   02   04   06   08   0A   0C   0E   10   12   14   16   18   1A   1C   1E
+;;
+;;---------------------------------------------------------------------------*/
+// The table assigns each "managed" sprite-object to it's formation position.
+// IDs $38 - $3E are reserved for Special Bonus enemies .
+// Each row and column ordinate, pre-multiplied by two, provides the
+// byte-offset to lookup the actual pixel location.
 const uint8 sprt_fmtn_hpos_ord_lut[] =
 {
     0x14, 0x06, 0x14, 0x0C, 0x14, 0x08, 0x14, 0x0A, 0x1C, 0x00, 0x1C, 0x12, 0x1E, 0x00, 0x1E, 0x12,
@@ -1014,7 +1031,8 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
                 // check Y coordinate ... set .sY<8:1>
                 tmpA.pair.b1 = mrw_sprite.ctrl[hl].b1; // .sy<8>
                 tmpA.pair.b0 = mrw_sprite.posn[hl].b1; // .sy<7:0>
-                // dec  l
+                // tmpA.pair.b1 should now be 0 to properly detect carry-out
+                // into <:8> from addition (below)
                 tmpA.word >>= 1; // rrc  d ... rra
 
                 // tolerance (3) and offset (6) for hit-check divided by 2 to
@@ -1022,6 +1040,9 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
                 // only 1-byte of result needed ( d>-3 && d<+3 )
                 tmpA.pair.b0 -= IXH; // sub  ixh ...  -= rocket.sy<8:1>
                 tmpA.pair.b0 -= 3;
+
+                // tmpA.pair.b1 should be 0 (from right-shift, above) to
+                // properly detect carry-out into <:8> from addition
                 tmpA.word += 6; // carry out from 1-byte sets "Cy" in .b1<0>
 
                 if (tmpA.pair.b1) // ... else ... jr   nc,l_07B4_next_object
@@ -1132,7 +1153,7 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
 static uint8 hitd_dspchr_rckt(uint8 AF, uint8 E, uint8 HL)
 {
     //l_07B9_
-    // ds_plyr_actv._w_hit_ct += 1;
+    plyr_state_actv.hit_ct += 1;
 
     // make the rocket available to rckt_sprite_init() again:
     //  z80 code "harmlessly" allowed the passed pointer to .b0 for fighter,
@@ -1189,8 +1210,10 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
 {
     uint8 A;
 
+    // for fighter, setting .y to 0 will screw up setting .y of explosion tile in hitd_fghtr_hit
+    //mrw_sprite.posn[E].b1 = 0; // ld   (de),a ... sX<7:0>
+    //mrw_sprite.ctrl[E].b1 = 0; // ld   (de),a
 
-    // jp   z,l_08CA_ ... green_boss (non-moving)
     if (0 == mrw_sprite.cclr[HL].b1) // and  a
     {
         // l_08CA_: color map 0 is "green" boss, don't delete from queue yet
@@ -1202,8 +1225,7 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
         // jp   l_07B4_next_object
         return 1;
     }
-    // jr   z,l_0815_
-    else
+
     if (0x0B == mrw_sprite.cclr[HL].b1) // cp   #0x0B ... color map $B is for "bombs"
     {
         // noticed this stuff will also be cleared out by gctl_plyr_terminate
@@ -2286,7 +2308,7 @@ static void mctl_posn_set(uint8 mpidx)
                         // result in 8-bits but parameter passed in hl to div16_8()
                         hl16.pair.b1 = -hl16.pair.b1; // neg ... ld   h,a
                     }
-                    hl16.pair.b0 = L; // what about L?
+
                     // l_0DB1:
                     a16.word = 298 >> 1; // 0x95 ... 354-56
                     if (glbls9200.flip_screen)  a16.word = 56 >> 1; // 0x1C ... 354-298

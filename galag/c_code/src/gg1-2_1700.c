@@ -1373,7 +1373,7 @@ static void rckt_sprite_init(void)
 
     b_9AA0[0x0F] = 1; // sound-fx count/enable, shot-sound
 
-    // game shots fired count+=1 (2 bytes) ... ds_9820_actv_plyr_state[0x26]
+    plyr_state_actv.shot_ct +=1;
 }
 
 /*=============================================================================
