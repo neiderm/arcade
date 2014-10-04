@@ -116,8 +116,8 @@ typedef struct
     uint8 bonus_bee_launch_tmr;
     uint8 b_atk_wv_enbl;      // 0 when respawning player ship
     uint8 b_nbugs;            // b_bugs_actv_nbr
-    //   0x24    ; total_hits
-    //   0x26    ; shots_fired
+    uint16 hit_ct;            // total_hits
+    uint16 shot_ct;           // shots_fired
     uint8 sndflag; // 9AA0[0] ... sound_mgr_status, player1/2 switch
 
 } t_struct_plyr_state;

@@ -78,6 +78,7 @@ static void plyr_respawn_splsh(void);
 static void plyr_respawn_plyrup(void);
 static void plyr_respawn_wait(void);
 static void plyr_respawn_rdy(void);
+static void gctl_hit_ratio(void);
 
 
 /*=============================================================================
@@ -631,23 +632,56 @@ static int gctl_plyr_terminate(void)
         c_sctrl_sprite_ram_clr();
         c_sctrl_playfld_clr();
 
+        j_string_out_pe(1, -1, 0x15); // ("-RESULTS-") // 0x15
+        j_string_out_pe(1, -1, 0x16); // ("SHOTS FIRED") // 0x16
+
+        c_text_out_i_to_d (plyr_state_actv.shot_ct, 0x0120 + 0x12);
+
+        j_string_out_pe(1, -1, 0x18); // (0x18, "NUMBER OF HITS")
+
+        c_text_out_i_to_d (plyr_state_actv.hit_ct, 0x0120 + 0x15); // ( game number of hits )
+
+        j_string_out_pe(1, -1, 0x19); // ("HIT-MISS RATIO") // 0x19
+
+        gctl_hit_ratio();
+
+        c_string_out(0x00A0 + 0x18, 0x1A); // "%" after hit-miss number
+
+        // wait for the timer
+        ds4_game_tmrs[2] = 0x0E;
+        while( 0 != ds4_game_tmrs[2])
+        {
+            _updatescreen(1);
+        } // jr   nz,l_0540
+
+        c_sctrl_playfld_clr();
+        //call c_top5_dlg_proc();
+
+        b_9AA0[0x10] = 0; // sound-fx count/enable registers, hi-score dialog?
 
         // l_0554: sync/wait for hi-score dlg music
         while (0 != b_9AA0[0x0C] && 0 != b_9AA0[0x16]) // jr   z,l_0562
         {
             if (1 != b_9AA0[0x0C]) // jr   z,l_055F
             {
-                // i don't know
+                // fx[$0C] used as timer, enable fx[$16] when 0 is reached
                 b_9AA0[0x0C] = 1; // ld   (hl),#1
             }
-            // l_055F:
-            //  waiting for either a maskable or nonmaskable interrupt (with the mask enabled) before
-            //  operation can resume.
-            // halt ... hi-score, finished name entry (wait for music to stop)
+            // l_055F: finished hi-score name entry, wait for music to stop.
+            // On halt, processor wakes at maskable or nonmaskable interrupt
+            // providing something like a busy-wait with sleep(n) where n is
+            // the interrupt period.
+            //while(!interrupt) //  // loop on interrupt flag to simulate halt?
+            {
+                _updatescreen(1); // refresh screen during blocking operation
+            }
         } // //jr   l_0554
 
        //l_0562:
        c_sctrl_playfld_clr(); // clear screen at end of game
+
+       // done game over stuff for active player, so if 1P game or
+       // plyr_susp.resv_fghtrs exhausted then halt
 
        // num_ships == -1 when no resv ships remain
        if (0 == gctl_two_plyr_game || -1 == plyr_state_susp.num_ships)
@@ -673,6 +707,7 @@ static int gctl_plyr_terminate(void)
         {
             gctl_stg_splash_scrn(); // respawn_1P ... blocks on busy-loop
         }
+        // _respawn_plyrup but skip Player X text on stage restart
         plyr_respawn_wait(); // jr   _plyr_respawn_wait ... READY
 
         return 0; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner
@@ -752,7 +787,7 @@ static void plyr_chg(void)
         // jr   z, plyr_respawn_splsh
         plyr_respawn_splsh();
 
-        return 0;
+        return;
     }
 
     j_string_out_pe(1, -1, 0x03); // string_out_pe "READY"
@@ -816,7 +851,7 @@ static void plyr_respawn_plyrup(void)
     // P1 text is index 4, P2 is index 5
     c_string_out(0x0260 + 0x0E, plyr_state_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
 
-    // respawn always followed by fghtr_rdy
+    //_plyr_respawn_wait: respawn always followed by fghtr_rdy
     plyr_respawn_wait();
 }
 
@@ -1721,4 +1756,21 @@ uint16 c_text_out_i_to_d(uint16 HL, uint16 DE)
     }
 
     return DE;
+}
+
+/*=============================================================================
+;; hit_ratio()
+;;  Description:
+;;   Calculate and display numerical hit/miss ratio.
+;; IN:
+;;  ...
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+static void gctl_hit_ratio(void)
+{
+    uint16 hl, de;
+
+    hl = plyr_state_actv.hit_ct;
+    de = plyr_state_actv.shot_ct;
 }
