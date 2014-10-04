@@ -399,7 +399,7 @@ ds4_game_tmrs:
          .ds     $$04
 
 b_92B0:
-         .ds     $$02 * 8   ; bomb X-rate (fixed by supervisor somewhere)
+         .ds     $$02 * 8   ; bomb X-rate
                             ; accumulator for division remainder (f_1EA4)
 
 b_92C0:
@@ -605,6 +605,7 @@ b_9A80:
          .ds     $$05       ; unused
          .ds     $$10       ; unused
 
+ds_9AA0: ; label for pointer+index operations
 b_9AA0:
 ; Most of these registers function as a count/enable for individual sound effects
          .ds     $$01       ; 00:  diving-attacks sound effects
@@ -635,7 +636,7 @@ b_9AA0:
          .ds     $$01       ; 19: !0 ... trigger "bang" sound
          .ds     $$06       ; unused
 
-; Many of these will correspond to b_9AA0 ... indicating if a particular sound is in process.
+; Many of these will correspond to _9AA0[] ... indicating if a particular sound is in process.
 b_9AC0:
          .ds     $$20       ; Active flags of each sound effect
 

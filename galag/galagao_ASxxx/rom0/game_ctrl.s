@@ -9,7 +9,7 @@
 ;;  g_main:
 ;;      Initializes game state. Starts with Title Screen, or "Press Start"
 ;;      screen if credit available.
-;;  gctl_plyr_start_stg_init:
+;;  plyr_respawn_splsh:
 ;;      Sets up each new stage.
 ;;  jp_045E_While_Game_Run:
 ;;      Continous loop once the game is started, until gameover.
@@ -50,7 +50,7 @@ j_Game_init:
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
 
 ;  memset($9aa0,0,$20)
-       ld   hl,#b_9AA0                            ; memset(...,0,$20) ... count/enable registers for sound effects
+       ld   hl,#ds_9AA0                           ; memset(...,0,$20) ... count/enable registers for sound effects
        ld   b,#0x20
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
 
@@ -562,7 +562,7 @@ l_04C1_while:
        or   c
        jr   nz,gctl_plyr_terminate
 
-       ld   a,(ds_plyr_actv +_b_not_chllg_stg)    ; ==(stg_ctr+1)%4 ...i.e. 0 if challenge stage
+       ld   a,(ds_plyr_actv +_b_not_chllg_stg)    ; 0 if challenge stage
        and  a
        jp   z,gctl_chllng_stg_end                 ; jp's back to 04DC_
 
@@ -648,10 +648,10 @@ l_0509_while:
        ; wait for the timer
        ld   hl,#ds4_game_tmrs + 2
        ld   (hl),#0x0E
-l_0540:
+l_0540_while:
        ld   a,(hl)
        and  a
-       jr   nz,l_0540
+       jr   nz,l_0540_while
 
        call c_sctrl_playfld_clr
        call c_top5_dlg_proc                       ; returns immediately if not in top-5
@@ -659,23 +659,24 @@ l_0540:
        xor  a
        ld   (b_9AA0 + 0x10),a                     ; 0 ... sound-fx count/enable registers, hi-score dialog?
 
-; while (0 != b_9AA0[0x0C] || 0 != b_9AA0[0x16])
+; while (0 != _fx[0x0C] || 0 != _fx[0x16]) ... finished when both 0
        ld   hl,#b_9AA0 + 0x0C                     ; sound-fx count/enable registers, hi-score dialog
        ld   de,#b_9AA0 + 0x16                     ; sound-fx count/enable registers, hi-score dialog
-l_0554:
+l_0554_while:
        ld   a,(de)                                ; sound_fx[0x16]
        ld   b,(hl)                                ; sound_fx[0x0C]
        or   b
        jr   z,l_0562
+; if (*_fx[0x0C] != 0) then _fx[0x0C] = 1 ... snd[$0C] used as timer, enable snd[$16] when 0 is reached
        inc  b
        dec  b
        jr   z,l_055F
        ld   (hl),#1
 l_055F:
-; waiting for either a maskable or nonmaskable interrupt (with the mask enabled) before
-; operation can resume.
+; On halt, processor wakes at maskable or nonmaskable interrupt providing
+; something like a busy-wait with sleep(n) where n is the interrupt period.
        halt                                       ; hi-score, finished name entry (wait for music to stop)
-       jr   l_0554
+       jr   l_0554_while
 
 l_0562:
        call c_sctrl_playfld_clr                   ; clear screen at end of game
@@ -747,15 +748,15 @@ l_05A3_while:
 
 ; exchange player data
        ld   a,(b_9AA0 + 0x00)                     ; plyr_actv.b_sndflag
-       ld   (ds_plyr_actv +_b_sndflag),a          ; 9AA0[0]
+       ld   (ds_plyr_actv +_b_sndflag),a          ; _fx[0] ... enable for pulsing_sound
        ld   a,(ds4_game_tmrs + 2)
        ld   (ds_plyr_actv +_b_plyr_swap_tmr),a    ; game_tmr[2]
        call c_player_active_switch
        call c_2C00                                ; new stage setup
        ld   a,(ds_plyr_actv +_b_plyr_swap_tmr)    ; game_tmr[2]
        ld   (ds4_game_tmrs + 2),a                 ; actv_plyr_state[0x1F]
-       ld   a,(ds_plyr_actv +_b_sndflag)          ; 9AA0[0]
-       ld   (b_9AA0 + 0x00),a                     ; = plyr_actv.b_sndflag
+       ld   a,(ds_plyr_actv +_b_sndflag)          ; _fx[0] ... enable for pulsing_sound
+       ld   (b_9AA0 + 0x00),a                     ; enable for pulsing_sound
        call draw_resv_ships
 
 ; if ( _enmy_ct_actv != 0 ) ...
@@ -824,18 +825,18 @@ j_0604_plyr_respawn_1P:
        jr   nz,gctl_plyr_respawn_wait
 ; ... then ...
        call gctl_stg_splash_scrn                  ; new stage setup, shows "STAGE X"
+
        jr   gctl_plyr_respawn_wait
 
 
-
 ;;=============================================================================
-; New stage setup for player changeover, or at start of new game loop.
+; Player respawn with stage setup (i.e. when plyr.enemys = 0, i.e. player
+; change, or at start of new game loop.
 ; If on a new game, PLAYER 1 text has been erased.
-; Only evident purpose for the label is to allow "jr   z,new_stage"
 gctl_plyr_start_stg_init:
        call gctl_stg_splash_scrn                  ; shows "STAGE X" and does setup
 
-       ;; gctl_plyr_startup()
+       ;; plyr_respawn_plyrup()
 
 ;;-----------------------------------------------------------------------------
 ; Setup a new player... every time the player is changed on a 2P game or once
@@ -849,7 +850,7 @@ gctl_plyr_startup:
        call c_string_out                          ; puts PLAYER X ("1" or "2") .
 
 ;;-----------------------------------------------------------------------------
-
+;; _fghtr_rdy + wait ... 1 player skips previous stuff
 gctl_plyr_respawn_wait:
        call c_player_respawn                      ; "credit X" is wiped and reserve ships appear on lower left of screen
 
@@ -1001,6 +1002,7 @@ l_06BA:
 
        ld   c,#0x0B                               ; index into string table
        rst  0x30                                  ; string_out_pe (erase "PERFECT !")
+
        jp   l_04DC_break
 
 
@@ -1034,10 +1036,11 @@ l_06E0_while_wait_io_ackrdy:
        xor  a
        call c_093C                                ; handle "blink" of Player1/Player2 texts.
        ei
+
 ;  memset($9AA0,0,$20)
        xor  a
        ld   b,#0x20
-       ld   hl,#b_9AA0                            ; $20 bytes cleared
+       ld   hl,#ds_9AA0                           ; count/enable registers for sound effects, $20 bytes cleared
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
 
        ld   de,#m_tile_ram + 0x03E0 + 0x19        ; 83f9 is 10's place score digit, below P of '1UP'
@@ -1782,7 +1785,7 @@ l_09E1_update_game_state:
 
        ; memset($9AA0,0,8)
        xor  a
-       ld   hl,#b_9AA0 + 0x00                     ; clear sound-fx count/enable registers (9AA0...9AA7)
+       ld   hl,#ds_9AA0 + 0x00                    ; clear sound-fx count/enable registers (9AA0...9AA7)
        ld   b,#8
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
        ; memset($9AA0+8+1,0,15)
@@ -1942,7 +1945,7 @@ c_0A6E:
 ;; IN:
 ;;  ...
 ;; OUT:
-;;  ...
+;;  DE == resultant pointer to screen ram to be used by caller
 ;;-----------------------------------------------------------------------------
 c_0A72_puts_hitmiss_ratio:
 
@@ -1992,10 +1995,10 @@ l_0AA5:
        inc  l
 l_0AAD:
        ex   de,hl
-       call c_0B06                                ; HL *= $0A
+       call c_0B06                                ; HL *= 10
        ex   af,af'
        ex   (sp),hl
-       call c_0B06                                ; HL *= $0A
+       call c_0B06                                ; HL *= 10
        ex   (sp),hl
        rst  0x10                                  ; HL += A
        ex   af,af'

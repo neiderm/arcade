@@ -177,7 +177,7 @@ c_nmi_proc:
        ldir
 
 ; if ( sound_mgr_reset )  ...
-       ld   a,(b_9AA0 + 0x17)                     ; if !0, disable/reset sound-manager process
+       ld   a,(b_9AA0 + 0x17)                     ; 0 ... enable sound mgr process
        and  a
        jp   nz,l_033D_clear_all
 ; ... then ...
@@ -311,7 +311,7 @@ l_0179:
 
 ; yellow bug hit sound
 l_0182:
-       ld   hl,#b_9A70 + 0x04                     ; 3
+       ld   hl,#b_9A70 + 0x04                     ; $03
        ld   (hl),#3
        ld   a,(b_9AA0 + 0x03)                     ; sound-fx count/enable registers, yellow bug hit sound
        and  a
@@ -328,7 +328,7 @@ l_0196:
 
 ; red bug hit sound
 l_019F:
-       ld   hl,#b_9A70 + 0x04                     ; 2
+       ld   hl,#b_9A70 + 0x04                     ; $02
        ld   (hl),#2
        ld   a,(b_9AA0 + 0x02)                     ; sound-fx count/enable registers, red bug hit sound
        and  a
@@ -345,7 +345,7 @@ l_01B3:
 
 ; hit_green_boss
 l_01BC:
-       ld   hl,#b_9A70 + 0x04                     ; 4
+       ld   hl,#b_9A70 + 0x04                     ; $04
        ld   (hl),#4
        ld   a,(b_9AA0 + 0x04)                     ; sound-fx count/enable registers, hit_green_boss
        and  a
@@ -362,7 +362,7 @@ l_01D0:
 
 ; hit_blue_boss
 l_01D9:
-       ld   hl,#b_9A70 + 0x04                     ; 1
+       ld   hl,#b_9A70 + 0x04                     ; $01
        ld   (hl),#1
        ld   a,(b_9AA0 + 0x01)                     ; sound-fx count/enable registers, blue-boss hit sound
        and  a
@@ -394,7 +394,7 @@ l_0204:
        and  a
        jr   z,l_0236
 
-       ld   hl,#b_9A70 + 0x04                     ; 5 ... capture beam
+       ld   hl,#b_9A70 + 0x04                     ; $05 ... capture beam
        ld   (hl),#5
        call c_0375
 
@@ -432,7 +432,7 @@ j_0239:
        and  a
        jr   z,l_0263
 
-       ld   hl,#b_9A70 + 0x04                     ; 6
+       ld   hl,#b_9A70 + 0x04                     ; $06
        ld   (hl),#6
        call c_0375
 
@@ -463,7 +463,7 @@ l_0266:
        ld   a,(b_9AA0 + 0x09)                     ; sound-fx count/enable registers
        and  a
        jr   z,l_0276
-       ld   hl,#b_9A70 + 0x04                     ; 9
+       ld   hl,#b_9A70 + 0x04                     ; $09
        ld   (hl),#9
        call c_0375
        jr   l_0279
@@ -475,7 +475,7 @@ l_0279:
        ld   a,(b_9AA0 + 0x07)                     ; sound-fx count/enable registers, shot your ship!
        and  a
        jr   z,l_0287
-       ld   hl,#b_9A70 + 0x04                     ; 7
+       ld   hl,#b_9A70 + 0x04                     ; $07
        ld   (hl),#7
        call c_04A2
 
@@ -590,9 +590,9 @@ l_032D:
        ld   a,(b_9AA0 + 0x08)                     ; sound-fx count/enable registers, coin sound
        and  a
        jr   z,l_033B
-       ld   hl,#b_9A70 + 0x04                     ; 8
-       ld   (hl),#8                               ; U = index of sound
-       call c_04A2                                ; b_9AA0[U] will be decremented
+       ld   hl,#b_9A70 + 0x04                     ; actv_snd_idx = $08
+       ld   (hl),#0x08                            ; actv_snd_idx
+       call c_04A2                                ; _fx[$08] will be decremented
 
 l_033B:
        jr   j_0357_set_SFRs
@@ -647,7 +647,7 @@ c_0375:
        ldir
 
 ; if challenge stage default melody
-       ld   a,(b_9A70 + 0x04)                     ; if ( actv_snd_idx == 0x0E ) ...
+       ld   a,(b_9A70 + 0x04)                     ; if ( actv_snd_idx == $0E ) ...
        cp   #0x0E
        jr   nz,l_03A6
 ; if 0 == data_index
@@ -672,7 +672,7 @@ l_03A3:
 ; now we are checking active flags for some reason,,,,
 l_03A6:
        ld   hl,#b_9AC0                            ; if ( 0 == b_9AC0[ actv_snd_idx ] )  b_9AC0[ actv_snd_idx ] = 1
-       ld   a,(b_9A70 + 0x04)
+       ld   a,(b_9A70 + 0x04)                     ; b_9AC0[ actv_snd_idx ]
        add  a,l
        ld   l,a
        ld   a,(hl)
@@ -727,7 +727,7 @@ l_03E0:
 
 ; clear the sound_active flag for this one
        ld   hl,#b_9AC0                            ; b_9AC0[ actv_snd_idx ] = 0
-       ld   a,(b_9A70 + 0x04)
+       ld   a,(b_9A70 + 0x04)                     ; b_9AC0[ actv_snd_idx ]
        add  a,l
        ld   l,a
        ld   (hl),#0
@@ -749,7 +749,7 @@ l_03E0:
 c_03F4:
 ; on this one we increment the Active flag
        ld   hl,#b_9AC0                            ; b_9AC0[ actv_snd_idx ]++
-       ld   a,(b_9A70 + 0x04)
+       ld   a,(b_9A70 + 0x04)                     ; b_9AC0[ actv_snd_idx ]
        add  a,l
        ld   l,a
        inc  (hl)
@@ -766,7 +766,7 @@ c_03F4:
        ldir
 
 ; if challenge stage default melody
-       ld   a,(b_9A70 + 0x04)                     ; if ( actv_snd_idx == 0x0E ) ...
+       ld   a,(b_9A70 + 0x04)                     ; if (actv_snd_idx == $0E) ...
        cp   #0x0E
        jr   nz,l_042E
 ; if 0 == data_index
@@ -838,7 +838,7 @@ c_044A:
        ldir
 
 ; if challenge stage default melody
-       ld   a,(b_9A70 + 0x04)                     ; if ( actv_snd_idx == 0x0E ) ...
+       ld   a,(b_9A70 + 0x04)                     ; if (actv_snd_idx == $0E) ...
        cp   #0x0E
        jr   nz,j_047B
 ; if 0 == data_index
@@ -886,7 +886,7 @@ l_048E:
 
 ; clear the sound_active flag for this one
        ld   hl,#b_9AC0                            ; b_9AC0[ actv_snd_idx ] = 0
-       ld   a,(b_9A70 + 0x04)
+       ld   a,(b_9A70 + 0x04)                     ; b_9AC0[ actv_snd_idx ]
        add  a,l
        ld   l,a
        ld   (hl),#0
@@ -914,7 +914,7 @@ c_04A2:
        ldir
 
 ; if challenge stage default melody
-       ld   a,(b_9A70 + 0x04)                     ; if ( actv_snd_idx == 0x0E ) ...
+       ld   a,(b_9A70 + 0x04)                     ; if (actv_snd_idx == $0E) ...
        cp   #0x0E
        jr   nz,l_04D3
 ; if 0 == data_index
@@ -995,49 +995,51 @@ l_050D:
 
 ; clear the sound_active flag for this one
        ld   hl,#b_9AC0                            ; b_9AC0[ actv_snd_idx ] = 0
-       ld   a,(b_9A70 + 0x04)
+       ld   a,(b_9A70 + 0x04)                     ; _fx[actv_snd_idx ]
        add  a,l
        ld   l,a
        ld   (hl),#0
 
 ; exactly the same as c_0375 until here ...  update the count/enable register for certain sound-effects
 
-       ld   hl,#b_9AA0                            ; b_9AA0[ actv_snd_idx ] ... count/enable register
-       ld   a,(b_9A70 + 0x04)
+       ld   hl,#ds_9AA0                           ; _fx[ actv_snd_idx ] ... count/enable register
+       ld   a,(b_9A70 + 0x04)                     ; _fx[actv_snd_idx ]
        add  a,l
        ld   l,a
 
 ; switch( actv_snd_idx )
-; case 8:
-       ld   a,(b_9A70 + 0x04)                     ; [ actv_snd_idx == 8 ] ... count/enable register, coin sound
+; case $08:
+       ld   a,(b_9A70 + 0x04)                     ; if (actv_snd_idx == $08) ... count/enable register, coin sound
        cp   #8
        jr   z,l_053A_idx_8
-; case 0x0C:
-       cp   #0x0C                                 ; ... && if ( actv_snd_idx != 0x0C )
+; case $0C:
+       cp   #0x0C                                 ; ... && if ( actv_snd_idx != $0C )
        jr   z,l_053C_idx_C
-; case 0x14:
-       cp   #0x14                                 ; ... && if ( actv_snd_idx != 0x14 )  { b_9AA0[ actv_snd_idx ] ; return }
+; case $14:
+       cp   #0x14                                 ; ... && if ( actv_snd_idx != $14 )  { b_9AA0[ actv_snd_idx ] = 0 ; return }
        jr   z,l_0548_idx_14
 ; default:
        ld   (hl),#0
        ret
 
 l_053A_idx_8:
-       dec  (hl)                                  ; [ actv_snd_idx == 8 ] &&  b_9AA0[idx]-- && ret
+       dec  (hl)                                  ; _fx[idx]--
        ret
 
 l_053C_idx_C:
+; _fx[$0C] used as timer ... enable snd[$16] when 0 is reached
+; caller would not have called this with _9AA0[$0C] == 0 ?
        dec  (hl)
-       jr   z,l_0542_set_enable
-       bit  0,(hl)
+       jr   z,l_0542_enable_16
+       bit  0,(hl)                                ; not sure significance of checking <:0>
        ret  z
-l_0542_set_enable:
+l_0542_enable_16:
        ld   a,#0x01
        ld   (b_9AA0 + 0x16),a                     ; 1 ... sound-fx count/enable registers, hi-score dialog?
        ret
 
 l_0548_idx_14:
-       ld   (hl),#0                               ; b_9AA0[ actv_snd_idx ] ... count/enable register
+       ld   (hl),#0                               ; _fx[ actv_snd_idx ] ... count/enable register
        ld   hl,#b_9AA0 + 0x13                     ; 1 ... sound-fx count/enable registers, bug dive attack sound
        ld   (hl),#1
        ret

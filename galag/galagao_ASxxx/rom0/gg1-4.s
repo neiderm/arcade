@@ -1033,9 +1033,9 @@ _rd_aaaa_loop:
        ld   (_sfr_watchdog),a
        call c_svc_clr_snd_regs                    ; $9AA0, $40 bytes
 
-; enable f_05BE in CPU-sub1 (empty task) ... disabled in game_ctrl start (... why 7?)
+; enable f_05BE in CPU-sub1 (empty task) ... disabled in game_ctrl start
        ld   a,#7
-       ld   (ds_cpu1_task_actv + 0x00),a          ; 7 ... enable cpu1:f_05BE
+       ld   (ds_cpu1_task_actv + 0x00),a          ; 7 ... skips to f_05BE in CPU-sub task-table
 
        call c_spriteposn_regs_init
        jp   j_romtest_mgr                         ; should jr back to Test_menu_init
@@ -1377,7 +1377,7 @@ l_35E9:
        ld   (_sfr_watchdog),a
        call c_io_cmd_wait
 
-; setup interrupt mode and toggle the latch.
+; setup interrupt mode and toggle the latch (enable cpu0_rst38)
        ld   (_sfr_watchdog),a
        im   1
        ld   hl,#_sfr_6820                         ; maincpu irq acknowledge/enable
@@ -2030,7 +2030,7 @@ l_38B1:
        ldi
        ldi
        dec  hl                                    ; point to second byte of two-byte Table entry
-       ld   c,#1                                  ; flag tells 38DA that it was 'called' i.e. get out by 'ret'urn.
+       ld   c,#1                                  ; flag tells 38DA that it was 'called' i.e. get out by return
        call c_38DA                                ; display 'second and every' bonus settings
        dec  hl                                    ; point to first byte of two-byte table entry
        ld   c,#0                                  ; flag allows 3904 ret to occur
@@ -2446,7 +2446,7 @@ l_3A29:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 c_svc_clr_snd_regs:
-       ld   hl,#b_9AA0                            ; sound mgr SFRs, clear $40 bytes
+       ld   hl,#ds_9AA0                           ; sound mgr SFRs, clear $40 bytes
        ld   b,#0x40                               ; length to fill
 l_3A41:
        ld   (hl),#0                               ; fill with 0
