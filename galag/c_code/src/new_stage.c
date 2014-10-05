@@ -43,7 +43,7 @@ static const uint8 stg_bmbr_parms[][130];
 ;; OUT:
 ;;  ...
 ;;----------------------------------------------------------------------------*/
-void gctl_stg_bombr_setparms(void)
+void stg_bombr_setparms(void)
 {
     uint8 iHL;
     uint8 A, E, L;

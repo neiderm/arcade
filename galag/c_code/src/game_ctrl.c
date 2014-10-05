@@ -757,7 +757,7 @@ static void plyr_chg(void)
     plyr_state_actv.sndflag = b_9AA0[0];
     plyr_state_actv.tmr2 = ds4_game_tmrs[2];
     c_player_active_switch();
-    gctl_stg_bombr_setparms(); // new stage setup
+    stg_bombr_setparms(); // new stage setup
     b_9AA0[0] = plyr_state_actv.sndflag;
     ds4_game_tmrs[2] = plyr_state_actv.tmr2;
     fghtr_resv_draw();

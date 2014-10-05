@@ -344,7 +344,7 @@ static void gctl_stg_new_env_init(void)
     task_actv_tbl_0[0x08] = 1; // f_2916 ... Launches the attack formations
     task_actv_tbl_0[0x0A] = 1; // f_2A90 ... left/right movement of collective while attack waves coming
 
-    gctl_stg_bombr_setparms();
+    stg_bombr_setparms();
 
     // initialize 8-byte array
     for (B = 0; B < (sizeof(plyr_state_actv.bmbr_boss_scode) / 2); B++)
