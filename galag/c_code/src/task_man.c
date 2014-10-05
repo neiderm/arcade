@@ -55,7 +55,7 @@ static uint8 d_str20000[];
 static uint8 d_strSCORE[];
 
 // function prototypes
-static void gctl_stg_new_env_init();
+static void stg_init_env();
 
 
 /**********************************************************************
@@ -143,32 +143,6 @@ void gctl_1uphiscore_displ(void)
     }
 }
 
-
-/*=============================================================================
-;; Home positions of objects in the cylon fleet. Replicated in gg1-5.s
-;; Refer to diagram:
-;;
-;; object[] {
-;;  location.row    ...index to row pixel LUTs
-;;  location.column ...index to col pixel LUTs
-;; }
-;;                  00 02 04 06 08 0A 0C 0E 10 12
-;;
-;;     14                    00 04 06 02            ; captured vipers
-;;     16                    30 34 36 32            ; base stars
-;;     18              40 48 50 58 5A 52 4A 42      ; raiders
-;;     1A              44 4C 54 5C 5E 56 4E 46
-;;     1C           08 10 18 20 28 2A 22 1A 12 0A
-;;     1E           0C 14 1C 24 2C 2E 26 1E 16 0E
-;;
-;;  organization of row and column pixel position LUTs (ds_home_posn_org etc.):
-;;
-;;      |<-------------- COLUMNS --------------------->|<---------- ROWS ---------->|
-;;
-;;      00   02   04   06   08   0A   0C   0E   10   12   14   16   18   1A   1C   1E
-;;
-;;----------------------------------------------------------------------------*/
-// db_obj_home_posn_rc
 
 /*=============================================================================
 ;; c_sctrl_playfld_clr()
@@ -287,25 +261,24 @@ void gctl_stg_splash_scrn(void)
         // can't getout on ESC during part of the intro music
         if (0 != _updatescreen(1))
         {
-            _updatescreen(1); // _stg_splash_scrn
+            ; // get out
         }
     }
 
-    gctl_stg_new_env_init();
+    stg_init_env();
 }
 
 /*=============================================================================
-;; gctl_stg_new_env_init()
+;; init_env()
 ;;  Description:
 ;;   Initialize new stage environment and handle rack-advance if enabled.
-;;   Follows new stage splash screen in normal play mode (splash screen
-;;   skipped in demo).
+;;   This section is broken out so that splash screen can be skipped in demo.
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------*/
-static void gctl_stg_new_env_init(void)
+static void stg_init_env(void)
 {
     uint8 B;
 
