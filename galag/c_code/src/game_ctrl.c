@@ -584,7 +584,7 @@ static int gctl_stg_restart_hdlr(void)
 l_04DC_break:
     // end of stage
 
-    gctl_stg_splash_scrn();
+    stg_init_splash();
     plyr_respawn_rdy();  // jp   _fghtr_rdy
 
     return 0; // _game_runner
@@ -705,7 +705,7 @@ static int gctl_plyr_terminate(void)
         // _plyr_respawn_1P:
         if (0 == plyr_state_actv.b_nbugs)
         {
-            gctl_stg_splash_scrn(); // respawn_1P ... blocks on busy-loop
+            stg_init_splash(); // respawn_1P ... blocks on busy-loop
         }
         // _respawn_plyrup but skip Player X text on stage restart
         plyr_respawn_wait(); // jr   _plyr_respawn_wait ... READY
@@ -825,14 +825,14 @@ static void plyr_chg(void)
 ;; possibility of either player re-entering the game with 0 enemy count due
 ;; to termination of last enemy of a stage by destruction of the fighter.
 ;; If on a new game, PLAYER 1 text has been erased.
-;; Need to return int to handle ESC and get out from _stg_splash_scrn
+;; Need to return int to handle ESC and get out from _init_splash
 ;;
 ; Player respawn with stage setup (i.e. when plyr.enemys = 0, i.e. player
 ; change, or at start of new game loop.
 ;;----------------------------------------------------------------------------*/
 static void plyr_respawn_splsh(void)
 {
-    gctl_stg_splash_scrn();
+    stg_init_splash();
 
 //_respawn_plyrup:
     plyr_respawn_plyrup();
@@ -1015,7 +1015,9 @@ static void gctl_chllng_stg_end(void)
 /*=============================================================================
 ;; g_halt()
 ;;  Description:
-;;    "call'd" when one (or both) players exhausted supply of ships.
+;;    one or both players exhausted supply of ships - game over.
+;;    time spent in spin loops provided by 'halt' instructions assumed not to
+;;    be significant and ignored.
 ;;    Resumes at g_main.
 ;; IN:
 ;;  ...
@@ -1024,6 +1026,26 @@ static void gctl_chllng_stg_end(void)
 ;;---------------------------------------------------------------------------*/
 void g_halt(void)
 {
+    // On halt, processor wakes at maskable or nonmaskable interrupt
+    // providing something like a busy-wait with sleep(n) where n is
+    // the interrupt period.
+    //while(!interrupt) //  // loop on interrupt flag to simulate halt?
+    {
+        _updatescreen(1); // refresh screen during blocking operation
+    }
+
+    // allow blinking of Player2 text to be inhibited on the intro screen when
+    // game recycles (Player1 text shown anyway)
+    gctl_1up2up_displ(0);
+
+    // count/enable registers for sound effects
+    memset(b_9AA0, 0, 0x20);
+
+    // total score (for service screen)
+
+    // total plays (for service screen)
+
+    // jp   g_main  ; from g_halt
 }
 
 /*=============================================================================

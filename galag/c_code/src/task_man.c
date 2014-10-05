@@ -197,7 +197,7 @@ void c_sctrl_playfld_clr(void)
 }
 
 /*=============================================================================
-;; gctl_stg_splash_scrn()
+;; init_splash()
 ;;  Description:
 ;;   clears a stage (on two-player game, runs at the first turn of each player)
 ;;   Increments stage_ctr (and dedicated challenge stage %4 indicator)
@@ -208,7 +208,7 @@ void c_sctrl_playfld_clr(void)
 ;;  ...
 ;;   Need to return int to handle ESC
 ;;-----------------------------------------------------------------------------*/
-void gctl_stg_splash_scrn(void)
+void stg_init_splash(void)
 {
     uint8 Cy;
 
@@ -334,7 +334,7 @@ static void stg_init_env(void)
 //       ld   hl,#m_tile_ram + 0x03A0 + 0x10
 //       call c_string_out                          ; erase "stage X" text"
 //
-//       jp   gctl_stg_splash_scrn                   ; start over again
+//       jp   stg_init_splash                   ; start over again
 
 }
 
