@@ -483,11 +483,13 @@ static void gctl_score_init(uint8 HL, uint16 DE)
 {
     uint8 C;
 
+    // ldir
     for (C = 0; C < 7; C++)
     {
         m_tile_ram[DE + C] = gctl_score_initd[HL + C];
     }
 
+    // ldir
     for (C = 0; C < 4; C++)
     {
         m_tile_ram[0x03C0 + 3 + C] = gctl_score_initd[2 + C];
@@ -695,7 +697,9 @@ static int gctl_plyr_terminate(void)
             //    jp   _plyr_startup
             plyr_chg(); // jr   nz,_plyr_chg
             return 0;
-       }
+        }
+        // else
+        //    _terminate_active_plyr()
     }
 
 
@@ -716,12 +720,13 @@ static int gctl_plyr_terminate(void)
               || 0 != glbls9200.restart_stage )
     {
         // allow actv plyr respawn if susp plyr fighters depleted, or on capture event
-        plyr_respawn_plyrup(); // jp   ..,_plyr_respawn_plyrup ... "Player X" text + _respawn_wait
+        plyr_respawn_plyrup(); // jp   ..,_respawn_plyrup ... "Player X" text + _respawn_wait
 
         return 0;
     }
 
     plyr_chg();
+
     return 0;
 }
 
@@ -802,7 +807,7 @@ static void plyr_chg(void)
         _updatescreen(1);
     } // jr   nz,l_0594
 
-    plyr_respawn_plyrup(); // jp   _plyr_respawn_plyrup ... _plyr_respawn_plyrup
+    plyr_respawn_plyrup(); // jp   _respawn_plyrup
 }
 
 
@@ -1589,9 +1594,6 @@ const uint8 str_09CA[] = {0x1D, 0x12, 0x0D, 0x0E, 0x1B, 0x0C};
 const uint8 str_09D0[] = {0x22, 0x0A, 0x15, 0x19, 0x24, 0x0E, 0x0E, 0x1B, 0x0F};
 
 //-----------------------------------------------------------------------------
-#ifdef HELP_ME_DEBUG
-extern uint16 dbg_step_cnt;
-#endif
 
 /*=============================================================================
 ;; f_0977()
@@ -1780,10 +1782,17 @@ uint16 c_text_out_i_to_d(uint16 HL, uint16 DE)
     return DE;
 }
 
+/*
+ * DAA is 8-bits, .pair.b1<:0> is the "Cy"
+ */
+#define DAA( _X_ ) \
+    if (( _X_ & 0x000F) > 0x09)  _X_ = ( _X_ + 0x06 ) & 0x00FF; \
+    if (( _X_ & 0x00F0) > 0x90)  _X_ += 0x0060;
+
 /*=============================================================================
 ;; hit_ratio()
 ;;  Description:
-;;   Calculate and display numerical hit/miss ratio.
+;;   Calculate and display hit/shot ratio.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -1791,8 +1800,127 @@ uint16 c_text_out_i_to_d(uint16 HL, uint16 DE)
 ;;---------------------------------------------------------------------------*/
 static void gctl_hit_ratio(void)
 {
-    uint16 hl, de;
+    r32_t hl;
+    r16_t hl16, de16;
+    uint8 b, c, a1, a2;
 
-    hl = plyr_state_actv.hit_ct;
-    de = plyr_state_actv.shot_ct;
+    hl16.word = plyr_state_actv.hit_ct;
+    de16.word = plyr_state_actv.shot_ct;
+
+    if (0 == de16.word) // jr   nz,l_0A82
+    {
+        // jr   l_0AD3
+        //   l_0AD3:
+        de16.word = 0; //   ld   (b16_99B0_tmp),de
+    }
+    else
+    {
+        r32_t div32, rld32;
+        r16_t hl16_1, hl16_2;
+
+        // l_0A82: determine ratio:
+        // use left-shifts to up-scale the divisor (and dividend) equally
+        while ((0x8000 != (hl16.word & 0x8000)) & (0x8000 != (de16.word & 0x8000)))
+        {
+            hl16.word <<= 1;
+            de16.word <<= 1;
+        }
+
+        // l_0A90: do the actual division
+        div32.wpair.w1.word = hl16.word / de16.pair.b1;
+        hl16.word = (hl16.word % de16.pair.b1) << 8; // ld  h,a
+        div32.wpair.w0.word = hl16.word / de16.pair.b1;
+
+        b = 4;
+        rld32.u32 = div32.wpair.w1.pair.b1; // ld  a,h
+
+        hl16_1.word = div32.wpair.w1.pair.b0; // ld  h,0
+        hl16_2.word = div32.wpair.w0.word; // lsw of quotient (2nd div)
+
+        while (b-- > 0)
+        {
+            // rld
+            rld32.wpair.w0.word <<= 12;
+            rld32.u32 <<= 4;
+
+            hl16_1.word *= 10;
+            a1 = hl16_1.pair.b1;
+            hl16_1.pair.b1 = 0;
+
+            hl16_2.word *= 10;
+            a2 = hl16_2.pair.b1;
+            hl16_2.pair.b1 = 0;
+
+            hl16_1.word += a2; // rst  0x10 ... HL += A
+
+            // msb of addition added to msb of 1st mul
+            rld32.wpair.w0.word = (a1 + hl16_1.pair.b1) & 0x0F; // add  a,h
+            hl16_1.pair.b1 = 0; // ld  h,#0
+        }
+
+        de16.word = rld32.wpair.w1.word;
+
+        if (rld32.wpair.w0.word >= 5)
+        {
+            r16_t tmp16;
+
+            // msb/lsb not inverted since we can "rld" through 16-bits
+            tmp16.word = de16.pair.b0; // least significant digits
+            tmp16.pair.b0 += 1;
+
+            DAA( tmp16.word ); // DAA is 8-bits, .pair.b1<:0> is the "Cy"
+
+            de16.pair.b0 = tmp16.pair.b0;
+
+            if (tmp16.pair.b1 > 0) // jr  nc
+            {
+                tmp16.word = de16.pair.b1; // most significant
+                tmp16.pair.b0 += 1;
+
+                DAA( tmp16.word );
+
+                de16.pair.b1 = tmp16.pair.b0;
+            }
+        }
+    }
+
+    //l_0AD7:
+    b = 4;
+    c = 0;
+    hl.u32 = de16.word; // bcd ratio
+    de16.word = 0x0120 + 0x18; // offset into screen ram (used by rst $20)
+
+    // l_0AE1_while: loop to putc 4 characters (XXX.X)
+    do
+    {
+        uint8 a;
+
+        if (1 == b) // jr   nz,l_0AE8
+        {
+            m_tile_ram[de16.word] = 0x2A; // ld   (de),a ... '.' (dot) character left of to 10ths place
+            de16.word -= 32; // rst  0x20 ... next column
+        }
+        // l_0AE8:
+        hl.u32 <<= 4; // rld
+        a = hl.wpair.w1.pair.b0 & 0x0F;
+
+        // bit  0,b ... not needed since we can "rld" through 16 bits
+
+        // l_0AF1: line up the shots/hits/ratio on the left - once we have
+        // A != 0, latch the state and keep going
+        if ( (0 != a) || (0 != (c & 0x01)))
+        {
+            // l_0AF8:
+            c |= 0x01; // set  0,c
+            m_tile_ram[de16.word] = a; // ld   (de),a
+            de16.word -= 32; // rst  0x20 ... next column
+        }
+
+        // l_0AFC:
+        if (b == 0x03)
+        {
+            c |= 0x01; // set  0,c
+        }
+    }
+    while (0 != --b);  // djnz l_0AE1_while
 }

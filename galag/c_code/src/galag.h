@@ -30,7 +30,7 @@ typedef signed short sint16;
 typedef unsigned int uint32;
 
 /*
- * generic type for byte-pairs where word access is not required
+ * generic type for "registers"
  */
 typedef struct
 {
@@ -51,6 +51,24 @@ typedef union
     uint16 word;
     bpair_t pair;
 } r16_t;
+
+typedef     struct
+{
+#ifdef LSB_FIRST
+        r16_t w0;
+        r16_t w1;
+#else
+        r16_t w1;
+        r16_t w0;
+#endif
+} wpair_t;
+
+typedef union
+{
+    wpair_t wpair;
+    uint32 u32; // as long as there could possibly need to be in this system
+} r32_t;
+
 
 /*
  * bmbr boss slot
@@ -352,8 +370,8 @@ extern tstruct_b9200 glbls9200;
 extern uint8 ds_99B9_star_ctrl[];
 extern uint8 io_input[];
 extern uint8 ds_bug_collsn[];
-extern uint8 fmtn_mv_tmr; // 99B4_bugnest_onoff_scrn_tmr
 
+extern uint8 fmtn_mv_tmr; // 99B4_bugnest_onoff_scrn_tmr
 /* task_man.c */
 extern t_struct_plyr_state plyr_state_actv;
 extern t_struct_plyr_state plyr_state_susp;
