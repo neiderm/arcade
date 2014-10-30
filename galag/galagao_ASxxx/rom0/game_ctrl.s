@@ -349,7 +349,7 @@ l_0414_while_tmr_3:
        ld   (ds_plyr_actv +_b_mcfg_bonus),a
        ld   (ds_plyr_susp +_b_mcfg_bonus),a
 
-       jp   gctl_plyr_start_stg_init              ; does not return, jp's to _game_runner
+       jp   plyr_respawn_splsh              ; does not return, jp's to _game_runner
 
 ; end
 
@@ -420,7 +420,7 @@ l_045E_while:
 
 
 ;;=============================================================================
-;; gctl_game_init()
+;; _plyr_init()
 ;;  Description:
 ;;   One-time setup for new game cycle.
 ;;   Reset score displays etc. for 1 player and/or 2 player.
@@ -459,7 +459,7 @@ gctl_game_init:
        inc  hl
 
 ;;=============================================================================
-;; gctl_game_init_putc
+;; _score_init
 ;;  Description:
 ;;   we saved 4 bytes of code space by factoring out the part that copies 7
 ;;   characters. Then we wasted about 50 uSec by repeating the erase 2UP!
@@ -570,7 +570,7 @@ l_04DC_break:
 
 ; end of stage ... "normal"
        call gctl_stg_splash_scrn
-       jp   gctl_fghtr_rdy                        ; jp's to gctl_game_runner
+       jp   plyr_respawn_rdy
 
 
 ;;=============================================================================
@@ -702,16 +702,16 @@ j_0579_terminate:
 ; if ( !two_plyr_game ) {
        ld   a,(b8_99B3_two_plyr_game)
        and  a
-       jp   z,j_0604_plyr_respawn_1P              ; plyr_respawn_1P < plyr_respawn_wait < fghtr_rdy < game_runner
+       jp   z,plyr_respawn_1up                    ; plyr_respawn_1P < plyr_respawn_wait < fghtr_rdy < game_runner
 
 ; } else if ( plyr_susp.resv_fghtrs == -1  || stage_rst_flag != 0 )
        ld   a,(ds_plyr_susp +_b_nships)           ; -1 when .resv_fghtrs exhausted
        inc  a
-       jp   z,gctl_plyr_startup                   ; allow actv plyr respawn if susp plyr out of ships
+       jp   z,plyr_respawn_plyrup                 ; allow actv plyr respawn if susp plyr out of ships
 ; note: stage_rst_flag == 0 would also test true but that would make no sense here
        ld   a,(ds_9200_glbls + 0x13)              ; restart_stage
        dec  a
-       jp   nz,gctl_plyr_startup                  ; allows active plyr to respawn on capture ship event
+       jp   nz,plyr_respawn_plyrup                ; allows active plyr to respawn on capture ship event
 ; }
 ; else { do player change }
 
@@ -785,10 +785,10 @@ l_05D1:
        ex   af,af'
        call c_new_level_tokens                    ; Cy' == 1, A == don't care
 
-;  if ( active_plyr.bug_ct == 0 ) {{
+; if ( _enmy_ct_actv == 0 )  ... then _stg_init ... player was previously destroyed by collision with last enemy in the round
        ld   a,(ds_plyr_actv +_b_enmy_ct_actv)
        and  a
-       jr   z,gctl_plyr_start_stg_init            ; _plyr_startup > _new_stg_ <-  _plyr_startup
+       jr   z,plyr_respawn_splsh            ; _plyr_startup > _new_stg_ <-  _plyr_startup
 
 ; else ...
        ld   c,#3                                  ; C=string_out_pe_index
@@ -810,15 +810,14 @@ l_05FD:
        and  a
        jr   nz,l_05FD
 
-       jp   gctl_plyr_startup                     ; reloaded suspended plyr, bug nest reloaded... ready!
+       jp   plyr_respawn_plyrup                     ; reloaded suspended plyr, bug nest reloaded... ready!
 
 
 ;;=============================================================================
 ; "respawn" for 1 player game.
 ; If fighter terminated by last enemy of the stage, then init new stage.
 ; Only reference is from _terminate() so it should be "inlined" there.
-
-j_0604_plyr_respawn_1P:
+plyr_respawn_1up:
 ; if (0 == plyr_state_actv.b_nbugs) ...
        ld   a,(ds_plyr_actv +_b_enmy_ct_actv)
        and  a
@@ -833,7 +832,7 @@ j_0604_plyr_respawn_1P:
 ; Player respawn with stage setup (i.e. when plyr.enemys = 0, i.e. player
 ; change, or at start of new game loop.
 ; If on a new game, PLAYER 1 text has been erased.
-gctl_plyr_start_stg_init:
+plyr_respawn_splsh:
        call gctl_stg_splash_scrn                  ; shows "STAGE X" and does setup
 
        ;; plyr_respawn_plyrup()
@@ -841,8 +840,7 @@ gctl_plyr_start_stg_init:
 ;;-----------------------------------------------------------------------------
 ; Setup a new player... every time the player is changed on a 2P game or once
 ; at first fighter of new 1P game. Player X text shown, stage restart.
-;
-gctl_plyr_startup:
+plyr_respawn_plyrup:
        ld   a,(ds_plyr_actv +_b_plyr_nbr)         ; 0==plyr1, 1==plyr2
        add  a,#4                                  ; P1 text is index 4, P2 is index 5
        ld   c,a                                   ; index into string table
@@ -870,7 +868,7 @@ l_062C:
 
 ;;-----------------------------------------------------------------------------
 ; new round starting or round re-starting after active player switch.
-gctl_fghtr_rdy:
+plyr_respawn_rdy:
        ld   a,#1
        ld   (ds_cpu0_task_actv + 0x15),a          ; 1 ... f_1F04 (fire button input)
        ld   (ds_cpu1_task_actv + 0x05),a          ; 1 ... cpu1:f_05EE (hit-detection)
@@ -1033,8 +1031,12 @@ l_06E0_while_wait_io_ackrdy:
        ld   a,#0x61                               ; Reset IO chip? (not in Mame36 - check newer).
        ld   (0x7100),a                            ; IO cmd ($61 -> disable IO chip?)
        halt                                       ; stops until interrupt
+
+; allow blinking of Player2 text to be inhibited on the intro screen when the
+; game recycles (Player1 text shown anyway)
        xor  a
-       call c_093C                                ; handle "blink" of Player1/Player2 texts.
+       call c_093C                                ; A == 0 ... blinking off
+
        ei
 
 ;  memset($9AA0,0,$20)
@@ -1062,7 +1064,7 @@ l_06E0_while_wait_io_ackrdy:
        add  a,#0x01
        daa
        ld   (hl),a
-       jp   g_main                                ; finished update total_plays_bcd
+       jp   g_main                                ; from g_halt
 
 ;;=============================================================================
 ;; const data for g_halt()
@@ -1579,22 +1581,21 @@ c_093C:
        ld   b,a                                   ; stash it in B
 
 ; do 1UP
-       cpl                                        ; 1 if 1UP
+       cpl                                        ; toggle to 1 if 1UP
 
-       and  c                                     ; A = flag & counter
+       and  c                                     ; C == 1 if wipe
        ld   hl,#str_1UP
        ld   de,#m_tile_ram + 0x03C0 + 0x19        ; 'P' of 1UP
-       call c_095F
+       call c_095F                                ; wipe if A != 0
 
-; if ( !two_plyr_game )  return
+; if ( two_plyr_game ) then ...
        ld   a,(b8_99B3_two_plyr_game)
        and  a
        ret  z
 
-; else ... do 2UP
+; ... do 2UP
        ld   a,b                                   ; 1 if 2UP
-
-       and  c                                     ; A = flag & counter
+       and  c                                     ; C == 1 if wipe
        ld   hl,#str_2UP
        ld   de,#m_tile_ram + 0x03C0 + 0x04        ; 'P' of 2UP
 ;       call c_095F
@@ -1621,6 +1622,7 @@ c_095F:
 l_0967:
        ld   bc,#0x0003
        ldir
+
        pop  bc
        ret
 
@@ -1939,9 +1941,9 @@ c_0A6E:
 ; end 0a53
 
 ;;=============================================================================
-;; c_0A72_puts_hitmiss_ratio()
+;; hit_ratio()
 ;;  Description:
-;;   Calculate and display numerical hit/miss ratio.
+;;   Calculate and display hit/shot ratio.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -1951,18 +1953,19 @@ c_0A72_puts_hitmiss_ratio:
 
        ld   hl,(ds_plyr_actv +_w_hit_ct)
 
-;  if ( shots fired  != 0 )
+; if ( shots fired  == 0 )
        ld   de,(ds_plyr_actv +_w_shot_ct)
        ld   a,d
        or   e
        jr   nz,l_0A82
-;  else
+; then
        ld   de,#0x0000                            ; uhh...isn't DE already 0?
        jr   l_0AD3
-
-; determine ratio
-; first, use "left-shifts" to up-scale the dividend and divisor...
+; else
+;   determine ratio: first, use left-shifts to up-scale the dividend and divisor
 l_0A82:
+l_0A82_while:
+; while !(0x80 & d) && !(0x80 & h) de <<= 1, hl <<= 1
        bit  7,d
        jr   nz,l_0A90
        bit  7,h
@@ -1971,93 +1974,114 @@ l_0A82:
        ex   de,hl
        add  hl,hl
        ex   de,hl
-       jr   l_0A82
-; ... then do the actual division
-l_0A90:
-       ld   a,d                                   ; divisor in A
-       call c_divmod                              ; HL=HL/D (hit-miss ratio)
-       push hl
-       ld   h,a                                   ; A =  Modulus
-       ld   l,#0
-       ld   a,d
-       call c_divmod                              ; HL=HL/D
-       ex   (sp),hl
-       ld   de,#b16_99B0_tmp                      ; temp register for hit-miss ratio calc.
-       ld   b,#4
-       ld   a,h
-       ld   h,#0
+       jr   l_0A82_while
 
-l_0AA5:
-       ex   de,hl
-       rld                                        ; rld (hl)
+; do the actual division with resultant quotient scaled up by factor of 0x0100 to keep precision
+l_0A90:
+; HL = hl_adjusted_hits / (de_adjusted_shots / 0x0100)
+       ld   a,d                                   ; divisor in A
+       call c_divmod                              ; HL=HL/A (preserves DE)
+       push hl
+
+; HL = modulus / (de_adjusted_shots / 0x0100)
+       ld   h,a                                   ; result of HL%A
+       ld   l,#0
+       ld   a,d                                   ; divisor in A
+       call c_divmod                              ; HL=HL/A (preserves DE)
+       ex   (sp),hl                               ; restore msw (1st quotient) into HL, lsw (2nd quotient) to (SP), (SP+1)
+       ld   de,#b16_99B0_tmp                      ; pointer to hit-miss ratio calc.
+       ld   b,#4                                  ; loop counter to calculate percentage to 2 decimal places
+       ld   a,h                                   ; msb of msw (first quotient), only low 4 bits significant (would be 0 or 1)
+       ld   h,#0                                  ; done with this byte
+l_0AA5_while:
+       ex   de,hl                                 ; pointer->HL, lsb of HL+A -> DE
+; 4-bit leftward rotation of the 12-bit number whose 4 most signigifcant bits
+; are the 4 least significant bits of A, and its 8 least significant bits are at (HL)
+       rld                                        ; rld (hl) ... 1st product msb + sum msb in A
+; advance the byte pointer when b==3 (case of b==1 not significant)
        bit  0,b
        jr   z,l_0AAD
        inc  l
 l_0AAD:
-       ex   de,hl
-       call c_0B06                                ; HL *= 10
-       ex   af,af'
-       ex   (sp),hl
-       call c_0B06                                ; HL *= 10
-       ex   (sp),hl
-       rst  0x10                                  ; HL += A
-       ex   af,af'
-       add  a,h
-       ld   h,#0
-       djnz l_0AA5
+       ex   de,hl                                 ; lsb of HL+A -> HL, pointer to DE
+       call c_0B06                                ; HL *= 10 ... MSB->A
+       ex   af,af'                                ; stash 1st product msb
+       ex   (sp),hl                               ; 2nd product to HL, 1st product to (SP)
+       call c_0B06                                ; HL *= 10 ... MSB->A
+       ex   (sp),hl                               ; 1st product to HL, 2nd product to (SP)
+       rst  0x10                                  ; HL += A ... 1st product + 2nd product (msb)
+       ex   af,af'                                ; 1st product msb -> A, stash sum lsb
+       add  a,h                                   ; 1st product msb + sum msb
+       ld   h,#0                                  ; done with this byte
+       djnz l_0AA5_while
 
-       pop  de
+       pop  de                                    ; restore SP
+
+; if (A >= 5)
        cp   #5
        jr   c,l_0AD7
+; then
        ld   de,(b16_99B0_tmp)                     ; temp register for hit-miss ratio calc.
-       ld   a,d
+       ld   a,d                                   ; msb (99B1) ... but its really LSB
        add  a,#1
        daa
        ld   d,a
+;  if
        jr   nc,l_0AD3
+;  then
        ld   a,e
        add  a,#1
        daa
        ld   e,a
-; DE contains the hit-miss ratio (BCD)
+;  fi
+
 l_0AD3:
        ld   (b16_99B0_tmp),de                     ; tmp computed hit-miss ratio (BCD)
 ; setup for display of computed ratio
 l_0AD7:
        ld   b,#4
-       ld   c,#0
-       ld   hl,#b16_99B0_tmp                      ; tmp computed hit-miss ratio (BCD)
+       ld   c,#0                                  ; use <:1> as flag
+       ld   hl,#b16_99B0_tmp                      ; &hitratio.b0 (BCD)
        ld   de,#m_tile_ram + 0x0120 + 0x18
 
-; loop to putc 4 characters (XX.X)
-l_0AE1:
-; if ( b==1 )
+; loop to putc 4 characters (XXX.X)
+l_0AE1_while:
+; if ( b==1 ) then ...
        dec  b
        jr   nz,l_0AE8
-; else { show dot character }
+; ... show dot character left of to 10ths place
        ld   a,#0x2A                               ; '.' (dot) character.
        ld   (de),a
        rst  0x20                                  ; DE-=$20 (next column)
+
 l_0AE8:
        inc  b                                     ; restore B from test at l_0AE1
-       xor  a
-       rld                                        ; rld (hl)
-       bit  0,b       ; even count of b
+
+       xor  a                                     ; clear A before rotating H<7:4> into it
+       rld                                        ; rld (hl) ... (HL<7:4>) to A<3:0> ... HL used as pointer
+
+; if (b == 3 || b==1) advance pointer to .b1  ... b==1 irrelevant
+       bit  0,b                                   ; even count of b
        jr   z,l_0AF1
-       inc  l         ; 99b1
+       inc  l                                     ; HL++
+
 l_0AF1:
-; if ( A == 0 )
+; line up the shots/hits/ratio on the left - once we have A!=0, latch the
+; state and keep going
+; if ( A != 0 )
        and  a
        jr   nz,l_0AF8
-; {
-       bit  0,c
+; || (0 != C & 0x01) ...
+       bit  0,c                                   ; check flag
        jr   z,l_0AFC
-; } else
+; ... then
 l_0AF8:
-       set  0,c
+       set  0,c                                   ; set flag
        ld   (de),a
-       rst  0x20                                  ; DE-=$20
+       rst  0x20                                  ; DE-=$20 (next column)
+
 l_0AFC:
+; b==3 is first digit left of decimal (10's place) so it has to start here regardless
 ; if ( B != 3 )
        ld   a,b
        cp   #3
@@ -2065,24 +2089,25 @@ l_0AFC:
 ; else
        set  0,c
 l_0B03:
-       djnz l_0AE1
+       djnz l_0AE1_while
 
        ret
 
 ;;=============================================================================
 ;; c_0B06()
 ;;  Description:
-;;   HL *= $0A
-;;   8 bit result only.
-;;   (for hit/miss-ratio calculation)
+;;   multiply by 10
 ;; IN:
-;;  ...
+;;   HL = 16-bit factor
+;;   A  = 8-bit factor
 ;; OUT:
-;;  ...
+;;   HL = (HL * $0A) & 0x00FF
+;;    A = (HL * $0A) >> 8 ... MSB
+;;
 ;;-----------------------------------------------------------------------------
 c_0B06:
        ld   a,#0x0A
-       call c_104E_mul_16_8
+       call c_104E_mul_16_8                       ; HL = HL * A
        ld   a,h
        ld   h,#0x00                               ; %256
        ret
