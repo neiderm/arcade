@@ -1153,7 +1153,7 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
 static uint8 hitd_dspchr_rckt(uint8 AF, uint8 E, uint8 HL)
 {
     //l_07B9_
-    plyr_state_actv.hit_ct += 1;
+    plyr_actv.hit_ct += 1;
 
     // make the rocket available to rckt_sprite_init() again:
     //  z80 code "harmlessly" allowed the passed pointer to .b0 for fighter,

@@ -43,7 +43,7 @@ static void bmbr_setup_fltq(uint8, uint16, uint8);
 ;;   Extra layer to unpack object index from rotation flag.
 ;; IN:
 ;;   HL == &b_8800[n] ... bits 0:6
-;;         bit-7 if set then negate rotation angle to (ix)0x0C
+;;         if bit-7 set then negate rotation angle to (ix)0x0C
 ;;         (creature originating on right side)
 ;;   DE == pointer to object data (in cpu-sub1 code space)
 ;; OUT:
@@ -195,7 +195,7 @@ void gctl_stg_tokens(uint8 sound_disable_flag)
 
     memset(m_tile_ram + 0x22, 0x24, 0x12); // bottom row at right
 
-    A = plyr_state_actv.stage_ctr;
+    A = plyr_actv.stage_ctr;
     B = 0; // tmp_quotient 50
 
     HL = 1; // offset into tileram ($8001)
@@ -210,9 +210,9 @@ void gctl_stg_tokens(uint8 sound_disable_flag)
 
     DE = HL; // stash the tileram offset in DE
 
-    HL = (uint16) A; // stage_ctr % 50
+    HL = A; // stage_ctr % 50
     A = HL % 10;
-    HL = HL / 10;
+    HL = HL / 10; // call c_divmod
 
     // push hl ... stack the quotient and mod10 result
     tmpBCdiv10result = HL;
@@ -324,7 +324,7 @@ static void c_build_token_1(uint8 *pD, uint16 *pHL, uint8 sound_disable_flag)
         }
 
         // (b_9AA0 + 0x15),a ... this was passed as a "parameter" i.e. A'
-        b_9AA0[0x15] = plyr_state_actv.not_chllng_stg;
+        b_9AA0[0x15] = plyr_actv.not_chllng_stg;
 
         // l_1215_restore_A_and_continue:
     }
@@ -764,7 +764,7 @@ void fghtr_resv_draw(void)
     uint16 HL;
     uint8 E, D;
 
-    E = ~plyr_state_actv.num_ships + 6; // cpl, add  a,#6 ... max nr of icons
+    E = ~plyr_actv.num_ships + 6; // cpl, add  a,#6 ... max nr of icons
 
     D = 0x49; // starting tile number
 

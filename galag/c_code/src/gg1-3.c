@@ -552,7 +552,7 @@ void gctl_stg_new_atk_wavs_init(void)
 
     // if past the highest stage ($17) we can only keep playing the last 4 levels
 
-    A = plyr_state_actv.stage_ctr; // adjusted level
+    A = plyr_actv.stage_ctr; // adjusted level
 
     while (A > 0x17) A -= 4;
 
@@ -572,7 +572,7 @@ void gctl_stg_new_atk_wavs_init(void)
     }
     else /* challenge stage */
     {
-        A = (plyr_state_actv.stage_ctr >> 2) & 0x07; // divide by 4
+        A = (plyr_actv.stage_ctr >> 2) & 0x07; // divide by 4
 
         A = atkw_challg_stg_d_idx[A];
 
@@ -794,18 +794,18 @@ void gctl_stg_new_etypes_init(void)
     uint8 HL, IXL, A, D, E;
 
     // once per stage, set the player's private pointer to attack wave object setup tables
-    plyr_state_actv.p_atkwav_tbl = &atkw_seqt[0];
+    plyr_actv.p_atkwav_tbl = &atkw_seqt[0];
 
-    if (0 == plyr_state_actv.not_chllng_stg)
+    if (0 == plyr_actv.not_chllng_stg)
     {
-        A = (plyr_state_actv.stage_ctr >> 3) & 0x03;
+        A = (plyr_actv.stage_ctr >> 3) & 0x03;
 
-        if ( 0 != (0xE0 & plyr_state_actv.stage_ctr))  A = 3;
+        if ( 0 != (0xE0 & plyr_actv.stage_ctr))  A = 3;
 
         stg_chllg_rnd_attrib[0] = atkw_chllg_rnd_attrib[A + 0]; // ldi
         stg_chllg_rnd_attrib[1] = atkw_chllg_rnd_attrib[A + 1]; // ldi
 
-        D = atkw_chlg_spcclr[(plyr_state_actv.stage_ctr >> 2) && 0x07];
+        D = atkw_chlg_spcclr[(plyr_actv.stage_ctr >> 2) && 0x07];
         E = D; // ld   e,d
 
         // jr   l_28D0
@@ -911,7 +911,7 @@ static const uint8 atkw_chlg_spcclr[] =
 void f_2916(void)
 {
     // check for end of table
-    if (0x7F == *plyr_state_actv.p_atkwav_tbl)
+    if (0x7F == *plyr_actv.p_atkwav_tbl)
     {
         // goto l_2A29_attack_waves_complete;
 
@@ -923,14 +923,14 @@ void f_2916(void)
             task_actv_tbl_0[0x04] = 1; // f_1A80 ... bonus-bee manager
             task_actv_tbl_0[0x10] = 1; // f_1B65 ... Manage flying-bug-attack
 
-            plyr_state_actv.nest_lr_flag = 1; // inhibit nest left/right movement
+            plyr_actv.nest_lr_flag = 1; // inhibit nest left/right movement
         }
         return;
     }
 
-    if (0x7E == *plyr_state_actv.p_atkwav_tbl)
+    if (0x7E == *plyr_actv.p_atkwav_tbl)
     {
-        if (0 == plyr_state_actv.b_atk_wv_enbl)
+        if (0 == plyr_actv.b_atk_wv_enbl)
         {
             // 0 if restarting the stage (respawning player ship)
             return;
@@ -943,7 +943,7 @@ void f_2916(void)
             return;
         }
 
-        if (0 == plyr_state_actv.not_chllng_stg)
+        if (0 == plyr_actv.not_chllng_stg)
         {
             if (1 == ds4_game_tmrs[0])
             {
@@ -961,8 +961,8 @@ void f_2916(void)
         // Finally... sending out next wave of creatures. We are on start token
         // ($7E) so do nothing on this time step.
         // l_2944_attack_wave_start:
-        plyr_state_actv.p_atkwav_tbl += 1;
-        plyr_state_actv.b_attkwv_ctr += 1;
+        plyr_actv.p_atkwav_tbl += 1;
+        plyr_actv.b_attkwv_ctr += 1;
         return;
     }
     else // ! 0x7E
@@ -977,7 +977,7 @@ void f_2916(void)
         // l_2953_next_pair:
         // bit-7 is set if this toaster is a wing-man or a split waves, and therefore no delay,
         // otherwise it is clear for trailing formation i.e. delay before launching.
-        if (0 == (*plyr_state_actv.p_atkwav_tbl & 0x80))
+        if (0 == (*plyr_actv.p_atkwav_tbl & 0x80))
         {
             if (ds3_92A0_frame_cts[0] & 0x07) return;
         }
@@ -985,7 +985,7 @@ void f_2916(void)
         // ready to insert another entry into the queue
 
         // make byte offset into lut at atkw_mctl_fptn_d  (_finalize_object) ... also we're done with bit-7
-        token_b0 = *plyr_state_actv.p_atkwav_tbl << 1; // sla  c
+        token_b0 = *plyr_actv.p_atkwav_tbl << 1; // sla  c
 
         // find a slot in the queue
         IX = 0;
@@ -1003,8 +1003,8 @@ void f_2916(void)
         }
 
         // l_2974_got_slot:
-        plyr_state_actv.p_atkwav_tbl += 1; // inc  hl
-        A = *plyr_state_actv.p_atkwav_tbl; // tbl[n].pair.h ... object ID/offset, e.g. 58
+        plyr_actv.p_atkwav_tbl += 1; // inc  hl
+        A = *plyr_actv.p_atkwav_tbl; // tbl[n].pair.h ... object ID/offset, e.g. 58
 
         if (0x78 == (A & 0x78)) //  [ object >= $78  &&  object < $80 ]
         {
@@ -1015,7 +1015,7 @@ void f_2916(void)
         mctl_mpool[IX].b10 = A; // ld   0x10(ix),a ... object index
 
         // advance to next token-pair e.g. HL:=8923
-        plyr_state_actv.p_atkwav_tbl++; // inc  hl
+        plyr_actv.p_atkwav_tbl++; // inc  hl
 
         // use even object offsets of L to maintain consistency of indexing with z80
         L = A; // ld   h,#>b_8800 ... ld   l,a
@@ -1213,7 +1213,7 @@ void f_2A90(void)
         L += 2;
     }
 
-    if (0 == plyr_state_actv.nest_lr_flag || 0 != fmtn_hpos.offs[0])
+    if (0 == plyr_actv.nest_lr_flag || 0 != fmtn_hpos.offs[0])
     {
         if (32 == fmtn_hpos.offs[0])
         {

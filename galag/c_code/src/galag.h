@@ -138,7 +138,7 @@ typedef struct
     uint16 shot_ct;           // shots_fired
     uint8 sndflag;            // fx count/enable regs (pulsing formation sound effect)
 
-} t_struct_plyr_state;
+} t_plyr_state;
 
 /*
  * sprite registers organized as a struct of arrays to align data with z80
@@ -373,8 +373,8 @@ extern uint8 ds_bug_collsn[];
 
 extern uint8 fmtn_mv_tmr; // 99B4_bugnest_onoff_scrn_tmr
 /* task_man.c */
-extern t_struct_plyr_state plyr_state_actv;
-extern t_struct_plyr_state plyr_state_susp;
+extern t_plyr_state plyr_actv;
+extern t_plyr_state plyr_susp;
 extern uint8 task_actv_tbl_0[];
 extern uint8 task_resv_tbl_0[];
 extern uint8 ds4_game_tmrs[];

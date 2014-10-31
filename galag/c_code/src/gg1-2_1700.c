@@ -364,7 +364,7 @@ void f_17B2()
                 sprite_tiles_display(d_attrmode_sptiles_7 + B * 4);
             }
 
-            plyr_state_actv.num_ships = 0;
+            plyr_actv.num_ships = 0;
             task_actv_tbl_0[0x05] = 0; // f_0857
             fghtr_onscreen();
 
@@ -382,9 +382,9 @@ void f_17B2()
             // include b_CPU1_in_progress + b_CPU2_in_progress + 2 unused bytes
             memset(bmbr_boss_pool, 0, sizeof(bmbr_boss_slot_t) * 4);
 
-            plyr_state_actv.plyr_is_2ship = 0; // not 2 ship
+            plyr_actv.plyr_is_2ship = 0; // not 2 ship
             glbls9200.glbl_enemy_enbl = 0;
-            plyr_state_actv.bmbr_boss_cflag = 1;
+            plyr_actv.bmbr_boss_cflag = 1;
 
             task_actv_tbl_0[0x10] = 1; //  f_1B65 ... manage flying-bug-attack
             task_actv_tbl_0[0x0B] = 1; //  f_1DB3 ... checks enemy status at 9200
@@ -646,11 +646,11 @@ void f_1B65(void)
         uint8 b, c, hl, de, ixh;
 
         // check capture-mode is active / capture-mode selection suppressed
-        if (0 == plyr_state_actv.bmbr_boss_cflag)
+        if (0 == plyr_actv.bmbr_boss_cflag)
         {
             // toggle bit-0 and check if capture mode should be enabled
-            plyr_state_actv.cboss_enable += 1; // inc  (hl)
-            if (0 == (0x01 & plyr_state_actv.cboss_enable)) // bit  0,(hl)
+            plyr_actv.cboss_enable += 1; // inc  (hl)
+            if (0 == (0x01 & plyr_actv.cboss_enable)) // bit  0,(hl)
             {
                 uint8 b;
 
@@ -671,8 +671,8 @@ void f_1B65(void)
                 if ( b < 4 )
                 {
                     //l_1C24_is_standby
-                    plyr_state_actv.bmbr_boss_cflag = 1;
-                    plyr_state_actv.bmbr_boss_cobj = de; // 0x30 + 2 * b
+                    plyr_actv.bmbr_boss_cflag = 1;
+                    plyr_actv.bmbr_boss_cobj = de; // 0x30 + 2 * b
 return; //HELP_ME_DEBUG
                     // b, c: only matters for escort selection (ixl != 2)
                     bmbr_boss_activate(de, 2, 0xFF, 0xFF, _flv_d_0454); // jp   j_1CAE ... capture boss
@@ -690,7 +690,7 @@ return; //HELP_ME_DEBUG
         {
             de = d_bmbr_boss_wingm_idcs[hl];
             c <<= 1; // rl   c
-            if (plyr_state_actv.bonus_bee_obj_offs != de) // jr   z,l_1C44
+            if (plyr_actv.bonus_bee_obj_offs != de) // jr   z,l_1C44
             {
                 c |= (sprt_mctl_objs[de].state == STAND_BY);
             }
@@ -844,7 +844,7 @@ static uint8 bmbr_boss_activate(uint8 e, uint8 ixl, uint8 b, uint8 c, uint16 flv
 // plyr_actv.bmbr_boss_scode[(e & 0x07) + 0] = d_1CFD[ixl*2+0];
 // plyr_actv.bmbr_boss_scode[(e & 0x07) + 1] = d_1CFD[ixl*2+1];
 
-
+    // skip launching wingmen if capture-boss situation
     if (2 != ixl)
     {
         r16_t flags;
@@ -1373,7 +1373,7 @@ static void rckt_sprite_init(void)
 
     b_9AA0[0x0F] = 1; // sound-fx count/enable, shot-sound
 
-    plyr_state_actv.shot_ct +=1;
+    plyr_actv.shot_ct +=1;
 }
 
 /*=============================================================================
@@ -1462,7 +1462,7 @@ static void fghtr_ctrl_inp(uint8 inbits)
             // moving right: check right limit for double-ship
 
             // if double ship, return
-            if (0 != plyr_state_actv.plyr_is_2ship) // bit  0,e
+            if (0 != plyr_actv.plyr_is_2ship) // bit  0,e
             {
                 return;
             }
@@ -1489,7 +1489,7 @@ static void fghtr_ctrl_inp(uint8 inbits)
     }
 
     // l_1FD4_update_two_:
-    if (0 == plyr_state_actv.plyr_is_2ship)  return;
+    if (0 == plyr_actv.plyr_is_2ship)  return;
 
     mrw_sprite.posn[SPR_IDX_SHIP].b0 += 0x0F; // add  a,#0x0F
 }

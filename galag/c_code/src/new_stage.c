@@ -48,7 +48,7 @@ void stg_bombr_setparms(void)
     uint8 iHL;
     uint8 A, E, L;
 
-    A = plyr_state_actv.stage_ctr;
+    A = plyr_actv.stage_ctr;
 
     while (A > 0x1B)
     {
@@ -72,12 +72,12 @@ void stg_bombr_setparms(void)
     }
 
     // set ds_new_stage_parms[0x05]
-    A = plyr_state_actv.stage_ctr;
+    A = plyr_actv.stage_ctr;
     if (A < 3)
     {
         A = 0x00;
     }
-    else if (A == (plyr_state_actv.stage_ctr | 0x0FC))
+    else if (A == (plyr_actv.stage_ctr | 0x0FC))
     {
         A = 0x0A;
     }

@@ -38,8 +38,8 @@
 /*
  ** non-static external definitions this file or others
  */
-t_struct_plyr_state plyr_state_actv;
-t_struct_plyr_state plyr_state_susp;
+t_plyr_state plyr_actv;
+t_plyr_state plyr_susp;
 uint8 task_actv_tbl_0[32]; // active plyr task tbl cpu0
 uint8 task_resv_tbl_0[32]; // suspended plyr task tbl cpu0
 uint8 ds4_game_tmrs[4];
@@ -212,18 +212,18 @@ void stg_init_splash(void)
 {
     uint8 Cy;
 
-    plyr_state_actv.stage_ctr += 1;
+    plyr_actv.stage_ctr += 1;
 
     // determine stage count modulus ... gives 0 for challenge stage
-    plyr_state_actv.not_chllng_stg = (plyr_state_actv.stage_ctr + 1) & 0x03; // 0 if challenge stage
+    plyr_actv.not_chllng_stg = (plyr_actv.stage_ctr + 1) & 0x03; // 0 if challenge stage
 
-    if (0 != plyr_state_actv.not_chllng_stg)
+    if (0 != plyr_actv.not_chllng_stg)
     {
         uint16 HL;
         HL = j_string_out_pe(1, -1, 0x06); // string_out_pe "STAGE "
 
         // Print "X" of STAGE X. ...HL == $81B0
-        c_text_out_i_to_d(plyr_state_actv.stage_ctr, HL);
+        c_text_out_i_to_d(plyr_actv.stage_ctr, HL);
 
         // l_01AC: ; start value for wave_bonus_ctr (decremented by cpu-b when bug destroyed)
         w_bug_flying_hit_cnt = 0; // irrelevant if !challenge stage
@@ -249,7 +249,7 @@ void stg_init_splash(void)
       Argument "A" (loaded from plyr_actv.b_not_chllg_stg) not used here
       to pass to c_build_token_1 (sets b_9AA0[0x15] sound count/enable)
      */
-    Cy = (0 == plyr_state_actv.not_chllng_stg); // 1211
+    Cy = (0 == plyr_actv.not_chllng_stg); // 1211
 
     //  and  a ... if A != 0, clear Cy
     //  ex   af,af' ... Cy' == 1 if inhibit sound clicks
@@ -302,16 +302,16 @@ static void stg_init_env(void)
 
     b_bug_flyng_hits_p_round = 0;
 
-    plyr_state_actv.cboss_enable = 0; // disable demo boss capture overide
-    plyr_state_actv.bonus_bee_launch_tmr = 0;
-    plyr_state_actv.b_atk_wv_enbl = 0;
-    plyr_state_actv.b_attkwv_ctr = 0;
+    plyr_actv.cboss_enable = 0; // disable demo boss capture overide
+    plyr_actv.bonus_bee_launch_tmr = 0;
+    plyr_actv.b_atk_wv_enbl = 0;
+    plyr_actv.b_attkwv_ctr = 0;
     //b8_99B0_X3attackcfg_ct = 0;
-    plyr_state_actv.nest_lr_flag = 0;
+    plyr_actv.nest_lr_flag = 0;
 
-    plyr_state_actv.bonus_bee_obj_offs = 1;
-    plyr_state_susp.bonus_bee_obj_offs = 1;
-    plyr_state_susp.bmbr_boss_cobj = 1;
+    plyr_actv.bonus_bee_obj_offs = 1;
+    plyr_susp.bonus_bee_obj_offs = 1;
+    plyr_susp.bmbr_boss_cobj = 1;
 
     task_actv_tbl_0[0x0B] = 1; // f_1DB3 ... Update enemy status
     task_actv_tbl_0[0x08] = 1; // f_2916 ... Launches the attack formations
@@ -320,10 +320,10 @@ static void stg_init_env(void)
     stg_bombr_setparms();
 
     // initialize 8-byte array
-    for (B = 0; B < (sizeof(plyr_state_actv.bmbr_boss_scode) / 2); B++)
+    for (B = 0; B < (sizeof(plyr_actv.bmbr_boss_scode) / 2); B++)
     {
-        plyr_state_actv.bmbr_boss_scode[B * 2 + 0] = 0x01;
-        plyr_state_actv.bmbr_boss_scode[B * 2 + 1] = 0xB5;
+        plyr_actv.bmbr_boss_scode[B * 2 + 0] = 0x01;
+        plyr_actv.bmbr_boss_scode[B * 2 + 1] = 0xB5;
     }
 
     // if ( !RackAdvance )
