@@ -136,7 +136,7 @@ typedef struct
     uint8 b_nbugs;            // b_bugs_actv_nbr
     uint16 hit_ct;            // total_hits
     uint16 shot_ct;           // shots_fired
-    uint8 sndflag; // 9AA0[0] ... sound_mgr_status, player1/2 switch
+    uint8 sndflag;            // fx count/enable regs (pulsing formation sound effect)
 
 } t_struct_plyr_state;
 
@@ -440,7 +440,7 @@ void c_sctrl_sprite_ram_clr(void);
 void cpu0_rst38(void); //
 void gctl_1uphiscore_displ(void);
 void c_sctrl_playfld_clr(void);
-void gctl_stg_splash_scrn(void);
+void stg_init_splash(void);
 
 /* gg1-2.c */
 void gctl_stg_tokens(uint8);
@@ -468,7 +468,7 @@ void c_string_out(uint16, uint8);
 uint16 j_string_out_pe(uint8, uint16, uint8);
 
 /* new_stage.c */
-void gctl_stg_bombr_setparms(void);
+void stg_bombr_setparms(void);
 
 enum {
     GAME_ENDED = 0,
