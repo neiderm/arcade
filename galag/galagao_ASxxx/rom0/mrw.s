@@ -135,7 +135,7 @@ ds_89E0:
          .ds     $$20       ; data for CPU sub-1 f_0ECA (the unused mystery task)
 
 
-; Temp vars for c_top5_dlg_proc ... gg1-4
+; Temp vars for _top5_dlg_proc ... gg1-4
 b_8A00:
          .ds     $$02       ; ptr to plyr1 score or plyr2 score on screen.
          .ds     $$01       ; L==2, R==8 X=A   previous controller state

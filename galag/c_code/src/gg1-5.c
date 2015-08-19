@@ -3,6 +3,7 @@
  **  gg1-5.s( gg1-5.3f)
  **
  **  sprite movement control
+ **  TODO: :%s/0x\(\w*\)/0x\U\1/g ... upper case all hex notation for consistency
  *******************************************************************************/
 /*
  ** header file includes
@@ -367,7 +368,9 @@ static const uint8 flv_d_atk_red[] =
 //};
 //static const uint8 _flv_i_03ac[] = {
     0x12,0x00,0x28,0x12,0xFA,0x02,0xF3,
+//  $03B3
     0x3F,0x3B,0x36,0x32,0x28,0x26,0x24,0x22,
+//  $03BB
     0x12,0x04,0x30,0x12,0xFC,0x30,0x12,0x00,0x18,0xF8,0xF9,0xFA,
     W2B(_flv_i_040c),
     0xEF,
@@ -446,7 +449,12 @@ uint8 flv_get_data_uber(uint16 phl)
 uint16 flv_0B46_set_ptr(uint16 u16hl)
 {
     r16_t de;
-
+/*
+       inc  hl                                    ; ptr to data table
+       ld   e,(hl)
+       inc  hl
+       ld   d,(hl)
+*/
     u16hl += 1;
     de.pair.b0 = flv_get_data(u16hl);
     u16hl += 1;
@@ -679,34 +687,45 @@ void f_05EE(void)
     uint8 tmpSx;
     uint8 hit_notif = 0;
 
-    if ( 0 == task_actv_tbl_0[0x14]) // f_1F85 (input and ship movement)
+//return ; // HELP_ME_DEBUG
+
+    if ( 0 != task_actv_tbl_0[0x14]) // f_1F85 (input and ship movement)
     {
-        return; // ret  z
+        // ds_9200_glbls + 0x17     = 1
+
+        // if two_ship ... ... jr   z,l_0613
+        // {
+        //   if (ds_sprite_posn + 0x60)
+        //   {
+        //     hitd_fghtr_hit(SPR_IDX_SHIP + 0, 1); // pass flag to inhibit stage restart
+        //     if (b8_ship_collsn_detectd_status)
+        //     {
+        //              call hitd_fghtr_hit                        ; fighter2 collision
+        //              ds_plyr_actv +_b_bmbr_boss_cflag)  == 0 ... enable capture-mode selection
+        //     }
+        //   }
+        // }
+
+        // l_0613: else ... !two_ship
+        if (0 == mrw_sprite.cclr[SPR_IDX_SHIP + 0].b0) return; // ret  z
+
+        tmpSx = mrw_sprite.posn[SPR_IDX_SHIP + 0].b0; // stash fighter sX because it will be 0'd by hitd_fghtr_notif
+        hit_notif = hitd_fghtr_notif(SPR_IDX_SHIP + 0); // ship_collisn_detectn_runner
+
+        if (0 == hit_notif) return; // ret  z
+
+        //if (!two_ship) jr   z,l_0639_not_two_
+
+
+        // l_0639_not_two_:
+        task_actv_tbl_0[0x14] = 0; // f_1F85 (input and fighter movement)
+        task_actv_tbl_0[0x15] = 0; // f_1F04 (fire button input)
+        cpu1_task_en[0x05] = 0;    // f_05EE (this task, fighter hit-detection)
+        //ld   (ds_99B9_star_ctrl + 0x00),a  ; 0 ... 1 when fighter on screen
+        //ld   (ds_9200_glbls + 0x17),a  // 0 ... no_restart_stg
+
+        hitd_fghtr_hit(tmpSx, SPR_IDX_SHIP + 0, 0); // not docked fighters, pass flag to allow stage restart
     }
-
-    // if two_ship ... jr   z,l_0613
-
-    // hitd_fghtr_hit(SPR_IDX_SHIP + 0, 1); // pass flag to inhibit stage restart
-
-
-    // l_0613: else ... !two_ship
-    if (0 == mrw_sprite.cclr[SPR_IDX_SHIP + 0].b0) return; // ret  z
-
-    tmpSx = mrw_sprite.posn[SPR_IDX_SHIP + 0].b0; // stash fighter sX because it will be 0'd by hitd_fghtr_notif
-    hit_notif = hitd_fghtr_notif(SPR_IDX_SHIP + 0); // ship_collisn_detectn_runner
-
-    if (0 == hit_notif) return; // ret  z
-
-    //if (!two_ship) jr   z,l_0639_not_two_
-
-
-    // l_0639_not_two_:
-    task_actv_tbl_0[0x14] = 0; // f_1F85 (input and fighter movement)
-    task_actv_tbl_0[0x15] = 0; // f_1F04 (fire button input)
-    task_actv_tbl_0[0x05] = 0; // f_05EE (this task, fighter hit-detection)
-    //ld   (ds_99B9_star_ctrl + 0x00),a  ; 0 ... 1 when fighter on screen
-
-    hitd_fghtr_hit(tmpSx, SPR_IDX_SHIP + 0, 0); // not docked fighters, pass flag to allow stage restart
 }
 
 /*=============================================================================
@@ -733,10 +752,14 @@ static void hitd_fghtr_hit(uint8 oldSx, uint8 fghtr_obj_offs, uint8 no_restart_s
     sprt_mctl_objs[fghtr_obj_offs].mctl_idx = 0x0F; // explosion counter to obj-state dispatcher
 
     mrw_sprite.ctrl[fghtr_obj_offs].b0 = 0x08 | 0x04;
-// ds_plyr_actv._b_2ship = 0
+// ds_plyr_actv._b_dblfghtr = 0
 
     // sound-fx count/enable registers "bang" sound (not in Attract Mode)
+// 65576432c1c8b07ad3243183bd7bb0957fdcac1f makes a "twerp" sound
+// dd4eab4eb6a6a8dc4bdf75e325d89c0493af2dfd ..
+// 8dace906f6885d573beb2e1d7f20e39fecdc0a20 nuthin
     b_9AA0[0x19] = glbls9200.game_state - 1; // dec  a
+c_io_cmd_wait(); // hmm
 
     if (0 == no_restart_stg) // stage must restart if not docked fighters
     {
@@ -1052,7 +1075,7 @@ static void hitd_det_rckt(uint8 E, uint8 hl, uint8 B)
                     // ld   a,c ... dec  a ... and  #0xFE ... ex   af,af
                     AF = (sprt_mctl_objs[hl].state - 1) & 0xFE; // object status to j_07C2
 
-                    if (1 /* ! ds_plyr_actv._b_2ship */) // ... else ... jr   nz,l_07A4
+                    if (1 /* ! ds_plyr_actv._b_dblfghtr */) // ... else ... jr   nz,l_07A4
                     {
                         // only 1-byte of result needed ( d>-6 && d<+6 )
                         tmpA.word = mrw_sprite.posn[hl].b0;
@@ -1275,12 +1298,16 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
             // l_0849: handle special cases of moving objects
 
             // if (color map == captured fighter)  $07
-
-            // jr   l_08B0
+            //   ld   d,#0xB8
+            //   jr   l_08B0
 
             // l_0852:
+            // else if ( plyr_actv._b_bbee_obj == L )
+            //   jp   z,l_08B6
 
-            // color map 1 ... blue boss hit once
+            // else if ( L & 0x38 == 0x38)
+            //   jp   z,l_08B6
+
             // else
             if ( 0x01 != mrw_sprite.cclr[HL].b1 ) // color map 1 ... blue boss hit once
             {
@@ -1301,9 +1328,9 @@ static uint8 hitd_dspchr(uint8 AF, uint8 E, uint8 HL)
                 // lone blue boss killed, or boss killed before pulling the beam all in
                 ds4_game_tmrs[0x01] = 6;
 
-                // A = ds_plyr_actv[_ds_array8 + ( hl & 0x07 }]
-
-                // D = ds_plyr_actv[_ds_array8 + ( hl & 0x07 + 1 }]
+                // A = L & 0x07
+                // A = plyr_actv.pbm[A]
+                // D = plyr_actv.pbm[A + 1]
 
                 // l_08AA:
                 ds_bug_collsn[ 0x0F ] += A; // add  a,(hl) etc.
@@ -1446,7 +1473,7 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
             get_token = 0;
 
             // cp   #0xEF
-            if (mctld >= 0xEF) // jp   c,l_0BDC_flite_pth_load
+            if (mctld >= 0xEF) // jp   c,l_0BDC_flite_pth_load ... yep it works out even if switch is not enclosed in this if brace ;)
             {
                 // the flag forces repetition of the do-block so that the
                 // next token will be retrieved before continuing to flight-path handler
@@ -1705,6 +1732,10 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
 
             case 0xF4: // _0A53 (0B): capture boss diving
             {
+                uint8 A, C;
+                C = glbls9200.flip_screen;
+                A = ((mrw_sprite.posn[SPR_IDX_SHIP].b0 + 3) & 0xF8) + 1;
+printf("GN: $F4, capture boss diving\n");
                 break; //jp   j_090E_flite_path_init
             }
 
@@ -1854,6 +1885,16 @@ static void mctl_fltpn_dspchr(uint8 mpidx)
             } // switch
         }
         while (0 != get_token); // break out if data-token (or jp 0BFF)
+
+        //while (mctld >= 0xEF) // doesn't work if we eliminate goto 0BFF
+
+// check if forced out by "break" (return statements)
+//if ( 1 == get_token )
+        // l_0B8C:
+//                mctl_mpool[mpidx].p08.word = pHLdata;
+//                mctl_mpool[mpidx].b0D += 1; // inc  0x0D(ix)
+
+//                return; // jp   next__pool_idx
 
         // make sure we're not in a control-token (avoid using goto for "jp   l_0BFF_flite_pth_skip_load")
         if (mctld < 0xEF)
@@ -2262,10 +2303,37 @@ static void mctl_posn_set(uint8 mpidx)
     mrw_sprite.ctrl[L].b1 = (mrw_sprite.ctrl[L].b1 & ~0x01) | (r16.pair.b1 & 0x01); // sprite[n].posn.sy<8>
 
 
+#ifdef HELP_ME_DEBUG
+    if (glbls9200.game_state == IN_GAME_MODE) // ignore memory inits
+      printf(
+        "%02X%02X%02X  %02X  %02X %02X %02X %02X %02X %02X  %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
+//            dbg_step_cnt++,
+        ds3_92A0_frame_cts[1],
+        ds3_92A0_frame_cts[2],
+        ds3_92A0_frame_cts[0],
+        L,
+        mrw_sprite.posn[L].b0, mrw_sprite.posn[L].b1,
+        mrw_sprite.ctrl[L].b0, mrw_sprite.ctrl[L].b1,
+        mrw_sprite.cclr[L].b0, mrw_sprite.cclr[L].b1,
+        mctl_mpool[mpidx].cy.pair.b0,
+        mctl_mpool[mpidx].cy.pair.b1,
+        mctl_mpool[mpidx].cx.pair.b0,
+        mctl_mpool[mpidx].cx.pair.b1,
+        mctl_mpool[mpidx].ang.pair.b0,
+        mctl_mpool[mpidx].ang.pair.b1,
+        mctl_mpool[mpidx].b06,
+        mctl_mpool[mpidx].b07,
+        mctl_mpool[mpidx].b0A,
+        mctl_mpool[mpidx].b0B,
+        mctl_mpool[mpidx].b0C,
+        mctl_mpool[mpidx].b0D
+    );
+#endif
+
     // Once the timer in $0E is reached, then check conditions to enable bomb drop.
     // If bomb is disabled for any reason, the timer is restarted.
     mctl_mpool[mpidx].b0E -= 1; // dec  0x0E(ix)
-
+//return; // HELP_ME_DEBUG
     if (0 == mctl_mpool[mpidx].b0E) // jp   nz,next__pool_idx
     {
         Cy = mctl_mpool[mpidx].b0F & 0x01;
@@ -2300,6 +2368,8 @@ static void mctl_posn_set(uint8 mpidx)
                     bc16.pair.b0 = mrw_sprite.posn[L].b1; // y<7:0>
                     b = bc16.word >> 1; // y<8:1>
 
+                    //hl16.word =  // dX<8:1> in msb, set lsb to 0
+                    //  (mrw_sprite.posn[SPR_IDX_SHIP].b0 - mrw_sprite.posn[L].b0) << 8;
                     hl16.pair.b1 = mrw_sprite.posn[SPR_IDX_SHIP].b0 -
                                    mrw_sprite.posn[L].b0 ; // dX;
 
@@ -2308,6 +2378,10 @@ static void mctl_posn_set(uint8 mpidx)
                         // result in 8-bits but parameter passed in hl to div16_8()
                         hl16.pair.b1 = -hl16.pair.b1; // neg ... ld   h,a
                     }
+
+                    // dX passed to c_0EAA()in hl16 ... lsb of &bomb.ctrl.b1
+                    // remaining in L is insignificant
+                    //hl16.pair.b0 = ...
 
                     // l_0DB1:
                     a16.word = 298 >> 1; // 0x95 ... 354-56
@@ -2322,7 +2396,8 @@ static void mctl_posn_set(uint8 mpidx)
                     }
 
                     // l_0DC1: determine x-rate of bomb ... dX/dY
-// off by 1 ... 6569/56=12d
+// off by 1 ... 6569/56=12d (mame)  12c(division or C function)
+// hl16.word /= a16.pair.b0;
                     hl16.word = mctl_div_16_8(hl16.word, a16.pair.b0); // HL = HL / A
                     bc16.word = hl16.word;
                     hl16.word >>= 2;

@@ -3,6 +3,7 @@
 **  pe_string.c (gg1-2.3m)
 **
 **  Utility functions, player and stage setup, text display.
+**  These are conveniently grouped together in gg1-2.
 **
 *******************************************************************************/
 
@@ -22,23 +23,13 @@
 
 uint16 j_string_out_pe(uint8 pe, uint16 usepos, uint8 idx);
 
-/*
-; strings, position-encoded, and terminated ...termination is 0x2F which corresponds to ascii '/'
- */
-struct str_pe_t
-{
-    // posn is not absolute, but an offset into "tileram"
-    uint16 posn;
-    uint8 color; // color code
-    const char *chars; // terminated string
-};
 
 // this string doesn't correspond to ASCII, the rest are embedded directly into
 // the struct definition
 static const char d_cstr_mfrnm[] = { 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x2F };// "NAMCO" (in styled font)
 
-static struct str_pe_t d_cstring_tbl[] = {
-    // $00
+static str_pe_t d_cstring_tbl[] = {
+    // $00 (placeholder for indexing)
     {
         _dea(11, 6), // 02EB
         0x00, "PUSH START BUTTON/"
@@ -245,7 +236,7 @@ void c_string_out(uint16 pos, uint8 idx)
  ***************************************************/
 uint16 j_string_out_pe(uint8 pe, uint16 pos, uint8 idx)
 {
-    struct str_pe_t *p_sptr = &d_cstring_tbl[idx];
+    str_pe_t *p_sptr = &d_cstring_tbl[idx];
     uint16 HL;
     const char *DE;
     uint8 C;

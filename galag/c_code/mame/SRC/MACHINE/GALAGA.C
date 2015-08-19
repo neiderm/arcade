@@ -26,6 +26,12 @@ int galaga_sharedram_r(int offset)
 void galaga_sharedram_w(int offset,int data)
 {
 	galaga_sharedram[offset] = data;
+
+if (offset == 0x1ab9 )// DEBUG
+{
+printf("wt\n");
+}
+
         if (offset == 0x1ab9 && Machine->samples) {
           if (data && testdone && Machine->samples->sample[0]) {
                 osd_play_sample(7,(unsigned char *)Machine->samples->sample[0]->data,
@@ -34,6 +40,93 @@ void galaga_sharedram_w(int offset,int data)
                         Machine->samples->sample[0]->volume,0);
           }
         }
+
+#if 1 //#ifdef HELP_ME_DEBUG
+if ( offset == 0x12F8 &&  // ATTRACT_MODE
+     (1 == galaga_sharedram[0x1201] || 3 == galaga_sharedram[0x1201]) )  // PLAY_MODE ... only other writes would be memory test/inits so make sure to ignore those)
+{
+  UINT8 d92F9 = galaga_sharedram[0x12F9]; // current 0x10(ix)
+  UINT8 d92F2 = galaga_sharedram[0x12F2]; // xtra data
+  UINT8 d92F3 = galaga_sharedram[0x12F3]; // xtra data
+
+  // data written to 92F8 signifies type of output to generate
+  if ( (UINT8)data >= 0xF0)
+  {
+    if ( (UINT8)data == 0xFB)
+      // printt object/index, token, data-ptr for fltq-slot
+      printf("%02X%02X%02X GN: hitd_dspchr: %02X set to 0\n",
+              galaga_sharedram[0x12A0 + 0x01], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x02], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x00], // 0092A0, frame timer
+              d92F3
+              );
+
+    else if ( (UINT8)data == 0xFC)
+      // printt object/index, token, data-ptr for fltq-slot
+      printf("%02X%02X%02X GN: disable_rckt, %02X\n",
+              galaga_sharedram[0x12A0 + 0x01], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x02], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x00], // 0092A0, frame timer
+              d92F2
+              );
+
+    else if ( (UINT8)data == 0xFD)
+      // printt object/index, token, data-ptr for fltq-slot
+      printf("%02X%02X%02X GN: rckt_sprite_init, %02X\n",
+              galaga_sharedram[0x12A0 + 0x01], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x02], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x00], // 0092A0, frame timer
+              d92F3 );
+
+    else if ( (UINT8)data == 0xFE)
+      // printt object/index, token, data-ptr for fltq-slot
+      printf("%02X%02X%02X GN: check X coordinate, %02X  %02X\n",
+              galaga_sharedram[0x12A0 + 0x01], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x02], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x00], // 0092A0, frame timer
+              d92F2,
+              d92F3 );
+
+    else if ( (UINT8)data == 0xFF)
+      printf("%02X%02X%02X GN: hitd_dspchr_rckt, %02X %02X\n",
+              galaga_sharedram[0x12A0 + 0x01], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x02], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x00], // 0092A0, frame timer
+              d92F2, d92F3 );
+  }
+
+  if ( data == 0 )
+  {
+           UINT8 pfltq = galaga_sharedram[0x0800 + d92F9 + 1]; // 8800[n].b1 -> offset of element in fltq
+           UINT8 obji = d92F9;
+
+           printf(
+              "%02X%02X%02X  %02X  %02X %02X %02X %02X %02X %02X  %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
+              //*((word *)&galaga_sharedram[0x12F0]),  // 0092F0, debug step count
+              galaga_sharedram[0x12A0 + 0x01], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x02], // 0092A0, frame timer
+              galaga_sharedram[0x12A0 + 0x00], // 0092A0, frame timer
+              obji,
+              galaga_sharedram[0x1300 + obji + 0], galaga_sharedram[0x1300 + obji + 1], // 009300  ds_sprite_posn
+              galaga_sharedram[0x1B00 + obji + 0], galaga_sharedram[0x1B00 + obji + 1], // 009B00  ds_sprite_ctrl
+              galaga_sharedram[0x0B00 + obji + 0], galaga_sharedram[0x0B00 + obji + 1], // 008B00  ds_sprite_cclr
+              // object motion queue at 9100
+              galaga_sharedram[0x1100 + pfltq  + 0x00],
+              galaga_sharedram[0x1100 + pfltq  + 0x01],
+              galaga_sharedram[0x1100 + pfltq  + 0x02],
+              galaga_sharedram[0x1100 + pfltq  + 0x03],
+              galaga_sharedram[0x1100 + pfltq  + 0x04],
+              galaga_sharedram[0x1100 + pfltq  + 0x05],
+              galaga_sharedram[0x1100 + pfltq  + 0x06],
+              galaga_sharedram[0x1100 + pfltq  + 0x07],
+              galaga_sharedram[0x1100 + pfltq  + 0x0a],
+              galaga_sharedram[0x1100 + pfltq  + 0x0b],
+              galaga_sharedram[0x1100 + pfltq  + 0x0c],
+              galaga_sharedram[0x1100 + pfltq  + 0x0d]
+              );
+        }
+    }
+#endif
 }
 
 

@@ -90,7 +90,7 @@ j_Game_init:
        ld   b,#0x40
        ld   a,#0x03
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
-; 30D
+
        call c_sctrl_playfld_clr                   ; clear remainder of grid pattern from the playfield tiles (14x16)
 ; all tile ram is now wiped
 
@@ -99,12 +99,13 @@ j_Game_init:
        ld   a,#5
        ld   b,#0
 l_0317:
-       ld   hl,#d_str20000                        ; src of "00002 " (20000 backward)
+       ld   hl,#d_str20000                        ; "00002 " (20000 reversed)
        ld   c,#0x06
        ldir
        dec  a
        jr   nz,l_0317
-       ld   hl,#d_strScore
+
+       ld   hl,#d_strScore                        ; "SCORE" (reversed)
        ld   a,#0x2A                               ; period character '.'
        ld   b,#0x05
        ld   c,#0xFF
@@ -211,12 +212,26 @@ l_0380:
        jr   nz,l_game_state_ready
 
 ; ... do attract mode stuff
-       xor  a
-       ld   (ds_9200_glbls + 0x03),a              ; b_9200_glbls.demo_idx = 0
 
-; task_activ_tbl[2] = 1; // f_17B2 (demo mode control)
+;; HELP_ME_DEBUG
+;  ld hl,ds3_92A0_frame_cts
+;  ld a,#01
+;  ld (hl),a
+;  inc hl
+;  ld (hl),a
+;  inc hl
+;  ld (hl),a ; must be odd, see f_1DD2
+;  ld hl, 0x92F0 ; step-count (debug variable) for bug motion runner
+;  ld (hl), 0x00
+;  inc hl
+;  ld (hl), 0x00
+
+       xor  a
+       ld   (ds_9200_glbls + 0x03),a              ; demo_idx = 0
+
+; task_activ_tbl[F_ATTRMODECTRL] = 1
        inc  a
-       ld   (ds_cpu0_task_actv + 0x02),a         ; 1 ... f_17B2 (control demo mode)
+       ld   (ds_cpu0_task_actv + 0x02),a         ; 1 ... f_17B2 (attract-mode control)
 
 ; while (game_state == ATTRACT_MODE) { ; }
 l_038D_while:
@@ -299,10 +314,10 @@ l_0003D8:
        ld   b,#0xA0
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
 
-;ld hl, ds_plyr_actv +_b_stgctr   ; HELP_ME_DEBUG
-;ld (hl), #6
+;ld hl, ds_plyr_actv +_b_stgctr  ; HELP_ME_DEBUG
+;ld (hl), #7
 
-       ld   (b_9AA0 + 0x17),a                     ; 0 ... enable sound mgr process
+       ld   (b_9AA0 + 0x17),a                     ; 0 ... do not reset sound mgr process?
 
        ld   (ds_99B9_star_ctrl + 0x00),a          ; 0 ... star ctrl stop (1 when ship on screen)
 
@@ -345,6 +360,7 @@ l_0414_while_tmr_3:
 
        ld   a,#1
        ld   (ds_plyr_susp +_b_plyr_nbr),a         ; 1==plyr2
+
        ld   a,(w_mchn_cfg_bonus)
        ld   (ds_plyr_actv +_b_mcfg_bonus),a
        ld   (ds_plyr_susp +_b_mcfg_bonus),a
@@ -431,8 +447,9 @@ l_045E_while:
 ;;
 ;;-----------------------------------------------------------------------------
 gctl_game_init:
-;  get nbr of ships from machine config
+;  get nbr of fighters from machine config
        ld   a,(b_mchn_cfg_nships)
+ld a, 0 ; HELP_ME_DEBUG
        ld   (ds_plyr_actv +_b_nships),a           ; mchn_cfg_nships
        ld   (ds_plyr_susp +_b_nships),a           ; mchn_cfg_nships
 
@@ -557,7 +574,7 @@ l_04C1_while:
 ; check for "not (normal) end of stage conditions":
 
 ; if ( restart stage flag || bugs_actv_nbr>0 )
-       ld   c,a                                   ; A==bugs remaining in round (could be 0 if ship hit last one)
+       ld   c,a                                   ; remaining enemies, could be 0 if fighter hit last one
        ld   a,(ds_9200_glbls + 0x13)              ; restart stage flag (could not be here if nbr_bugs > 0 && flag==0 )
        or   c
        jr   nz,gctl_plyr_terminate
@@ -569,7 +586,7 @@ l_04C1_while:
 l_04DC_break:
 
 ; end of stage ... "normal"
-       call gctl_stg_splash_scrn
+       call stg_init_splash
        jp   plyr_respawn_rdy
 
 
@@ -641,6 +658,7 @@ l_0509_while:
 
        call c_0A72_puts_hitmiss_ratio
 
+; $80B8 == $00A0 + $18
        ex   de,hl                                 ; HL becomes c_string_out<IN:position in tile RAM>
        ld   c,#0x1A                               ; string index
        call c_string_out                          ; "%" after hit-miss number
@@ -659,22 +677,21 @@ l_0540_while:
        xor  a
        ld   (b_9AA0 + 0x10),a                     ; 0 ... sound-fx count/enable registers, hi-score dialog?
 
-; while (0 != _fx[0x0C] || 0 != _fx[0x16]) ... finished when both 0
+; while (_fx[0x0C] || _fx[0x16]) ... (finished when both 0)
        ld   hl,#b_9AA0 + 0x0C                     ; sound-fx count/enable registers, hi-score dialog
        ld   de,#b_9AA0 + 0x16                     ; sound-fx count/enable registers, hi-score dialog
 l_0554_while:
-       ld   a,(de)                                ; sound_fx[0x16]
-       ld   b,(hl)                                ; sound_fx[0x0C]
+       ld   a,(de)                                ; sound_fx[0x16] ... probably 0
+       ld   b,(hl)                                ; sound_fx[0x0C] ... probably still running
        or   b
        jr   z,l_0562
-; if (*_fx[0x0C] != 0) then _fx[0x0C] = 1 ... snd[$0C] used as timer, enable snd[$16] when 0 is reached
+; . if (0 != _fx[0x0C]) then _fx[0x0C] = 1 ... snd[$0C] used as timer, enable snd[$16] when 0 is reached
        inc  b
        dec  b
        jr   z,l_055F
        ld   (hl),#1
 l_055F:
-; On halt, processor wakes at maskable or nonmaskable interrupt providing
-; something like a busy-wait with sleep(n) where n is the interrupt period.
+; 340 NMI, 170 RST38 traced here
        halt                                       ; hi-score, finished name entry (wait for music to stop)
        jr   l_0554_while
 
@@ -823,9 +840,9 @@ plyr_respawn_1up:
        and  a
        jr   nz,gctl_plyr_respawn_wait
 ; ... then ...
-       call gctl_stg_splash_scrn                  ; new stage setup, shows "STAGE X"
+       call stg_init_splash                       ; new stage setup, shows "STAGE X"
 
-       jr   gctl_plyr_respawn_wait
+       jr   gctl_plyr_respawn_wait                ; > plyr_respawn_rdy
 
 
 ;;=============================================================================
@@ -833,7 +850,7 @@ plyr_respawn_1up:
 ; change, or at start of new game loop.
 ; If on a new game, PLAYER 1 text has been erased.
 plyr_respawn_splsh:
-       call gctl_stg_splash_scrn                  ; shows "STAGE X" and does setup
+       call stg_init_splash                       ; shows "STAGE X" and does setup
 
        ;; plyr_respawn_plyrup()
 
@@ -868,6 +885,7 @@ l_062C:
 
 ;;-----------------------------------------------------------------------------
 ; new round starting or round re-starting after active player switch.
+; end of stage ... "normal" from _stg_restart_hdlr
 plyr_respawn_rdy:
        ld   a,#1
        ld   (ds_cpu0_task_actv + 0x15),a          ; 1 ... f_1F04 (fire button input)
@@ -1007,7 +1025,7 @@ l_06BA:
 ;;=============================================================================
 ;; g_halt()
 ;;  Description:
-;;    "call'd" when one (or both) players exhausted supply of ships.
+;;    Restarts machine when one (or both) players exhausted supply of ships.
 ;;    Resumes at g_main.
 ;; IN:
 ;;  ...
@@ -1085,10 +1103,10 @@ gctl_supv_score:
        ld   a,(ds_plyr_actv +_b_plyr_nbr)         ; 0==plyr1, 1==plyr2
        and  a
 ;    tmp = $f9
-       ld   a,#0xF9                               ; offset to 10's place from m_tile_ram + 0x0300 (plyr 1)
+       ld   a,#0xF9                               ; offset to 10's place from _tile_ram + 0x0300 (plyr 1)
        jr   z,l_0732
 ;  else tmp = $E4
-       ld   a,#0xE4                               ; offset to 10's place from m_tile_ram + 0x0300 (plyr 2)
+       ld   a,#0xE4                               ; offset to 10's place from _tile_ram + 0x0300 (plyr 2)
 
 l_0732:
        ld   ixl,a                                 ; parameter to c_scoreman_incr_add (tile ram offset)
@@ -1232,7 +1250,7 @@ l_07BD:
 ;;   specific to the layout of decimal digits in the character map.
 ;; IN:
 ;;  A == scoreman_inc_lut[B-1]
-;;  HL== destination address ... m_tile_ram + 0x0300
+;;  HL== destination address ... _tile_ram + 0x0300
 ;; OUT:
 ;;
 ;; PRESERVES:
@@ -1242,7 +1260,7 @@ c_scoreman_incr_add:
        and  a
        ret  z
 
-       add  a,(hl)                                ; a += m_tile_ram[hl]
+       add  a,(hl)                                ; a += _tile_ram[hl]
        cp   #0x24                                 ; $23=='Z', $24==' '
        jr   c,l_07E1
        sub  #0x24                                 ; when is jr not taken?
@@ -1558,7 +1576,7 @@ f_0935:
        rlca
 
 ;;=============================================================================
-;; c_093C()
+;; gctl_1up2up_displ()
 ;;  Description:
 ;;   Blink 1UP/2UP
 ;; IN:
@@ -1825,6 +1843,19 @@ l_09FF_check_credits_used:
        ld   a,#3
        ld   (b8_9201_game_state),a                ; 3 (IN_GAME)
 
+;DBG_gak: ; HELP_ME_DEBUG ; setting _92A0_frame_cts
+  ld hl,ds3_92A0_frame_cts
+  ld a,#01
+  ld (hl),a
+  inc hl
+  ld (hl),a
+  inc hl
+  ld (hl),a ; must be odd, see f_1DD2
+;  ld hl, 0x92F0 ; step-count (debug variable) for bug motion runner
+;  ld (hl), 0x00
+;  inc hl
+;  ld (hl), 0x00
+
        ret
 ; }
 
@@ -1976,11 +2007,13 @@ l_0A82_while:
        ex   de,hl
        jr   l_0A82_while
 
+; 1C0000 / 84 = 00364D ... 7/33
 ; do the actual division with resultant quotient scaled up by factor of 0x0100 to keep precision
 l_0A90:
 ; HL = hl_adjusted_hits / (de_adjusted_shots / 0x0100)
        ld   a,d                                   ; divisor in A
        call c_divmod                              ; HL=HL/A (preserves DE)
+; 1C00/84=0036  ... A==28
        push hl
 
 ; HL = modulus / (de_adjusted_shots / 0x0100)
@@ -1988,7 +2021,10 @@ l_0A90:
        ld   l,#0
        ld   a,d                                   ; divisor in A
        call c_divmod                              ; HL=HL/A (preserves DE)
+;2800/84=004D ... A=004C
+; SP points to lsb of 1st quotient (msb)
        ex   (sp),hl                               ; restore msw (1st quotient) into HL, lsw (2nd quotient) to (SP), (SP+1)
+; HL==0036
        ld   de,#b16_99B0_tmp                      ; pointer to hit-miss ratio calc.
        ld   b,#4                                  ; loop counter to calculate percentage to 2 decimal places
        ld   a,h                                   ; msb of msw (first quotient), only low 4 bits significant (would be 0 or 1)
@@ -2004,18 +2040,32 @@ l_0AA5_while:
        inc  l
 l_0AAD:
        ex   de,hl                                 ; lsb of HL+A -> HL, pointer to DE
+; HL==0036
        call c_0B06                                ; HL *= 10 ... MSB->A
+; HL==001C, A==02
+; stash msb to A'
        ex   af,af'                                ; stash 1st product msb
+
        ex   (sp),hl                               ; 2nd product to HL, 1st product to (SP)
+; HL=004D
        call c_0B06                                ; HL *= 10 ... MSB->A
+; HL==0002
+; A==03
        ex   (sp),hl                               ; 1st product to HL, 2nd product to (SP)
+; HL==001C ... next loop this is first mul'd by 0A
        rst  0x10                                  ; HL += A ... 1st product + 2nd product (msb)
+; A = L = (1C + 03) = 1F
        ex   af,af'                                ; 1st product msb -> A, stash sum lsb
+; A==02 (msb of 1st mul)
+; H==00
        add  a,h                                   ; 1st product msb + sum msb
+; A==02
        ld   h,#0                                  ; done with this byte
        djnz l_0AA5_while
 
        pop  de                                    ; restore SP
+
+; 99B0: 02 12 ... 21.2 NOTE msb nibble first, so round-up of A carries into lsb (D) then E
 
 ; if (A >= 5)
        cp   #5
@@ -2037,13 +2087,16 @@ l_0AAD:
 
 l_0AD3:
        ld   (b16_99B0_tmp),de                     ; tmp computed hit-miss ratio (BCD)
-; setup for display of computed ratio
+; DE = 00D0
+; else
+; 99B0: 02 12 ... 21.2
+
 l_0AD7:
        ld   b,#4
        ld   c,#0                                  ; use <:1> as flag
        ld   hl,#b16_99B0_tmp                      ; &hitratio.b0 (BCD)
        ld   de,#m_tile_ram + 0x0120 + 0x18
-
+; fi
 ; loop to putc 4 characters (XXX.X)
 l_0AE1_while:
 ; if ( b==1 ) then ...

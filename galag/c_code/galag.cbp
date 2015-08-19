@@ -16,6 +16,7 @@
 					<Add option="-g" />
 					<Add option="-DBUGS=1" />
 					<Add option="-DDEBUG=1" />
+					<Add option="-DHELP_ME_DEBUG=1" />
 				</Compiler>
 				<Linker>
 					<Add option="-Wl,-Map=a.map" />
@@ -43,6 +44,7 @@
 				<Compiler>
 					<Add option="-g" />
 					<Add option="-DDEBUG=1" />
+					<Add option="-DHELP_ME_DEBUG=1" />
 				</Compiler>
 				<Linker>
 					<Add option="-Wl,-Map=a.map" />

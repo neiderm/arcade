@@ -69,13 +69,13 @@ static void j_068B_close_voice_and_exit(void);
 void cpu2_init(void)
 {
     // disable the NMI ... this is just here for completeness
-    nmi_acknowledge_enable_cpu2 = 0;
+    nmi_acknowledge_enable_cpu2 = 0; // cpu2 reset
 
     // wait for master to acknowledge/resume (0)
 
     // compute ROM checksum
 
-    nmi_acknowledge_enable_cpu2 = 1;
+    nmi_acknowledge_enable_cpu2 = 1; // cpu2 reset
 
     // memset(b_9A00, 0, $0100) ... clear all registers ...
     w_9A80_06 = 0;
@@ -115,7 +115,7 @@ void cpu2_NMI(void)
 
 
         // l_00D3:
-        if (0 != b_9AA0[0]) // jr   z,l_0148 ... count/enable register, pulsing formation sound effect
+        if (0 != b_9AA0[0x00]) // jr   z,l_0148 ... count/enable register, pulsing formation sound effect
         {
             tmpA = glbls9200.formatn_mv_signage;
 

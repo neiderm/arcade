@@ -19,6 +19,9 @@
 /*
  ** extern declarations of variables defined in other files
  */
+#if 1//#ifdef HELP_ME_DEBUG
+ extern uint16 dbg_step_cnt;
+#endif
 
 /*
  ** non-static external definitions this file or others
@@ -229,10 +232,16 @@ int g_main(void)
     // allow attract-mode festivities to be skipped if credit available
     if (gctl_credit_cnt == 0)
     {
+
+ dbg_step_cnt = 0;
+ ds3_92A0_frame_cts[0] = 0x01;
+ ds3_92A0_frame_cts[1] = 0x01;
+ ds3_92A0_frame_cts[2] = 0x01; // must be odd, see f_1DD2
+
         glbls9200.game_state = ATTRACT_MODE;
 
         // do attract mode stuff
-        glbls9200.demo_idx = 0;
+        glbls9200.attmode_state_idx = 0;
         task_actv_tbl_0[2] = 1; // f_17B2 (control demo mode)
 
         // l_038D_While_Attract_Mode
@@ -337,11 +346,14 @@ int g_main(void)
 
     c_string_out(0x03B0, 0x0B); // erase PLAYER 1 text
 
-    plyr_susp.p1or2 = 1; // 1==plyr2
-    plyr_actv.mcfg_bonus0 = mchn_cfg.bonus[0];
-    plyr_susp.mcfg_bonus0 = mchn_cfg.bonus[0];
+    plyr_susp.plyr_nbr = 1; // 1==plyr2
+    plyr_actv.mcfg_bonus = mchn_cfg.bonus[0];
+    plyr_susp.mcfg_bonus = mchn_cfg.bonus[0];
 
-    // jp   _stg_init ...
+    // jp   plyr_respawn_splsh ...
+    //  -> call _stg_init_splash
+    //     -> _stg_new_env_init ("fall through")
+    //  -> _respawn_plyrup ("fall through")
     plyr_respawn_splsh();
 
     // blocks here unless broken off by ESC key or gameover
@@ -445,10 +457,12 @@ static void gctl_plyr_init(void)
     uint8 A, HL;
     uint16 DE;
 
-    // get nbr of ships from machine config
-    A = 3; // tmp ...    ld   a,(b8_mchn_cfg_nships)
-    plyr_actv.num_ships = A;
-    plyr_susp.num_ships = A;
+    // get nbr of fighters from machine config
+#ifdef HELP_ME_DEBUG
+    A = 0; // tmp ...    ld   a,(mchn_cfg_nfghtrs)
+#endif
+    plyr_actv.fghtrs_resv = A;
+    plyr_susp.fghtrs_resv = A;
 
     DE = 0x03E0 + 0x18; // player 1 score, right tile of "00"
     HL = 0;
@@ -567,7 +581,7 @@ static int gctl_stg_restart_hdlr(void)
     gctl_supv_score();
 
     // count of remaining aggressors according to object state dispatcher
-    plyr_actv.b_nbugs = b_bugs_actv_nbr;
+    plyr_actv.enmy_ct = b_bugs_actv_nbr;
 
     // handle specific situations ...
 
@@ -587,7 +601,7 @@ l_04DC_break:
     // end of stage
 
     stg_init_splash();
-    plyr_respawn_rdy();  // jp   _fghtr_rdy
+    plyr_respawn_rdy();  // jp   _fghtr_rdy ... last part of _respawn_wait
 
     return 0; // _game_runner
 }
@@ -606,7 +620,7 @@ l_04DC_break:
 ;;---------------------------------------------------------------------------*/
 static int gctl_plyr_terminate(void)
 {
-    if ( plyr_actv.num_ships-- == 0 ) // jp   nz,j_0579_terminate
+    if ( plyr_actv.fghtrs_resv-- == 0 ) // jp   nz,j_0579_terminate
     {
         // ... handle game-over Results, Shots Fired etc.
         // if not 2 player OR suspended player has 0 reserve fighter then halt.
@@ -615,7 +629,7 @@ static int gctl_plyr_terminate(void)
         {
             // ... adjust message text for two player
             // ld   hl,#m_tile_ram + 0x0240 + 0x0E
-            c_string_out(0x0240 + 0x0E, plyr_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
+            c_string_out(0x0240 + 0x0E, plyr_actv.plyr_nbr + 4); // PLAYER X ("1" or "2") .
         }
 
         //l_04FD_end
@@ -657,14 +671,14 @@ static int gctl_plyr_terminate(void)
         } // jr   nz,l_0540
 
         c_sctrl_playfld_clr();
-        //call c_top5_dlg_proc();
+        hiscore_enterinitials();
 
-        b_9AA0[0x10] = 0; // sound-fx count/enable registers, hi-score dialog?
+        b_9AA0[0x10] = 0; // sound-fx count/enable registers, hi-score music
 
-        // l_0554: sync/wait for hi-score dlg music
-        while (0 != b_9AA0[0x0C] && 0 != b_9AA0[0x16]) // jr   z,l_0562
+        // l_0554: top score gets the special music
+        while (0 != b_9AA0[0x0C] || 0 != b_9AA0[0x16]) // jr   z,l_0562
         {
-            if (1 != b_9AA0[0x0C]) // jr   z,l_055F
+            if (0 != b_9AA0[0x0C]) // jr   z,l_055F
             {
                 // fx[$0C] used as timer, enable fx[$16] when 0 is reached
                 b_9AA0[0x0C] = 1; // ld   (hl),#1
@@ -675,7 +689,7 @@ static int gctl_plyr_terminate(void)
             // the interrupt period.
             //while(!interrupt) //  // loop on interrupt flag to simulate halt?
             {
-                _updatescreen(1); // refresh screen during blocking operation
+                _updatescreen(1); // halt
             }
         } // //jr   l_0554
 
@@ -685,8 +699,8 @@ static int gctl_plyr_terminate(void)
        // done game over stuff for active player, so if 1P game or
        // plyr_susp.resv_fghtrs exhausted then halt
 
-       // num_ships == -1 when no resv ships remain
-       if (0 == gctl_two_plyr_game || -1 == plyr_susp.num_ships)
+       // fghtrs_resv == -1 when no resv ships remain
+       if (0 == gctl_two_plyr_game || -1 == plyr_susp.fghtrs_resv)
        {
            g_halt(); // jp   z,end_game_halt ... only place to reference this symbol
            return 1; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner < g_main < g_exec
@@ -694,7 +708,7 @@ static int gctl_plyr_terminate(void)
        else if (glbls9200.restart_stage > 1)
        {
             //    jr   nz,_plyr_chg
-            //    jp   _plyr_startup
+            //    jp   _respawn_plyrup
             plyr_chg(); // jr   nz,_plyr_chg
             return 0;
         }
@@ -707,16 +721,16 @@ static int gctl_plyr_terminate(void)
     if (0 == gctl_two_plyr_game) // jp   z,_plyr_respawn_1P`
     {
         // _plyr_respawn_1P:
-        if (0 == plyr_actv.b_nbugs)
+        if (0 == plyr_actv.enmy_ct)
         {
             stg_init_splash(); // respawn_1P ... blocks on busy-loop
         }
         // _respawn_plyrup but skip Player X text on stage restart
-        plyr_respawn_wait(); // jr   _plyr_respawn_wait ... READY
+        plyr_respawn_wait(); // jr   _plyr_respawn_wait > plyr_respawn_rdy();
 
         return 0; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner
     }
-    else if ( -1 == plyr_susp.num_ships  // -1 when .resv_fghtrs exhausted
+    else if ( -1 == plyr_susp.fghtrs_resv  // -1 when .resv_fghtrs exhausted
               || 0 != glbls9200.restart_stage )
     {
         // allow actv plyr respawn if susp plyr fighters depleted, or on capture event
@@ -759,17 +773,17 @@ static void plyr_chg(void)
     } // jr   nz,l_0594
 
     // exchange player data
-    plyr_actv.sndflag = b_9AA0[0];
-    plyr_actv.tmr2 = ds4_game_tmrs[2];
+    plyr_actv.snd_flag = b_9AA0[0];
+    plyr_actv.plyr_swap_tmr = ds4_game_tmrs[2];
     c_player_active_switch();
     stg_bombr_setparms(); // new stage setup
-    b_9AA0[0] = plyr_actv.sndflag;
-    ds4_game_tmrs[2] = plyr_actv.tmr2;
+    b_9AA0[0] = plyr_actv.snd_flag;
+    ds4_game_tmrs[2] = plyr_actv.plyr_swap_tmr;
     fghtr_resv_draw();
 
     // check if player was previously destroyed by collision
     // with last evildoer in the round
-    if (0 != plyr_actv.b_nbugs)
+    if (0 != plyr_actv.enmy_ct)
     {
         gctl_stg_new_atk_wavs_init();
     }
@@ -787,11 +801,20 @@ static void plyr_chg(void)
 
     // check if player was previously destroyed by collision
     // with last evildoer in the round
-    if (0 == plyr_actv.b_nbugs)
+    if (0 == plyr_actv.enmy_ct)
     {
-        // jr   z, plyr_respawn_splsh
+        // jr   z, plyr_respawn_splsh ... _stg_init_splash + _respawn_plyrup
+
+        //  -> call _stg_init_splash
+        //     -> _stg_new_env_init ("fall through")
+        //  -> _respawn_plyrup ("fall through")
+        //stg_init_splash(); // puts "STAGE X", _stg_new_env_init ... blocks on busy-loop
+        //gctl_plyr_up(); // "Player X" text + _respawn_wait
         plyr_respawn_splsh();
 
+//return gctl_stg_restart_hdlr
+//gctl_supv_stage
+//gctl_game_runner
         return;
     }
 
@@ -817,9 +840,9 @@ static void plyr_chg(void)
 ; Only 1 reference to this and no "fall-through" so it should be inlined.
 ;;----------------------------------------------------------------------------*/
 // gctl_plyr_respawn_1up:
-//        if (0 == plyr_state_actv.b_nbugs)  _stg_splash_scrn();
+//        if (0 == plyr_actv.enmy_ct)  _stg_init_splash();
 
-//        gctl_plyr_respawn_wait(); // jr   _plyr_respawn_wait ... READY
+//        plyr_respawn_wait(); // jr   _plyr_respawn_wait ... READY
 
 
 /*=============================================================================
@@ -854,10 +877,10 @@ static void plyr_respawn_splsh(void)
 static void plyr_respawn_plyrup(void)
 {
     // P1 text is index 4, P2 is index 5
-    c_string_out(0x0260 + 0x0E, plyr_actv.p1or2 + 4); // PLAYER X ("1" or "2") .
+    c_string_out(0x0260 + 0x0E, plyr_actv.plyr_nbr + 4); // PLAYER X ("1" or "2") .
 
     //_plyr_respawn_wait: respawn always followed by fghtr_rdy
-    plyr_respawn_wait();
+    plyr_respawn_wait(); // > plyr_respawn_rdy();
 }
 
 /*=============================================================================
@@ -875,9 +898,9 @@ static void plyr_respawn_wait(void)
 
     // ds4_game_tmrs[2] was set to 120 by new_stg_game_or_demo
 
+    // if tmr > $5A then reset to $78
     A = ds4_game_tmrs[2] + 0x1E;
 
-    // if tmr > $5A then reset to $78
     if (A >= 120)
     {
         A = 120;
@@ -899,10 +922,10 @@ static void plyr_respawn_wait(void)
 static void plyr_respawn_rdy(void)
 {
     task_actv_tbl_0[0x15] = 1; // f_1F04 ...fire button input
-    //ds_cpu1_task_en[0x05] = 1;  // (enable cpu1:f_05EE ... fighter hit detection)
+    cpu1_task_en[0x05] = 1; // enable cpu1:f_05EE ... fighter hit detection
 
     // attack_wave_enable
-    plyr_actv.b_atk_wv_enbl = 1; // 0 when respawning player ship
+    plyr_actv.atkwv_enbl = 1; // 0 when respawning player ship
 
     c_string_out(0x03B0, 0x0B); // erase "READY" or "STAGE X"
 
@@ -1067,7 +1090,7 @@ static void gctl_supv_score(void)
     uint8 A, B, C, E, L, IXL;
 
     IXL = 0xF9;
-    if (0 != plyr_actv.p1or2)
+    if (0 != plyr_actv.plyr_nbr)
     {
         IXL = 0xE4;
     }
@@ -1289,7 +1312,7 @@ static int gctl_supv_stage(void)
     else if (0 != glbls9200.restart_stage) // 0x13, restart stage flag
     {
         // fighter destroyed or captured?
-        plyr_actv.b_atk_wv_enbl = 0; // restart_stage_flag has been set
+        plyr_actv.atkwv_enbl = 0; // restart_stage_flag has been set
         // z80 did not return to here (jp'd and pop'd the stack)
     }
     else  return(0);
@@ -1530,13 +1553,13 @@ static void gctl_1up2up_displ(uint8 C)
 
     if (IN_GAME_MODE != glbls9200.game_state) return;
 
-    A = ~plyr_actv.p1or2 & C; // cpl
+    A = ~plyr_actv.plyr_nbr & C; // cpl
 
     gctl_1up2up_blink(gctl_str_1up, 0x03C0 + 0x19, A); // 'P' of 1UP
 
     if (!gctl_two_plyr_game) return;
 
-    A = plyr_actv.p1or2 & C; // 1 if 2UP
+    A = plyr_actv.plyr_nbr & C; // 1 if 2UP
 
     gctl_1up2up_blink(gctl_str_2up, 0x03C0 + 0x04, A); // 'P' of 2UP
 
@@ -1825,15 +1848,19 @@ static void gctl_hit_ratio(void)
             hl16.word <<= 1;
             de16.word <<= 1;
         }
-
+// 1C0000 / 84 = 00364D ... 7/33
         // l_0A90: do the actual division
+#if 1
         div32.wpair.w1.word = hl16.word / de16.pair.b1;
         hl16.word = (hl16.word % de16.pair.b1) << 8; // ld  h,a
         div32.wpair.w0.word = hl16.word / de16.pair.b1;
-
+#else
+        div32.u32 = ((uint32)hl16.word << 8) / de16.pair.b1;
+#endif
         b = 4;
         rld32.u32 = div32.wpair.w1.pair.b1; // ld  a,h
-
+//rld32.u32 = (div32.wpair.w1.pair.b0) & 0x04; // ld  a,h
+//div32.wpair.w1.pair.b1 = 0; // ld  h,0
         hl16_1.word = div32.wpair.w1.pair.b0; // ld  h,0
         hl16_2.word = div32.wpair.w0.word; // lsw of quotient (2nd div)
 

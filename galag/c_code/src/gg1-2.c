@@ -195,7 +195,7 @@ void gctl_stg_tokens(uint8 sound_disable_flag)
 
     memset(m_tile_ram + 0x22, 0x24, 0x12); // bottom row at right
 
-    A = plyr_actv.stage_ctr;
+    A = plyr_actv.stg_ct;
     B = 0; // tmp_quotient 50
 
     HL = 1; // offset into tileram ($8001)
@@ -483,7 +483,7 @@ void g_mssl_init(void)
     C = 0; // rocket tile, no inversion
     B = 10;
 
-    for (B = 0; B < 10; B++)
+    for (B = 0; B < 10; B++) // do-while
     {
         uint8 L = SPR_IDX_RCKT + B * 2;
         mrw_sprite.cclr[L].b0 = E;
@@ -764,7 +764,7 @@ void fghtr_resv_draw(void)
     uint16 HL;
     uint8 E, D;
 
-    E = ~plyr_actv.num_ships + 6; // cpl, add  a,#6 ... max nr of icons
+    E = ~plyr_actv.fghtrs_resv + 6; // cpl, add  a,#6 ... max nr of icons
 
     D = 0x49; // starting tile number
 

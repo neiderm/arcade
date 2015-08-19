@@ -21,8 +21,7 @@
 ;;=============================================================================
 ;; f_1700()
 ;;  Description:
-;;   Ship-update in training/demo mode.
-;;   Called once-per-frame (not in ready or game mode).
+;;   Fighter control, only called in training/demo mode.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -63,7 +62,7 @@ case_171F:  ; 0x02
        ret  nz
        jp   case_1766                             ; training mode, far-right boss exploding
 
-; appearance of first attack wave in GameOver Demo-Mode
+; appearance of first enemy formation in Demo
 case_172D:  ; 0x05
        call c_1F0F                                ; init sprite objects for rockets
        ld   de,(pdb_demo_fghtrvctrs)              ; trampled DE so reload it
@@ -149,7 +148,7 @@ case_1794:
 ; $C0: last token, shot-and-hit far-left boss in training mode (second hit)
 case_179C:
        xor  a
-       ld   (ds_cpu0_task_actv + 0x03),a          ; 0 ... f_1700
+       ld   (ds_cpu0_task_actv + 0x03),a          ; 0 ... f_1700() end of fighter control sequence
        ret
 
 ; $4x: shoot-and-hit far-right or far-left boss (once) in training mode
@@ -177,8 +176,9 @@ case_17AE:
 ;;=============================================================================
 ;; f_17B2()
 ;;  Description:
-;;   Frame-update work in training/demo mode.
-;;   Called once/frame not in ready or game mode.
+;;   Manage attract mode, control sequence for training and demo screens.
+;;   The state progression is always the same, ordered by the state-index
+;;   (switch variable).
 ;;
 ;; IN:
 ;;  ...
@@ -192,7 +192,7 @@ f_17B2:
        ret  nz
 
 ; switch( demo_idx )
-       ld   a,(ds_9200_glbls + 0x03)              ; b_9200_glbls.demo_idx
+       ld   a,(ds_9200_glbls + 0x03)              ; demo state variable (jp to "switch-case")
        ld   hl,#d_17C3_jptbl                      ; table_base
        rst  0x08                                  ; HL += 2A
        ld   e,(hl)
@@ -202,31 +202,33 @@ f_17B2:
        jp   (hl)
 
 d_17C3_jptbl:
-       .dw case_1940   ; 0x00
-       .dw case_1948   ; 0x01
-       .dw case_1984   ; 0x02
-       .dw case_18D9   ; 0x03
-       .dw case_18D1   ; 0x04
-       .dw case_18AC   ; 0x05
-       .dw case_1940   ; 0x06
-       .dw case_17F5   ; 0x07
-       .dw case_1852   ; 0x08
-       .dw case_18D1   ; 0x09
-       .dw case_1808   ; 0x0A
-       .dw case_18D1   ; 0x0B
-       .dw case_1840   ; 0x0C
-       .dw case_1940   ; 0x0D
-       .dw case_17E1   ; 0x0E
+       .dw case_1940   ; 0x00 . clear tile and sprite ram
+       .dw case_1948   ; 0x01   setup info-screen: sprite tbl index, text index, preload tmr[2]==2
+       .dw case_1984   ; 0x02   tmr[2]=2,  sequence info-text and sprite tiles indices 1 sec intervals
+       .dw case_18D9   ; 0x03   task[F_demo_fghter_ctrl]==1  init 7 aliens for training mode
+       .dw case_18D1   ; 0x04 ~ wait for task[F_demo_fghter_ctrl]==0 training-mode runs before advance state
+       .dw case_18AC   ; 0x05   synchronize copyright text with completion of explosion of last boss
+       .dw case_1940   ; 0x06 . clear tile and sprite ram
+       .dw case_17F5   ; 0x07   delay ~1 sec before puts("GAME OVER")
+       .dw case_1852   ; 0x08   init demo   task[F_demo_fghter_ctrl]==1
+       .dw case_18D1   ; 0x09 ~ wait for task[F_demo_fghter_ctrl]==0 demo-mode runs before advance state
+       .dw case_1808   ; 0x0A   task[F_demo_fghter_ctrl]==1
+       .dw case_18D1   ; 0x0B ~ wait for task[F_demo_fghter_ctrl]==0 boss-capture before advance state
+       .dw case_1840   ; 0x0C   end of Demo - init taskman, disable flying_bug_ctrl(), global enemy ct 0,
+;enable attr mode ctrl(), fighter has been erased but remaining enemies may not have been erased yet
+       .dw case_1940   ; 0x0D . clear tile and sprite ram
+       .dw case_17E1   ; 0x0E   end of Demo ... delay, then show GALACTIC HERO screen
 
-; demo or GALACTIC HERO screen
+; 0E: end of Demo ...  delay, then show GALACTIC HERO screen
 case_17E1:
-; if ( game_timers[3] == 0 ) ...
+; if ( game_timers[3] == 0 ) then l_17EC
        ld   a,(ds4_game_tmrs + 3)                 ; if 0, display hi-score tbl
        and  a
        jr   z,l_17EC
-; else if ( game_timers[3] == 1 ) break,  else return
+; else if ( game_timers[3] == 1 )  advance state
        dec  a
-       jp   z,l_19A7_end_switch
+       jp   z,l_attmode_state_step
+; else break
        ret
 l_17EC:
        call c_mach_hiscore_show
@@ -234,21 +236,21 @@ l_17EC:
        ld   (ds4_game_tmrs + 3),a                 ; $0A ... after displ hi-score tbl
        ret
 
-; just cleared the screen from training mode... wait the delay then shows "game over"
+; 07: just cleared screen from training mode, delay ~1 sec before puts("game over")
 case_17F5:
-; if ( ( ds3_92A0_frame_cts[0] & 0x1F ) != 0x1F )  return
+; if ( ( ds3_92A0_frame_cts[0] & 0x1F ) == 0x1F )
        ld   a,(ds3_92A0_frame_cts + 0)
        and  #0x1F
        cp   #0x1F
        ret  nz
-; else ...
+; then ...
        ld   a,#1
        ld   (ds_cpu0_task_actv + 0x05),a          ; 1 ... f_0857
        ld   c,#2                                  ; index of string
        rst  0x30                                  ; string_out_pe ("GAME OVER")
-       jp   l_19A7_end_switch
+       jp   l_attmode_state_step
 
-; boss with captured-ship has just rejoined fleet in demo
+; 10: enable fighter control demo
 case_1808:
        call c_133A
 
@@ -256,51 +258,55 @@ case_1808:
        ld   (pdb_demo_fghtrvctrs),hl              ; &d_181F[0]
 
        ld   a,#1
-       ld   (ds_cpu0_task_actv + 0x03),a          ; 1  (f_1700 ... Ship-update in training/demo mode)
-       ld   (ds_cpu0_task_actv + 0x15),a          ; 1  (f_1F04 ...fire button input))
-       ld   (ds_cpu1_task_actv + 0x05),a          ; 1  (cpu1:f_05EE ...Manage ship collision detection)
-       jp   l_19A7_end_switch
+       ld   (ds_cpu0_task_actv + 0x03),a          ; 1  (f_1700 ... fighter control in training/demo mode)
+       ld   (ds_cpu0_task_actv + 0x15),a          ; 1  (f_1F04 ... fire button input))
+       ld   (ds_cpu1_task_actv + 0x05),a          ; 1  (cpu1:f_05EE ... fighter collision detection)
+       jp   l_attmode_state_step
 
 ; demo fighter vectors demo level after capture
 d_181F:
        .db 0x08,0x18,0x8A,0x08,0x88,0x06,0x81,0x28,0x81,0x05,0x54,0x1A,0x88,0x12,0x81,0x0F
        .db 0xA2,0x16,0xAA,0x14,0x88,0x18,0x88,0x10,0x43,0x82,0x10,0x88,0x06,0xA2,0x20,0x56,0xC0
 
-; one time at end of demo, just before "HEROES" displayed, ship has been
-; erased from screen but remaining bugs may not have been erased yet.
+; 12: end of Demo, fighter has been erased but remaining enemies may not have been erased yet
 case_1840:
        rst  0x28                                  ; memset(mctl_mpool,0,$$14 * 12)
        call c_1230_init_taskman_structs
-       xor  a
-       ld   (ds_cpu0_task_actv + 0x10),a          ; 0 (f_1B65 ... Manage flying-bug-attack )
-       ld   (ds_9200_glbls + 0x0B),a              ; 0 ... end of demo
-       inc  a
-       ld   (ds_cpu0_task_actv + 0x02),a          ; 1 ... f_17B2
-       jp   l_19A7_end_switch
 
-; one time init for demo (following training mode): just cleared the screen with "GAME OVER" shown
+       xor  a
+       ld   (ds_cpu0_task_actv + 0x10),a          ; 0 (f_1B65 ... manage bomber attack )
+       ld   (ds_9200_glbls + 0x0B),a              ; 0 ... glbl_enemy_enbl, end of demo
+
+; have to re-set enable bit for this flag after init_structs
+       inc  a
+       ld   (ds_cpu0_task_actv + 0x02),a          ; 1 ... f_17B2 (attract-mode control)
+
+       jp   l_attmode_state_step
+
+; 08: init demo (following training mode) ... "GAME OVER" showing
 case_1852:
        xor  a
        ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 0 ... enable capture-mode selection
        inc  a
        ld   (b_9AA0 + 0x17),a                     ; 1 ... sound_mgr_reset: non-zero causes re-initialization of sound mgr
        ld   (ds_plyr_actv +_b_stgctr),a           ; 1
-       ld   (ds_cpu0_task_actv + 0x03),a          ; 1  (f_1700... Ship-update in training/demo mode)
-       ld   (ds_cpu0_task_actv + 0x15),a          ; 1  (f_1F04 ...fire button input))
-       ld   (ds_plyr_actv +_b_not_chllg_stg),a    ; 1  (0 if challenge stage...see new_stg_game_only)
+       ld   (ds_cpu0_task_actv + 0x03),a          ; 1  (f_1700 ... fighter control in training/demo mode)
+       ld   (ds_cpu0_task_actv + 0x15),a          ; 1  (f_1F04 ... fire button input)
+       ld   (ds_plyr_actv +_b_not_chllg_stg),a    ; 1  (0 if challenge stage ...see new_stg_game_only)
 
        ld   hl,#d_1887
        ld   (pdb_demo_fghtrvctrs),hl              ; &d_1887[0]
-       call c_01C5_new_stg_game_or_demo
+       call stg_init_env
        call c_133A                                ; apparently erases some stuff from screen?
+
        ld   a,#1
-       ld   (ds_9200_glbls + 0x0B),a              ; 1 ... one time init for demo
+       ld   (ds_9200_glbls + 0x0B),a              ; 1 ... glbl_enemy_enbl, one time init for demo
        ld   (ds_plyr_actv +_b_atk_wv_enbl),a      ; 1 ... 0 when respawning player ship
        ld   (ds_plyr_actv +_b_bmbr_boss_wingm),a  ; 1 ... for demo, force the bomber-boss into wingman-mode
        inc  a
        ld   (ds_new_stage_parms + 0x04),a         ; 2 ... max_bombers (demo)
        ld   (ds_new_stage_parms + 0x05),a         ; 2 ... increases max bombers in certain conditions (demo)
-       jp   l_19A7_end_switch
+       jp   l_attmode_state_step
 
 ; demo fighter vectors demo level before capture
 d_1887:
@@ -308,50 +314,58 @@ d_1887:
        .db 0x14,0xAA,0x20,0x82,0x06,0xA8,0x0E,0xA2,0x17,0x88,0x12,0xA2,0x14,0x18,0x88,0x1B
        .db 0x81,0x2A,0x5F,0x4C,0xC0
 
-; 0x05 training mode, last (far-left) boss shot first time start of explosion
+; 05: synchronize copyright text with completion of explosion of last boss
 case_18AC:
-       ld   a,(ds4_game_tmrs + 2)
+; tmr[2] always 0 at transition to this case (was reloaded at last of 5 texts in case_1984)
+; if (0 == tmr[2])  collsn_notif && tmr[2]=9 && break
+       ld   a,(ds4_game_tmrs + 2)                 ; always 0 here at entry to case_18AC
        and  a
        jr   z,l_18BB
-       dec  a                                     ; a little bit more of that explosion
-       jp   z,l_19A7_end_switch
+; else  if (1 == tmr[2])  state++ ; break
+       dec  a
+       jp   z,l_attmode_state_step
+; else  if (6 == tmr)  copyright_info ; break
        cp   #5
        jr   z,l_18C6
+; else  break
        ret
+
 l_18BB:
+; tmr == 0 ... put 4.5 seconds on the clock (but transitions to next case at tmr==1, so delay actually 4 secs)
        ld   a,#0x34
        ld   (b_9200_obj_collsn_notif + 0x34),a    ; $34
        ld   a,#9
        ld   (ds4_game_tmrs + 2),a                 ; 9
        ret
 l_18C6:
-       xor  a                                     ; near end of training-mode
-       ld   (ds_sprite_posn + 0x62),a             ; 0 ... ship (1) is removed from screen
+; tmr == 5, explosion complete ... '150' score on display
+       xor  a
+       ld   (ds_sprite_posn + 0x62),a             ; 0 ... fighter (1) is removed from screen
        ld   c,#0x13
        rst  0x30                                  ; string_out_pe ("(C) 1981 NAMCO LTD.")
        ld   c,#0x14
        rst  0x30                                  ; string_out_pe ("NAMCO" - 6 tiles)
        ret
 
-; 0x04 ship just appeared in training mode (state active until f_1700 disables itself)
+; 04, 09, 11: wait for fighter control task to disable itself
 case_18D1:
-       ld   a,(ds_cpu0_task_actv + 0x03)          ; if !0, return
+; if (0 == task_actv_tbl_0[0x03])  attmode_state_step()
+       ld   a,(ds_cpu0_task_actv + 0x03)          ; wait for task[f_1700 fighter ctrl ]==0 before advance state
        and  a
-       jp   z,l_19A7_end_switch
+       jp   z,l_attmode_state_step
        ret
 
-; (0x03) one time init for 7 bugs in training mode
+; 03: one time init for 7 aliens in training mode
 case_18D9:
        ld   b,#7                                  ; 4 bosses + 3 moths
 l_18DB_while:
-; note: pointer to _attrmode_sptiles[n] is a function "parameter", but it is updated inside the function
-       call c_sprite_tiles_displ
+       call c_sprite_tiles_displ                  ; updates offset of pointer to _attrmode_sptiles[0]
        djnz l_18DB_while
 
        xor  a
        ld   (ds_plyr_actv +_b_nships),a           ; 0
-       ld   (ds_cpu0_task_actv + 0x05),a          ; 0 ... f_0857
-       call c_133A                                ; show_ship
+       ld   (ds_cpu0_task_actv + 0x05),a          ; 0 ... f_0857 uses tmr[2]
+       call c_133A                                ; fghtr_onscreen()
 
 ; set inits and override defaults of bomber timers (note f_0857 disabled above)
        ld   hl,#0xFF0D
@@ -362,8 +376,8 @@ l_18DB_while:
        ld   (b_92C0 + 0x01),hl                    ; demo ... timrs_ini[0x06] = $FF
        ld   (b_92C0 + 0x00),hl                    ; demo ... timrs_ini
 
-       ld   hl,#d_1928
-       ld   (pdb_demo_fghtrvctrs),hl              ; &d_1928[0]
+       ld   hl,#d_1928                            ; demo fighter vectors
+       ld   (pdb_demo_fghtrvctrs),hl              ; &d_1928[0] ... demo fighter vectors
 
 ; memset($92ca,$00,$10)
        xor  a
@@ -371,33 +385,35 @@ l_18DB_while:
        ld   hl,#bmbr_boss_pool                    ; memset( ... , 0, $10 )
        rst  0x18                                  ; memset((HL), A=fill, B=ct)
 
-       ld   (ds_plyr_actv +_b_2ship),a            ; 0: not 2 ship
-       ld   (ds_9200_glbls + 0x0B),a              ; 0: flying_bug_attck_condtn (demo)
+       ld   (ds_plyr_actv +_b_2ship),a            ; 0: not double fighter
+       ld   (ds_9200_glbls + 0x0B),a              ; 0: glbl_enemy_enbl (demo)
        inc  a
        ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 1 ... force bomber-boss wingman for training mode
-       ld   (ds_cpu0_task_actv + 0x10),a          ; 1: f_1B65 ... Manage flying-bug-attack
-       ld   (ds_cpu0_task_actv + 0x0B),a          ; 1: f_1DB3 ... Checks enemy status at 9200
-       ld   (ds_cpu0_task_actv + 0x03),a          ; 1: f_1700 ... Ship-update in training/demo mode
+       ld   (ds_cpu0_task_actv + 0x10),a          ; 1: f_1B65 ... manage bomber attack
+       ld   (ds_cpu0_task_actv + 0x0B),a          ; 1: f_1DB3 ... check enemy status at 9200
+       ld   (ds_cpu0_task_actv + 0x03),a          ; 1: f_1700 ... fighter control in training/demo mode
 
-       ld   a,(_sfr_dsw4)                         ; DSWA ... SOUND IN ATTRACT MODE: b_9AA0[0x17]
+       ld   a,(_sfr_dsw4)                         ; DSWA ... SOUND IN ATTRACT MODE: _fx[0x17]
        rrca
        and  #0x01
-       ld   (b_9AA0 + 0x17),a                     ; from DSWA "sound in attract mode"
+       ld   (b_9AA0 + 0x17),a                     ; from DSWA "sound in attract mode" ... 0 == enable CPU-sub2 process
 
        call c_game_or_demo_init
-       jp   l_19A7_end_switch
 
-; demo fighter vectors training level
+       jp   l_attmode_state_step
+
+; demo fighter vectors training mode
 d_1928:
        .db 0x08,0x1B,0x81,0x3D,0x81,0x0A,0x42,0x19,0x81,0x28,0x81,0x08
        .db 0x18,0x81,0x2E,0x81,0x03,0x1A,0x81,0x11,0x81,0x05,0x42,0xC0
 
-; init demo
+; 00, 06, 13: clear tile and sprite ram
 case_1940:
        call c_sctrl_playfld_clr
        call c_sctrl_sprite_ram_clr
-       jr   l_19A7_end_switch
+       jr   l_attmode_state_step
 
+; 01: setup info-screen: sprite tbl index, text index, timer[2]
 case_1948:
        ld   hl,#d_attrmode_sptiles                ; setup index into sprite data table
        ld   (p_attrmode_sptiles),hl               ; parameter to _sprite_tiles_displ
@@ -407,8 +423,8 @@ case_1948:
        ld   (w_bug_flying_hit_cnt),a              ; 0
 
        ld   a,#2
-       ld   (ds4_game_tmrs + 2),a                 ; 2
-       jr   l_19A7_end_switch
+       ld   (ds4_game_tmrs + 2),a                 ; 2 (1 sec)
+       jr   l_attmode_state_step
 
 ;; parameters for sprite tiles used in attract mode, 4-bytes each:
 ;;  0: offset/index of object to use
@@ -431,44 +447,47 @@ d_attrmode_sptiles:
        .db 0x58,0x12,0xB4,0x64  ; code $10
        .db 0x52,0x12,0xD4,0x64  ; code $10
 
-case_1984: ; 0x02
-;  if ( game_tmrs[2] != 0 ) return
+; 02: info-screen sequencer, advance text and sprite tiles indices
+case_1984:
+;  if ( 0 == game_tmrs[2] ) ... (2 on the clock from case_1948)
        ld   a,(ds4_game_tmrs + 2)
        and  a
        ret  nz
-
+; then ...
+; . game_tmrs[2] = 2; // 1 second
        ld   a,#2
-       ld   (ds4_game_tmrs + 2),a                 ; 2 (1 second)
+       ld   (ds4_game_tmrs + 2),a                 ; info-screen: 2counts (1 second) between text
 
+; . if (index == 5) then  state++ ; break
        ld   a,(ds_9200_glbls + 0x05)              ; if 5 ... demo_scrn_txt_indx
        cp   #5
-       jr   z,l_19A7_end_switch
-
+       jr   z,l_attmode_state_step
+; . else
+; .. txt_index++ ; show text
        inc  a
        ld   (ds_9200_glbls + 0x05),a              ; demo_scrn_txt_indx++
        add  a,#0x0D                               ; s_14EE - d_cstring_tbl - 1
        ld   c,a                                   ; C = 0x0D + A ... string index
        rst  0x30                                  ; string_out_pe ("GALAGA", "--SCORE--", etc)
 
-; if ( index < 3 ) return
-       ld   a,(ds_9200_glbls + 0x05)              ; if demo_scrn_txt_indx == 3 ... checks for a sprite to display with the text
+; .. [index >= 3] && sprite_tiles_displ() && break
+       ld   a,(ds_9200_glbls + 0x05)              ; [demo_scrn_txt_indx >= 3] ... sprite tile display
        cp   #3
        ret  c
-
-       call c_sprite_tiles_displ                  ; note: advances the pointer to _attrmode_sptiles_3[]
+       call c_sprite_tiles_displ                  ; advances pointer to sptiles_3[]
 
        ret
 
-l_19A7_end_switch:
-; b_9200_glbls.demo_idx++;
-       ld   hl,#ds_9200_glbls + 0x03
+l_attmode_state_step:
+; .demo_idx++
+       ld   hl,#ds_9200_glbls + 0x03              ; advance state variable
        inc  (hl)
-; if ( b_9200_glbls.demo_idx != 0x0F )  return
+; if ( .demo_idx == 0x0F )  then demo_idx = 0
        ld   a,(hl)
        cp   #0x0F
        ret  nz
-; b_9200_glbls.demo_idx = 0
        ld   (hl),#0
+
        ret
 
 ;;=============================================================================
@@ -864,6 +883,18 @@ l_1B7A:
        inc  l
        djnz l_1B7A
 
+;; HELP_ME_DEBUG ; waiting 1/4 second till next bmbr; only once
+;ltest:
+; ld (#0x92F9),a ; stash a
+; ld a,(#0x92F2)
+; cp 0xFE
+; ;jp z, lcrap
+; ld a,0xFE        ; magick number
+; ld (#0x92F2), a
+; ld (#0x92F8), a  ; write 92F8 last ... sets the trap
+; ld a,(#0x92F9)   ; restore A
+;lcrap:
+
        ; insert a 1/4 sec delay before trying next bomber
        ld   a,(ds3_92A0_frame_cts + 0)
        and  #0x0F
@@ -904,6 +935,13 @@ l_1B8B:
        ret
 
 l_1BA8:
+
+;; HELP_ME_DEBUG ; waited 1/4 second till next bmbr
+;ld (#0x92F9),a
+;ld a,0xFF        ; magick number
+;ld (#0x92F8), a  ; write 92F8 last ... sets the trap
+;ld a,(#0x92F9)   ; restore A
+
 ; check each bomber type for ready status i.e. yellow, red, boss
        ld   hl,#b_92C0 + 0x00                     ; 3 bytes, 1 byte for each slot, enumerates selection of red, yellow, or boss
        ld   b,#3
@@ -1023,6 +1061,7 @@ l_1C24_is_standby:
        ld   (ds_plyr_actv +_b_bmbr_boss_cflag),a  ; 1 ... force next bomber-boss to wingman mode (suppress capture-boss select)
        ld   a,e
        ld   (ds_plyr_actv +_b_bmbr_boss_cobj),a   ; object/index of bomber to _1CAE ... bosses start at $30
+;ret; HELP_ME_DEBUG
        jp   j_1CAE                                ; _boss_activate(e, ixl, b, iy) ... C?
 
 ; alredy in capture-mode, or capture-mode select is suppressed this time ... look for a wingman
@@ -1335,6 +1374,8 @@ f_1D32:
        inc  (hl)                                  ; update timer
 
        ld   a,(b_9215_flip_screen)
+
+; rotate _scrn_tmr<7> into Cy for testing
        rlc  c
        xor  c
        rrca
@@ -1829,6 +1870,9 @@ l_1EFF:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 f_1F04:
+
+;call c_1F0F ; HELP_ME_DEBUG
+
 ; select the input port depending upon whether screen is flipped.
        ld   a,(b_9215_flip_screen)
        add  a,#<ds3_99B5_io_input + 0x01          ; add lsb
@@ -1850,6 +1894,29 @@ f_1F04:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
+
+l_crap: ; GN: HELP_ME_DEBUG
+; ld e,l
+; ld hl, ds3_92A0_frame_cts+ 0
+; ld a, (hl)
+; cp 0x92
+; jr  nz,c_1F0F
+; inc l ; ld hl, ds3_92A0_frame_cts+ 1
+; ld a, (hl)
+; cp 0x15
+; jr  nz,c_1F0F
+; inc l ; ld hl, ds3_92A0_frame_cts+ 2
+; ld a, (hl)
+; cp 0x29
+;jr  nz,c_1F0F
+
+l_crap2_001EDC:
+; ld a,e
+; ld (#0x92F3), a
+; ld a,0xFD        ; magick number
+; ld (#0x92F8), a  ; write 92F8 last ... sets the trap
+
+
 c_1F0F:
 ; if ( 0 != sprite[ RCKT0 ].sX ) ...
        ld   hl,#ds_sprite_posn + 0x64             ; ROCKET_0
@@ -1880,7 +1947,17 @@ l_1F1E:
        pop  de
        ret
 
+
 l_1F2B:
+
+; HELP_ME_DEBUG
+ ld a,e
+ ld (#0x92F3), a
+ ld a,l
+ ld (#0x92F2), a
+ ld a,0xFD        ; magick number
+ ld (#0x92F8), a  ; write 92F8 last ... sets the trap
+
 ; sprite.ctrl[RCKT+n].b1 = sprite.ctrl[SHIP].b1 ... ship.sY, bit-8
        ldd                                        ; e.g. *(9B65--) = *(9B63--)
 

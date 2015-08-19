@@ -49,7 +49,7 @@ typedef struct
 typedef union
 {
     uint16 word;
-    bpair_t pair;
+    bpair_t pair; // should be bpair (to differentiate from wpair)
 } r16_t;
 
 typedef     struct
@@ -76,7 +76,7 @@ typedef union
 typedef struct
 {
     uint8 obj_idx;
-    uint8 unused; // even alignment probably forced anyway
+    uint8 unused; // even alignment probably forced anyway ???
     uint16 vectr;
 } bmbr_boss_slot_t;
 
@@ -93,12 +93,22 @@ typedef struct
 } mchn_cfg_t;
 
 /*
+ * states for gctl_game_state
+ */
+enum {
+    GAME_ENDED = 0,
+    ATTRACT_MODE = 1,
+    READY_TO_PLAY_MODE = 2,
+    IN_GAME_MODE = 3
+};
+
+/*
  * various globals lumped together in spare bytes of $9200[]
  */
 typedef struct
 {
     uint8 game_state; //               01
-    uint8 demo_idx; //                 03
+    uint8 attmode_state_idx; //        03
     uint8 glbl_enemy_enbl; //          0B: global enable for enemy operations
     uint8 bug_nest_direction_lr; //    0F: 1:left, 0:right
     uint8 formatn_mv_signage; //       11: sign of formation pulse movement for snd mgr
@@ -107,36 +117,48 @@ typedef struct
 } tstruct_b9200;
 
 /*
- * player state
+ * Missiles, bombs, fighters, enemey aliens ... all are derived from this
+ * machine's equivalent concept of a sprite object. This typedef is obviously
+ * nothing more than a simple index, but any given sprite has several
+ * attibute fields (x/y location, tile-date index, color) accessed at banks
+ * of memory-mapped hardware registers sharing a common index.
+ */
+typedef uint8 gspr_t;
+
+/*
+ * player context: all the state information needed to alternate between player 1 & 2
  */
 typedef struct
 {
-    uint8 num_ships;          // mchn_cfg_nships
-    uint8 stage_ctr;
-    uint8 *p_atkwav_tbl;      // &8920[n] (see 2896)
-    uint8 nest_lr_flag;       // 1 or 0 .. flag to f_2A90, if 1 signifies nest left/right movement should stop
-    uint8 not_chllng_stg;     // stg_ctr+1%4 (0 if challenge stage)
-    uint8 b_attkwv_ctr;
-    uint8 plyr_is_2ship;      // 1 ...player is two-ship
-    uint8 bmbr_boss_cobj;     // object/index of active capturing boss
+    uint8 fghtrs_resv;       // fighters remaining in reserve
+    uint8 stg_ct;
+    uint8 *p_atkwav_tbl;    // &8920[n] (see 2896)
+    uint8 convlr_inh;       // 1 or 0 .. flag to f_2A90: if 1, convoy left/right movement should stop
+    uint8 not_chllng_stg;   // stg_ctr+1%4 (0 if challenge stage)
+    uint8 attkwv_ct;
+    uint8 dblfghtr;         // 1 ...player is two-ship
+
+    gspr_t bmbr_boss_captr; // object/index of active capturing boss
     //   0x09    ; set by cpu-b as capturing boss starts dive  (910D?)
     //   0x0A    ; related to ship-capture status
-    uint8 bmbr_boss_cflag;    // 1 == suppress select capture boss (force wingman)
-    uint8 cboss_enable;       // only enable every other boss for capture
-    uint8 bonus_bee_obj_offs; // offset of object that spawns the bonus bee
-    //   0x0E    ; bonus "bee"... flashing color 'A' for bonus bee
-    //   0x0F    ; bonus "bee"... flashing color 'B' for bonus bee
+    uint8 bmbr_boss_cflag;  // 1 == suppress select capture boss (force wingman)
+    uint8 bmbr_boss_escort; // boss is escort, not capturing
+
+    gspr_t squad_lead;      // parent object of a special (three ship) attack squadron
+    //   0x0E    ; flashing color 'A' for special attack squadrons
+    //   0x0F    ; flashing color 'B' for special attack squadrons
+
     uint8 bmbr_boss_scode[8]; // bonus code/score attributes e.g. "01B501B501B501B5"... 8 bytes, "01B501B501B501B5"
-    //   0x18-0x1D ?
-    uint8 mcfg_bonus0;        // mach_cfg_bonus[0]...load at game start ... $9980
-    uint8 tmr2;               // game_tmr_2, player1/2 switch
-    uint8 p1or2;              // 0==plyr1, 1==plyr2
-    uint8 bonus_bee_launch_tmr;
-    uint8 b_atk_wv_enbl;      // 0 when respawning player ship
-    uint8 b_nbugs;            // b_bugs_actv_nbr
-    uint16 hit_ct;            // total_hits
-    uint16 shot_ct;           // shots_fired
-    uint8 sndflag;            // fx count/enable regs (pulsing formation sound effect)
+    //   unused 0x18-0x1D
+    uint8 mcfg_bonus;       // mach_cfg_bonus[0]...load at game start ... $9980
+    uint8 plyr_swap_tmr;    // game_tmr_2, player1/2 switch
+    uint8 plyr_nbr;         // 0==plyr1, 1==plyr2
+    uint8 squad_launch_tmr; // timer for launching special (three ship) attack squadron
+    uint8 atkwv_enbl;       // 0 when respawning player ship
+    uint8 enmy_ct;          // b_bugs_actv_nbr
+    uint16 hit_ct;          // total hits
+    uint16 shot_ct;         // total shots
+    uint8 snd_flag;         // fx count/enable regs (pulsing formation sound effect)
 
 } t_plyr_state;
 
@@ -337,6 +359,25 @@ typedef enum
 //
 } t_flv_offs;
 
+/*
+ * top 5 score table
+ */
+struct best5_t
+{
+    uint8 score_tbl[6];
+    uint8 name_tbl[3];
+};
+
+/*
+ * text string with color and screen-position encoded within
+ */
+typedef struct
+{
+    // posn is not absolute, but an offset into "tileram"
+    uint16 posn;
+    uint8 color; // color code
+    const char *chars; // terminated string
+} str_pe_t;
 
 /*
  * extern declarations
@@ -382,6 +423,7 @@ extern uint16 w_bug_flying_hit_cnt;
 
 /* gg1-4.c */
 extern mchn_cfg_t mchn_cfg;
+extern struct best5_t best5[];
 
 /* gg1-5.c */
 extern uint8 ds3_92A0_frame_cts[];
@@ -441,6 +483,7 @@ void cpu0_rst38(void); //
 void gctl_1uphiscore_displ(void);
 void c_sctrl_playfld_clr(void);
 void stg_init_splash(void);
+void stg_init_env();
 
 /* gg1-2.c */
 void gctl_stg_tokens(uint8);
@@ -470,12 +513,10 @@ uint16 j_string_out_pe(uint8, uint16, uint8);
 /* new_stage.c */
 void stg_bombr_setparms(void);
 
-enum {
-    GAME_ENDED = 0,
-    ATTRACT_MODE = 1,
-    READY_TO_PLAY_MODE = 2,
-    IN_GAME_MODE = 3
-};
+/* gg1-4.c */
+void hiscore_enterinitials(void);
+void hiscore_scrn(void);
+
 
 #endif // _GALAG_H_
 

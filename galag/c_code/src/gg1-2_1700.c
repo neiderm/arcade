@@ -33,11 +33,10 @@ bmbr_boss_slot_t bmbr_boss_pool[4]; // index and movement vector
  ** static external definitions in this file
  */
 // variables
-
 static uint8 fmtn_expcon_cinc_curr[16]; // current set of working bitmaps for expand/contract motion
 static uint8 demo_txt_idx;              // index of text string displayed in demo (z80 addr. $9205)
 static uint8 demo_state_tmr;            // timer of demo states (z80 addr. $9207)
-static uint8 demo_idx_tgt_obj;          // position/index of targetted alien from data (z80 addr. $9209)
+static uint8 attmod_idx_tgt_obj;        // position/index of targetted alien from data (z80 addr. $9209)
 static uint8 const *demo_p_fghtr_mvecs; // pointer to current set of movement vectors for fighter in demo
 static uint8 fghtr_ctrl_dxflag;         // selection flag for dx increment of fighter movement
 
@@ -54,7 +53,7 @@ static void fghtr_ctrl_inp(uint8);
 static void rckt_sprite_init(void);
 static uint8 bmbr_boss_activate(uint8, uint8, uint8, uint8, uint16);
 static void bmbr_boss_escort_sel(uint16, uint8, uint8 *, r16_t *, uint8);
-
+static void attmode_state_step(void);
 
 /*============================================================================
 ;; data source for sprite tiles used in attract mode
@@ -124,10 +123,7 @@ static const uint8 demo_fghtr_mvecs_tl[] = // d_1928:
 /*=============================================================================
 ;; f_1700()
 ;;  Description:
-;;   Ship-runner in training/demo mode, enabled in main (one time init) for
-;;   training mode (not called in ready or game mode).
-;;   This one is basically an extension of f_17B2:case 0x04 until disabled
-;;   below.
+;;   Fighter control in attract mode (task_[0x03]).
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -137,15 +133,15 @@ void f_1700(void)
 {
     uint8 A;
 
-    switch (*demo_p_fghtr_mvecs & 0xE0) // don't bother with rlca
+    switch (*demo_p_fghtr_mvecs & 0xE0)
     {
-    // appearance of first attack wave in GameOver Demo-Mode
-    case 0xA0: // 172D:
+    // 172D: appearance of first attack wave in demo
+    case 0xA0:
         rckt_sprite_init(); //  init sprite objects for rockets
         // ld   de,(pdb_demo_fghtrvctrs) ... don't need it
         // no break!
 
-    // 1734: drives the simulated inputs to the fighter in training mode
+    // 1734: drives the simulated inputs to the fighter
     case 0x80:
 
         // ld   hl,#ds_plyr_actv +_b_2ship
@@ -157,14 +153,12 @@ void f_1700(void)
 
         if (0 != (*demo_p_fghtr_mvecs & 0x01)) // bit  0,a
         {
-            // move fighter in direction of targeted alien
-            uint8 L = demo_idx_tgt_obj; // object/index of targeted alien
-
+            // move fighter in direction of target
             A = 0x0A; // 0x08 | 0x02
-            if (mrw_sprite.posn[L].b0 != mrw_sprite.posn[SPR_IDX_SHIP].b0) // sub  (hl)
+            if (mrw_sprite.posn[attmod_idx_tgt_obj].b0 != mrw_sprite.posn[SPR_IDX_SHIP].b0) // sub  (hl)
             {
                 A = 8; // R
-                if (mrw_sprite.posn[L].b0 <= mrw_sprite.posn[SPR_IDX_SHIP].b0)
+                if (mrw_sprite.posn[attmod_idx_tgt_obj].b0 <= mrw_sprite.posn[SPR_IDX_SHIP].b0)
                 {
                     A = 2; // L
                 }
@@ -219,10 +213,10 @@ void f_1700(void)
 
         A = *demo_p_fghtr_mvecs & 0xE0; // don't bother with rlca
 
-        // case_1794: load index/position of target alien
+        // case_1794: load index/position of target
         if (0x00 == A || 0x20 == A)
         {
-            demo_idx_tgt_obj = (*demo_p_fghtr_mvecs << 1) & 0x7E; // mask out Cy rlca'd into <:0>
+            attmod_idx_tgt_obj = (*demo_p_fghtr_mvecs << 1) & 0x7E; // mask out Cy rlca'd into <:0>
         }
         // case_179C: last token
         else if (0xC0 == A)
@@ -263,8 +257,9 @@ void f_1700(void)
 /*=============================================================================
 ;; f_17B2()
 ;;  Description:
-;;   Frame-update work in training/demo mode.
-;;   Called once/frame not in ready or game mode.
+;;   Manage attract mode, control sequence for training and demo screens.
+;;   The state progression is always the same, ordered by the state-index
+;;   (switch variable).
 ;;
 ;; IN:
 ;;  ...
@@ -273,98 +268,128 @@ void f_1700(void)
 -----------------------------------------------------------------------------*/
 void f_17B2()
 {
-    uint8 B;
+    uint8 B; // loop index variable
 
     if (ATTRACT_MODE == glbls9200.game_state)
     {
-        switch (glbls9200.demo_idx)
+        switch (glbls9200.attmode_state_idx)
         {
-        case 0x0E: // l_17E1
-            // demo or GALACTIC HERO screen
-            if (ds4_game_tmrs[3] == 0)
+         // l_17E1: end of Demo ...  delay, then show GALACTIC HERO screen
+        case 0x0E:
+            if (ds4_game_tmrs[3] == 0) // jr   z,l_17EC
             {
-                // c_mach_hiscore_show();
+                hiscore_heroes();
                 ds4_game_tmrs[3] = 0x0A; // after displ hi-score tbl
-                return;
             }
-            else if (1 == ds4_game_tmrs[3]) break;
-            else return;
+            else if (1 == ds4_game_tmrs[3])
+            {
+                attmode_state_step(); // jp   z,l_19A7_end_switch
+            }
             break;
 
-        case 0x07: // l_17F5
-            // just cleared the screen from training mode... wait the delay then
-            // shows "game over"
-            if ((ds3_92A0_frame_cts[0] & 0x1F) != 0x1F) return;
-            else
+        // l_17F5: just cleared screen from training mode, delay ~1 sec before puts("game over")
+        case 0x07:
+            if ((ds3_92A0_frame_cts[0] & 0x1F) == 0x1F)
             {
                 task_actv_tbl_0[0x05] = 1; // f_0857
-                j_string_out_pe(1, -1, 0x02); // string_out_pe ("GAME OVER")
+                j_string_out_pe(1, -1, 0x02); // "GAME OVER"
+                attmode_state_step();
             }
             break;
 
-        case 0x0A: // l_1808
-            // boss with captured-ship has just rejoined fleet in demo
+        // l_1808: enable fighter control demo
+        case 0x0A:
             // load fighter vectors for demo level (after capture)
-            // call c_133A
+            fghtr_onscreen();
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_ac; // d_181F
+
+            task_actv_tbl_0[0x03] = 1; // f_1700 fighter control attract/training mode
+            task_actv_tbl_0[0x15] = 1; // f_1F04 fire button input
+            cpu1_task_en[0x05] = 1; // cpu1:f_05EE fighter hit detection
+            attmode_state_step();
             break;
 
-        case 0x0C: // l_1840
-            // one time at end of demo, just before "HEROES" displayed, ship has been
-            // erased from screen but remaining bugs may not have been erased yet.
+        // l_1840: end of Demo, before "HEROES" screen, fighter has been erased
+        case 0x0C:
+            memset(mctl_mpool, 0, sizeof (mctl_pool_t) * 0x0C /* 0xF0 */);
+            g_taskman_init();
+
+            task_actv_tbl_0[0x10] = 0; // f_1B65 enemy diving attack
             glbls9200.glbl_enemy_enbl = 0;
+
+            // have to re-set enable flag for this task after init_structs
+            task_actv_tbl_0[0x02] = 1; // f_17B2 this task (attract-mode control)
+
+            attmode_state_step();
             break;
 
-        case 0x08: // l_1852
+        // l_1852: init demo, just cleared screen with "GAME OVER" shown
+        case 0x08:
+
+//            plyr_actv.bmbr_boss_cflag = 1;
+
+            b_9AA0[0x17] = 1; // sound_mgr_reset: non-zero causes re-initialization of sound mgr
+            plyr_actv.stg_ct = 1; // ld   (ds_plyr_actv +_b_stgctr),a           ; 1
+
+            task_actv_tbl_0[0x03] = 1; // f_1700 fighter control in attract/demo mode
+            task_actv_tbl_0[0x15] = 1; // f_1F04 fire button input
+
+            plyr_actv.not_chllng_stg = 1; // 0 if challenge stage
+
             // load fighter vectors for demo level (before capture)
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_bc;
 
+            stg_init_env();
+            fghtr_onscreen();
+
             glbls9200.glbl_enemy_enbl = 1;
+
+//            plyr_actv.atkwv_enbl = 1;
+//            plyr_actv.bmbr_boss_escort = 1; // for demo, force the bomber-boss into wingman-mode
+
+            ds_new_stage_parms[4] = 2; // max_bombers (demo)
+            ds_new_stage_parms[4] = 2; // increases max bombers in certain conditions (demo)
+
+            attmode_state_step();
             break;
 
-        // in demo, as the last boss shot second time
-        case 0x05: // l_18AC
-            if (0 != ds4_game_tmrs[2])
+        // l_18AC:  synchronize copyright text with completion of explosion of last boss
+        case 0x05:
+            if (0 == ds4_game_tmrs[2]) // jr   z,l_18BB
             {
-                if (1 != ds4_game_tmrs[2])
-                {
-                    if (5 == ds4_game_tmrs[2])
-                    {
-                        //l_18C6:
-                        mrw_sprite.posn[0x62].b0 = 0;
-                        j_string_out_pe(1, -1, 0x13); // "(C) 1981 NAMCO LTD."
-                        j_string_out_pe(1, -1, 0x14); // "NAMCO" - 6 tiles
-                    }
-                    return;
-                } // else ... jp   z,l_19A7_end_switch
-            }
-            else // jr   z,l_18BB
-            {
+                // l_18BB:
                 sprt_hit_notif[0x34] = 0x34;
                 ds4_game_tmrs[2] = 9;
-                return;
             }
-            break;
-
-        // fighter just appeared in training mode (state active until f_1700 disables itself)
-        case 0x04: // l_18D1
-        case 0x09: // l_18D1
-        case 0x0B: // l_18D1
-            if (0 != task_actv_tbl_0[0x03])
+            else if (1 == ds4_game_tmrs[2]) // jp   z,l_attmode_state_step
             {
-                return; // get out, no update state-machine index
+                attmode_state_step();
             }
-            // jp   z,l_19A7_end_switch
+            else if (6 == ds4_game_tmrs[2]) // jr   z,l_18C6
+            {
+                //l_18C6:
+                mrw_sprite.posn[0x62].b0 = 0;
+                j_string_out_pe(1, -1, 0x13); // "(C) 1981 NAMCO LTD."
+                j_string_out_pe(1, -1, 0x14); // "NAMCO" - 6 tiles
+            }
             break;
 
-        case 0x03: // l_18D9
-            // one time init for training mode ... 7 bugs etc.
-            for (B = 0; B < 7; B++)
+        // l_18D1: wait for fighter control task to complete
+        case 0x04:
+        case 0x09:
+        case 0x0B:
+            if (0 == task_actv_tbl_0[0x03])  attmode_state_step();
+
+            break;
+
+        // l_18D9:  one time init for 7 aliens in training mode
+        case 0x03:
+            for (B = 0; B < 7; B++) // do-while would be more pedantic
             {
                 sprite_tiles_display(d_attrmode_sptiles_7 + B * 4);
-            }
+            } // djnz while do
 
-            plyr_actv.num_ships = 0;
+            plyr_actv.fghtrs_resv = 0;
             task_actv_tbl_0[0x05] = 0; // f_0857
             fghtr_onscreen();
 
@@ -382,42 +407,52 @@ void f_17B2()
             // include b_CPU1_in_progress + b_CPU2_in_progress + 2 unused bytes
             memset(bmbr_boss_pool, 0, sizeof(bmbr_boss_slot_t) * 4);
 
-            plyr_actv.plyr_is_2ship = 0; // not 2 ship
+            plyr_actv.dblfghtr = 0; // not 2 ship
             glbls9200.glbl_enemy_enbl = 0;
             plyr_actv.bmbr_boss_cflag = 1;
 
-            task_actv_tbl_0[0x10] = 1; //  f_1B65 ... manage flying-bug-attack
-            task_actv_tbl_0[0x0B] = 1; //  f_1DB3 ... checks enemy status at 9200
-            task_actv_tbl_0[0x03] = 1; //  f_1700 ... ship-update in training/demo mode
+            task_actv_tbl_0[0x10] = 1; //  f_1B65 enemy diving attack
+            task_actv_tbl_0[0x0B] = 1; //  f_1DB3 checks enemy status at 9200
+            task_actv_tbl_0[0x03] = 1; //  f_1700 fighter control in attract/training mode
 
             //from DSWA "sound in attract mode"
             b_9AA0[0x17] = 0; // (_sfr_dsw4 >> 1) & 0x01;
 
             g_mssl_init();
+            attmode_state_step();
+
             break;
 
-        case 0x00: // l_1940
-        case 0x06: // l_1940
-        case 0x0D: // l_1940
+        // l_1940: clear tile and sprite ram
+        case 0x00:
+        case 0x06:
+        case 0x0D:
             // used during "CREDIT 0"
             c_sctrl_playfld_clr();
             c_sctrl_sprite_ram_clr();
+            attmode_state_step();
             break;
 
-        // init demo
-        case 0x01: // l_1948
+        // l_1948: setup info-screen: sprite tbl index, text index, timer[2]
+        case 0x01:
             idx_attrmode_sptiles_3 = 0; // setup index into sprite data table
             demo_txt_idx = 0;
             w_bug_flying_hit_cnt = 0;
             ds4_game_tmrs[2] = 2; // 1 second
+            attmode_state_step();
             break; // jr   l_19A7_end_switch
 
-        case 0x02: // l_1984
+        // l_1984: info-screen sequencer, advance text and sprite tiles indices
+        case 0x02:
             if (0 == ds4_game_tmrs[2])
             {
                 ds4_game_tmrs[2] = 2; // 1 second
 
-                if (5 != demo_txt_idx)
+                if (5 == demo_txt_idx)
+                {
+                    attmode_state_step();
+                }
+                else
                 {
                     demo_txt_idx += 1; // _glbls[0x05]
 
@@ -429,29 +464,30 @@ void f_17B2()
                     {
                         sprite_tiles_display(d_attrmode_sptiles_3 + 4 * idx_attrmode_sptiles_3);
 
-                        idx_attrmode_sptiles_3++; // advance pointer to _attrmode_sptiles_3[n]
+                        idx_attrmode_sptiles_3 += 1; // advance pointer to _attrmode_sptiles_3[n]
                     }
-                    return;
                 } // jr   z,l_19A7_end_switch
-            }
-            else
-            {
-                return; // ret  nz
             }
             break;
 
         default:
             break;
-        } // l_19A7_end_switch:
-
-        glbls9200.demo_idx++;
-        if (glbls9200.demo_idx == 0x0F)
-        {
-            glbls9200.demo_idx = 0;
-        }
-    } // if (ATTRACT_MODE
+        } // switch
+    } // if ATTRACT_MODE
 
     return;
+}
+
+/*
+ * convenience sub to avoid return's all over previous function
+ */
+void attmode_state_step(void)
+{
+        glbls9200.attmode_state_idx += 1;
+        if (glbls9200.attmode_state_idx == 0x0F)
+        {
+            glbls9200.attmode_state_idx = 0;
+        }
 }
 
 /*=============================================================================
@@ -649,8 +685,8 @@ void f_1B65(void)
         if (0 == plyr_actv.bmbr_boss_cflag)
         {
             // toggle bit-0 and check if capture mode should be enabled
-            plyr_actv.cboss_enable += 1; // inc  (hl)
-            if (0 == (0x01 & plyr_actv.cboss_enable)) // bit  0,(hl)
+            plyr_actv.bmbr_boss_escort += 1; // inc  (hl)
+            if (0 == (0x01 & plyr_actv.bmbr_boss_escort)) // bit  0,(hl)
             {
                 uint8 b;
 
@@ -672,8 +708,12 @@ void f_1B65(void)
                 {
                     //l_1C24_is_standby
                     plyr_actv.bmbr_boss_cflag = 1;
-                    plyr_actv.bmbr_boss_cobj = de; // 0x30 + 2 * b
+                    plyr_actv.bmbr_boss_captr = de; // 0x30 + 2 * b
+#if 0
 return; //HELP_ME_DEBUG
+#else
+ printf( "GN: capture boss diving\n"); // HELP_ME_DEBUG
+#endif
                     // b, c: only matters for escort selection (ixl != 2)
                     bmbr_boss_activate(de, 2, 0xFF, 0xFF, _flv_d_0454); // jp   j_1CAE ... capture boss
                 }
@@ -690,7 +730,8 @@ return; //HELP_ME_DEBUG
         {
             de = d_bmbr_boss_wingm_idcs[hl];
             c <<= 1; // rl   c
-            if (plyr_actv.bonus_bee_obj_offs != de) // jr   z,l_1C44
+
+            if (plyr_actv.squad_lead != de) // jr   z,l_1C44
             {
                 c |= (sprt_mctl_objs[de].state == STAND_BY);
             }
@@ -1024,6 +1065,8 @@ void f_1DB3(void)
 
             // update color for inactive/dead sprite
             mrw_sprite.cclr[ L ].b1 = 0x0A; // "glowing" prior to explosion
+
+//printf("GN: L==$%02X, sprt_hit_notif[L] = %02X, state = EXPLODING (%02X)\n", L, sprt_hit_notif[L], sprt_mctl_objs[L].state); // HELP_ME_DEBUG
         } // jr   l_1DBD
     }
 }
@@ -1268,10 +1311,12 @@ void f_1EA4(void)
 ;;---------------------------------------------------------------------------*/
 void f_1F04(void)
 {
+#if 1 // HELP_ME_DEBUG // override fire button
     if (0 != (io_input[0x01] & 0x10))
     {
         return;
     }
+#endif
     rckt_sprite_init();
 }
 
@@ -1309,6 +1354,11 @@ static void rckt_sprite_init(void)
     {
         return; // ret  nz ... no rocket available
     }
+
+printf("%02X%02X%02X GN: rckt_sprite_init, %02X\n",
+        ds3_92A0_frame_cts[1],
+        ds3_92A0_frame_cts[2],
+        ds3_92A0_frame_cts[0], E + 1);
 
     // l_1F1E:
 
@@ -1367,7 +1417,11 @@ static void rckt_sprite_init(void)
     }
     // l_1F71:
     // rocket attribute: <7> orientation, <6> flipY, <5> flipX, <2:1> displacement
+#if 0
+    b_92A4_rockt_attribute[E - SPR_IDX_RCKT] = A | C; // or   c
+#else
     *pushDE = A | C; // or   c
+#endif
 
     sprt_mctl_objs[E].state = BOMB; // ld   (hl),#6
 
@@ -1462,7 +1516,7 @@ static void fghtr_ctrl_inp(uint8 inbits)
             // moving right: check right limit for double-ship
 
             // if double ship, return
-            if (0 != plyr_actv.plyr_is_2ship) // bit  0,e
+            if (0 != plyr_actv.dblfghtr) // bit  0,e
             {
                 return;
             }
@@ -1489,7 +1543,7 @@ static void fghtr_ctrl_inp(uint8 inbits)
     }
 
     // l_1FD4_update_two_:
-    if (0 == plyr_actv.plyr_is_2ship)  return;
+    if (0 == plyr_actv.dblfghtr)  return;
 
     mrw_sprite.posn[SPR_IDX_SHIP].b0 += 0x0F; // add  a,#0x0F
 }

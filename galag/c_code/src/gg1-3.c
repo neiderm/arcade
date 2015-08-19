@@ -552,7 +552,7 @@ void gctl_stg_new_atk_wavs_init(void)
 
     // if past the highest stage ($17) we can only keep playing the last 4 levels
 
-    A = plyr_actv.stage_ctr; // adjusted level
+    A = plyr_actv.stg_ct; // adjusted level
 
     while (A > 0x17) A -= 4;
 
@@ -572,7 +572,7 @@ void gctl_stg_new_atk_wavs_init(void)
     }
     else /* challenge stage */
     {
-        A = (plyr_actv.stage_ctr >> 2) & 0x07; // divide by 4
+        A = (plyr_actv.stg_ct >> 2) & 0x07; // divide by 4
 
         A = atkw_challg_stg_d_idx[A];
 
@@ -609,6 +609,11 @@ void gctl_stg_new_atk_wavs_init(void)
          */
         memset(obj_ID_tmpb_9100, 0xFF, 16);
 
+#if 1 // #ifdef HELP_ME_DEBUG
+        // this not required but necessary if debug output is to match z80
+        // since the original authors cleverly borrow 16 bytes for tmp buffer
+        memset(mctl_mpool, 0xFF, 16);
+#endif
 
         if (0 != (*pHL_db_stg_dat & 0x0F)) // A == _stg_dat[ 2 + 3 * n + 0 ]
         {
@@ -688,6 +693,9 @@ void gctl_stg_new_atk_wavs_init(void)
     // l_26A4_done:
     *pDE_ds_8920_atk_wv_obj_t = 0x7F;
 
+#if 1 // #ifdef HELP_ME_DEBUG // test - only two waves
+  atkw_seqt[ 0 + 0x11 + 0x11] = 0x7F;
+#endif
     return;
 }
 
@@ -796,16 +804,20 @@ void gctl_stg_new_etypes_init(void)
     // once per stage, set the player's private pointer to attack wave object setup tables
     plyr_actv.p_atkwav_tbl = &atkw_seqt[0];
 
+#if 1 // #ifdef HELP_ME_DEBUG // skip first wave
+  plyr_actv.p_atkwav_tbl = &atkw_seqt[0 + 0x11];
+#endif
+
     if (0 == plyr_actv.not_chllng_stg)
     {
-        A = (plyr_actv.stage_ctr >> 3) & 0x03;
+        A = (plyr_actv.stg_ct >> 3) & 0x03;
 
-        if ( 0 != (0xE0 & plyr_actv.stage_ctr))  A = 3;
+        if ( 0 != (0xE0 & plyr_actv.stg_ct))  A = 3;
 
         stg_chllg_rnd_attrib[0] = atkw_chllg_rnd_attrib[A + 0]; // ldi
         stg_chllg_rnd_attrib[1] = atkw_chllg_rnd_attrib[A + 1]; // ldi
 
-        D = atkw_chlg_spcclr[(plyr_actv.stage_ctr >> 2) && 0x07];
+        D = atkw_chlg_spcclr[(plyr_actv.stg_ct >> 2) && 0x07];
         E = D; // ld   e,d
 
         // jr   l_28D0
@@ -901,7 +913,7 @@ static const uint8 atkw_chlg_spcclr[] =
 ;;   Inserts creature objects from the attack wave table into the movement
 ;;   queue. The table of attack wave structures is built in gctl_stg_new_atk_wavs_init.
 ;;   Each struct starts with $7E, and the end of table marker is $7F.
-;;   This task will be enabled by gctl_stg_new_env_init... after the
+;;   This task will be enabled by stg_init_env ... after the
 ;;   creature classes and formation tables are initialized.
 ;; IN:
 ;;  ...
@@ -919,18 +931,18 @@ void f_2916(void)
         if (0 == b_bugs_flying_nbr)
         {
             // the last one has found its position in the collective.
-            task_actv_tbl_0[0x08] = 0; // f_2916 ... end of attack waves
-            task_actv_tbl_0[0x04] = 1; // f_1A80 ... bonus-bee manager
-            task_actv_tbl_0[0x10] = 1; // f_1B65 ... Manage flying-bug-attack
+            task_actv_tbl_0[0x08] = 0; // f_2916 end of attack waves
+            task_actv_tbl_0[0x04] = 1; // f_1A80 special-bonus drones
+            task_actv_tbl_0[0x10] = 1; // f_1B65 enemy diving attack
 
-            plyr_actv.nest_lr_flag = 1; // inhibit nest left/right movement
+            plyr_actv.convlr_inh = 1; // inhibit group left/right movement
         }
         return;
     }
 
     if (0x7E == *plyr_actv.p_atkwav_tbl)
     {
-        if (0 == plyr_actv.b_atk_wv_enbl)
+        if (0 == plyr_actv.atkwv_enbl)
         {
             // 0 if restarting the stage (respawning player ship)
             return;
@@ -962,7 +974,7 @@ void f_2916(void)
         // ($7E) so do nothing on this time step.
         // l_2944_attack_wave_start:
         plyr_actv.p_atkwav_tbl += 1;
-        plyr_actv.b_attkwv_ctr += 1;
+        plyr_actv.attkwv_ct += 1;
         return;
     }
     else // ! 0x7E
@@ -1205,7 +1217,9 @@ void f_2A90(void)
     // l_2AAB: update the table
     L = 0;
     B = 10;
-
+#if 0 // #ifdef HELP_ME_DEBUG
+    B = 0;
+#endif
     while (B-- > 0)
     {
         fmtn_hpos.offs[ L ] += C;
@@ -1213,7 +1227,7 @@ void f_2A90(void)
         L += 2;
     }
 
-    if (0 == plyr_actv.nest_lr_flag || 0 != fmtn_hpos.offs[0])
+    if (0 == plyr_actv.convlr_inh || 0 != fmtn_hpos.offs[0])
     {
         if (32 == fmtn_hpos.offs[0])
         {

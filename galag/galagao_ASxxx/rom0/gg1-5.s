@@ -181,7 +181,7 @@ db_flv_00f1:
 ; this is probably fill
        .ds 8
 
-; Copy of home position LUT from task_man
+; Copy of home position LUT from task_man (TODO: use .include to avoid duplication?)
 sprt_fmtn_hpos:
   .db 0x14,0x06,0x14,0x0c,0x14,0x08,0x14,0x0a,0x1c,0x00,0x1c,0x12,0x1e,0x00,0x1e,0x12
   .db 0x1c,0x02,0x1c,0x10,0x1e,0x02,0x1e,0x10,0x1c,0x04,0x1c,0x0e,0x1e,0x04,0x1e,0x0e
@@ -479,6 +479,8 @@ l_0537:
 
 ; flag = ( num_bugs < param07 ) && ds_cpu0_task_actv[0x15]
        ld   a,(ds_new_stage_parms + 0x07)         ; number of aliens left when continous bombing can start
+;ld   a,(b_bugs_actv_nbr) ; HELP_ME_DEBUG
+;inc a                    ; HELP_ME_DEBUG
        ld   e,a
        ld   a,(b_bugs_actv_nbr)
        cp   e
@@ -652,6 +654,7 @@ l_05E7_while_wait_for_main_CPU:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 f_05EE:
+;ret ; HELP_ME_DEBUG
 ; if ( task_state == inactive ) return
        ld   a,(ds_cpu0_task_actv + 0x14)          ; f_1F85 (input and ship movement)
        and  a
@@ -685,7 +688,7 @@ l_0613:
        ld   a,(hl)
        and  a
        ret  z
-
+;l_0619:
        call hitd_fghtr_notif                      ; HL == sprite_posn_base + 0x62 ... fighter (1) position (only L significant)
        ; L passed to c_0681_ship_collisn_detect preserved in E
        ld   a,(b8_ship_collsn_detectd_status)     ; fighter hit notif (1)
@@ -876,6 +879,10 @@ while_06B7:
 
        or   a                                     ; nz if fighter hit
        ex   af,af'
+l_0006ED:
+;;   L == offset/index of destroyed enemy/bomb
+;;   E == offset/index + 0, e.g. 9B62 (fighter)
+;;   A' == object status
        jp   hitd_dspchr                           ; return to 'call hitd_det_fghtr'
 l_06F0:
        inc  l
@@ -1030,6 +1037,13 @@ l_075C_call_hit_detection:
 
 ; terminate out of bounds rockets
 l_0760_disable_rocket_wposn:
+; HELP_ME_DEBUG
+; ld (#0x92F3), a
+; ld a,l
+; ld (#0x92F2), a
+; ld a,0xFC        ; magick number
+; ld (#0x92F8), a  ; write 92F8 last ... sets the trap
+
        dec  l                                     ; .b0 (sX)
        ld   h,#>ds_sprite_posn                    ; x
 
@@ -1105,6 +1119,14 @@ l_076A_while_object:
        ld   a,(ds_plyr_actv +_b_2ship)
        and  a
 
+; HELP_ME_DEBUG
+; ld a,ixh
+; ld (#0x92F3), a
+; ld a,l
+; ld (#0x92F2), a
+; ld a,0xFE        ; magick number
+; ld (#0x92F8), a  ; write 92F8 last ... sets the trap
+
        ld   a,(hl)                                ; sprite.sX
 
        jr   nz,l_07A4                             ; and  a
@@ -1149,6 +1171,14 @@ l_07B4_next_object:
 ;;-----------------------------------------------------------------------------
 hitd_dspchr_rckt:
 
+;l_0007D4:; HELP_ME_DEBUG
+; ld a,l
+; ld (#0x92F2), a
+; ld a,e
+; ld (#0x92F3), a
+; ld a,0xFF        ; magick number
+; ld (#0x92F8), a  ; write 92F8 last ... sets the trap
+
        ld   a,l                                   ; stash L, use HL for 16-bits math
        ld   hl,(ds_plyr_actv +_w_hit_ct)
        inc  hl
@@ -1175,6 +1205,12 @@ hitd_dspchr_rckt:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 hitd_dspchr:
+
+; ld a,e
+; ld (#0x92F3), a
+; ld a,0xFB        ; magick number
+; ld (#0x92F8), a  ; write 92F8 last ... sets the trap
+
        ld   d,#>ds_sprite_posn                    ; _sprite_posn[E].b0 = 0 ... sX
        xor  a
        ld   (de),a
@@ -1322,6 +1358,12 @@ l_0852:
        jp   z,l_08B6
 
 ; else if ! blue-boss ... l_07DB
+
+; HELP_ME_DEBUG
+; ld a,0xFE        ; magick number
+; ld (#0x92F2), a
+; ld (#0x92F8), a  ; write 92F8 last ... sets the trap
+
        ld   a,c                                   ; .... sprite.cclr.b1
        cp   #0x01                                 ; color map 1 ... blue boss hit once
        jp   nz,l_07DB
@@ -1469,6 +1511,15 @@ mctl_fltpn_dspchr:
 ; this label allows reading the next token after doing state-selection
 j_090E_flite_path_init:
        ld   a,(hl)                                ; data_set[n + 0]
+
+;ASDFD: ; HELP_ME_DEBUG
+;ld (#0x92FA),hl ; HL could be updated and jp'd to j_090E so it (ix)$08/$09 may not be update yet
+;ld b,a ; stash token
+;ld a,0x10(ix)
+;ld (#0x92F9),a
+;ld a,b ; restore token
+;ld (#0x92F8), a  ; write mctrl-token to 92F8 last to set trap
+
 
 ; get next token and check if ordinary data or state-selection
 ; if (token < 0xEF) ... then skip processing of jp-table
@@ -2339,11 +2390,27 @@ l_0D50:
        rrc  e
        rl   (hl)                                  ; sprite[n].posn.sy<8>
 
+;DBG_D5B: ; HELP_ME_DEBUG
+ld a,0x10(ix) ; index/offset of current object in fltq pipeline
+ld (#0x92F9),a
+ld a,0           ; magick number, trigger big dump
+ld (#0x92F8), a  ; write 92F8 last ... sets the trap
+
+ ;ld a,(#0x92F0) ; step count for bug motion runner
+ ;inc a
+ ;ld (#0x92F0),a ;
+ ;jr nz,DBG__xx
+ ;ld a,(#0x92F1) ;
+ ;inc a
+ ;ld (#0x92F1),a ;
+DBG__xx:
 
 ; Once the timer in $0E is reached, then check conditions to enable bomb drop.
 ; If bomb is disabled for any reason, the timer is restarted.
        dec  0x0E(ix)                              ; countdown to enable a bomb
        jp   nz,next__pool_idx
+
+;jp  next__pool_idx; HELP_ME_DEBUG
 
        srl  0x0F(ix)                              ; these bits enable bombing
        jp   nc,l_0DF5_next_superloop_and_reload_0E
@@ -2380,7 +2447,7 @@ l_0D8D_got_a_bullet:
        ld   h,#>ds_sprite_posn
        ld   d,h
        dec  e                                     ; ... E from &sprite.ctrl[L].b1
-; sprite.posn[BOMB0 + n].b0 = sprite.posn[L].b0
+; sprite.posn[BOMB0 + n].b0 = sprite.posn[e].b0
        ld   a,(de)                                ; bomber.x
        ld   c,a
        ld   (hl),a                                ; bomb.x
@@ -2390,7 +2457,7 @@ l_0D8D_got_a_bullet:
        ld   a,(de)                                ; bomber.y<7:0>
        ld   b,a
        ld   (hl),a                                ; bomb.y<7:0>
-
+; sprite.ctrl[BOMB0 + n].b1 = sprite.ctrl[e].b1
        ld   h,#>ds_sprite_ctrl
        ld   d,h
        ld   a,(de)                                ; bomber.y<8> (in :0 ... ctrl in :1)
@@ -2399,14 +2466,15 @@ l_0D8D_got_a_bullet:
        rl   (hl)                                  ; sY<8> from Cy to bomb.ctrl.b1<0>
        rlca                                       ; restore A with sY<8> left in Cy
        rr   b                                     ; bomber.y<8:1>
-
+; if (mrw_sprite.posn[bomber_idx].b0 > sprite.posn[FGHTR].b0)
        ld   a,(ds_sprite_posn + 0x62)             ; fighter.x
        sub  c                                     ; bomb.x
        push af                                    ; stash fighter.x - bomber.x
        jr   nc,l_0DB1                             ; if bomber.x > fighter.x ...
        neg                                        ; ... then dX = -dX
 l_0DB1:
-       ld   h,a                                   ; dX ... what about L?
+; dX passed to c_0EAA()in hl16 ... lsb of &bomb.ctrl.b1 remaining in L is insignificant
+       ld   h,a
 
        ld   a,(b_9215_flip_screen)
        and  a
