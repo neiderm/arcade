@@ -764,7 +764,7 @@ void fghtr_resv_draw(void)
     uint16 HL;
     uint8 E, D;
 
-    E = ~plyr_actv.num_ships + 6; // cpl, add  a,#6 ... max nr of icons
+    E = ~plyr_actv.fghtrs_resv + 6; // cpl, add  a,#6 ... max nr of icons
 
     D = 0x49; // starting tile number
 

@@ -98,7 +98,7 @@ typedef struct
 typedef struct
 {
     uint8 game_state; //               01
-    uint8 demo_idx; //                 03
+    uint8 attmode_idx; //              03
     uint8 glbl_enemy_enbl; //          0B: global enable for enemy operations
     uint8 bug_nest_direction_lr; //    0F: 1:left, 0:right
     uint8 formatn_mv_signage; //       11: sign of formation pulse movement for snd mgr
@@ -120,33 +120,34 @@ typedef uint8 gspr_t;
  */
 typedef struct
 {
-    uint8 num_ships;          // mchn_cfg_nships
+    uint8 fghtrs_resv;        // fighters remaining in reserve
     uint8 stg_ct;
     uint8 *p_atkwav_tbl;      // &8920[n] (see 2896)
-    uint8 convlr_inh;       // 1 or 0 .. flag to f_2A90: if 1, convoy left/right movement should stop
+    uint8 convlr_inh;         // 1 or 0 .. flag to f_2A90: if 1, convoy left/right movement should stop
     uint8 not_chllng_stg;     // stg_ctr+1%4 (0 if challenge stage)
     uint8 attkwv_ct;
-    uint8 plyr_is_2ship;      // 1 ...player is two-ship
-    gspr_t bmbr_boss_captr; // object/index of active capturing boss
+    uint8 dblfghtr;           // 1 ...player is two-ship
+    gspr_t bmbr_boss_captr;   // object/index of active capturing boss
     //   0x09    ; set by cpu-b as capturing boss starts dive  (910D?)
     //   0x0A    ; related to ship-capture status
     uint8 bmbr_boss_cflag;    // 1 == suppress select capture boss (force wingman)
-    uint8 bmbr_boss_escort; // boss is escort, not capturing
+    uint8 bmbr_boss_escort;   // boss is escort, not capturing
 
-    gspr_t squad_lead;      // parent object of a special (three ship) attack squadron
-    //   0x0E    ; bonus "bee"... flashing color 'A' for bonus bee
-    //   0x0F    ; bonus "bee"... flashing color 'B' for bonus bee
+    gspr_t squad_lead;        // parent object of a special (three ship) attack squadron
+    //   0x0E    ; flashing color 'A' for special attack squadrons
+    //   0x0F    ; flashing color 'B' for special attack squadrons
+
     uint8 bmbr_boss_scode[8]; // bonus code/score attributes e.g. "01B501B501B501B5"... 8 bytes, "01B501B501B501B5"
     //   unused 0x18-0x1D
-    uint8 mcfg_bonus0;        // mach_cfg_bonus[0]...load at game start ... $9980
-    uint8 tmr2;               // game_tmr_2, player1/2 switch
-    uint8 p1or2;              // 0==plyr1, 1==plyr2
-    uint8 squad_launch_tmr; // timer for launching special (three ship) attack squadron
-    uint8 atkwv_enbl;       // 0 when respawning fighter
-    uint8 b_nbugs;            // b_bugs_actv_nbr
-    uint16 hit_ct;            // total_hits
-    uint16 shot_ct;           // shots_fired
-    uint8 sndflag;            // fx count/enable regs (pulsing formation sound effect)
+    uint8 mcfg_bonus;         // mach_cfg_bonus[0]...load at game start ... $9980
+    uint8 plyr_swap_tmr;      // game_tmr_2, player1/2 switch
+    uint8 plyr_nbr;           // 0==plyr1, 1==plyr2
+    uint8 squad_launch_tmr;   // timer for launching special (three ship) attack squadron
+    uint8 atkwv_enbl;         // 0 when respawning fighter
+    uint8 enmy_ct;            // b_bugs_actv_nbr
+    uint16 hit_ct;            // total hits
+    uint16 shot_ct;           // total shots
+    uint8 snd_flag;           // fx count/enable regs (pulsing formation sound effect)
 
 } t_plyr_state;
 

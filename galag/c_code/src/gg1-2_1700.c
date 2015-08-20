@@ -37,7 +37,7 @@ bmbr_boss_slot_t bmbr_boss_pool[4]; // index and movement vector
 static uint8 fmtn_expcon_cinc_curr[16]; // current set of working bitmaps for expand/contract motion
 static uint8 demo_txt_idx;              // index of text string displayed in demo (z80 addr. $9205)
 static uint8 demo_state_tmr;            // timer of demo states (z80 addr. $9207)
-static uint8 demo_idx_tgt_obj;          // position/index of targetted alien from data (z80 addr. $9209)
+static uint8 attmode_idx_tgt_obj;          // position/index of targetted alien from data (z80 addr. $9209)
 static uint8 const *demo_p_fghtr_mvecs; // pointer to current set of movement vectors for fighter in demo
 static uint8 fghtr_ctrl_dxflag;         // selection flag for dx increment of fighter movement
 
@@ -158,7 +158,7 @@ void f_1700(void)
         if (0 != (*demo_p_fghtr_mvecs & 0x01)) // bit  0,a
         {
             // move fighter in direction of targeted alien
-            uint8 L = demo_idx_tgt_obj; // object/index of targeted alien
+            uint8 L = attmode_idx_tgt_obj; // object/index of targeted alien
 
             A = 0x0A; // 0x08 | 0x02
             if (mrw_sprite.posn[L].b0 != mrw_sprite.posn[SPR_IDX_SHIP].b0) // sub  (hl)
@@ -222,7 +222,7 @@ void f_1700(void)
         // case_1794: load index/position of target alien
         if (0x00 == A || 0x20 == A)
         {
-            demo_idx_tgt_obj = (*demo_p_fghtr_mvecs << 1) & 0x7E; // mask out Cy rlca'd into <:0>
+            attmode_idx_tgt_obj = (*demo_p_fghtr_mvecs << 1) & 0x7E; // mask out Cy rlca'd into <:0>
         }
         // case_179C: last token
         else if (0xC0 == A)
@@ -277,7 +277,7 @@ void f_17B2()
 
     if (ATTRACT_MODE == glbls9200.game_state)
     {
-        switch (glbls9200.demo_idx)
+        switch (glbls9200.attmode_idx)
         {
         case 0x0E: // l_17E1
             // demo or GALACTIC HERO screen
@@ -364,7 +364,7 @@ void f_17B2()
                 sprite_tiles_display(d_attrmode_sptiles_7 + B * 4);
             }
 
-            plyr_actv.num_ships = 0;
+            plyr_actv.fghtrs_resv = 0;
             task_actv_tbl_0[0x05] = 0; // f_0857
             fghtr_onscreen();
 
@@ -382,13 +382,13 @@ void f_17B2()
             // include b_CPU1_in_progress + b_CPU2_in_progress + 2 unused bytes
             memset(bmbr_boss_pool, 0, sizeof(bmbr_boss_slot_t) * 4);
 
-            plyr_actv.plyr_is_2ship = 0; // not 2 ship
+            plyr_actv.dblfghtr = 0; // not 2 ship
             glbls9200.glbl_enemy_enbl = 0;
             plyr_actv.bmbr_boss_cflag = 1;
 
-            task_actv_tbl_0[0x10] = 1; //  f_1B65 ... manage flying-bug-attack
-            task_actv_tbl_0[0x0B] = 1; //  f_1DB3 ... checks enemy status at 9200
-            task_actv_tbl_0[0x03] = 1; //  f_1700 ... ship-update in training/demo mode
+            task_actv_tbl_0[0x10] = 1; //  f_1B65 enemy diving attack
+            task_actv_tbl_0[0x0B] = 1; //  f_1DB3 checks enemy status at 9200
+            task_actv_tbl_0[0x03] = 1; //  f_1700 fighter control in attract/training mode
 
             //from DSWA "sound in attract mode"
             b_9AA0[0x17] = 0; // (_sfr_dsw4 >> 1) & 0x01;
@@ -396,23 +396,25 @@ void f_17B2()
             g_mssl_init();
             break;
 
-        case 0x00: // l_1940
-        case 0x06: // l_1940
-        case 0x0D: // l_1940
+        // l_1940: clear tile and sprite ram
+        case 0x00:
+        case 0x06:
+        case 0x0D:
             // used during "CREDIT 0"
             c_sctrl_playfld_clr();
             c_sctrl_sprite_ram_clr();
             break;
 
-        // init demo
-        case 0x01: // l_1948
+        // l_1948: setup info-screen: sprite tbl index, text index, timer[2]
+        case 0x01:
             idx_attrmode_sptiles_3 = 0; // setup index into sprite data table
             demo_txt_idx = 0;
             w_bug_flying_hit_cnt = 0;
             ds4_game_tmrs[2] = 2; // 1 second
             break; // jr   l_19A7_end_switch
 
-        case 0x02: // l_1984
+        // l_1984: info-screen sequencer, advance text and sprite tiles indices
+        case 0x02:
             if (0 == ds4_game_tmrs[2])
             {
                 ds4_game_tmrs[2] = 2; // 1 second
@@ -429,7 +431,7 @@ void f_17B2()
                     {
                         sprite_tiles_display(d_attrmode_sptiles_3 + 4 * idx_attrmode_sptiles_3);
 
-                        idx_attrmode_sptiles_3++; // advance pointer to _attrmode_sptiles_3[n]
+                        idx_attrmode_sptiles_3 += 1; // advance pointer to _attrmode_sptiles_3[n]
                     }
                     return;
                 } // jr   z,l_19A7_end_switch
@@ -444,10 +446,10 @@ void f_17B2()
             break;
         } // l_19A7_end_switch:
 
-        glbls9200.demo_idx++;
-        if (glbls9200.demo_idx == 0x0F)
+        glbls9200.attmode_idx++;
+        if (glbls9200.attmode_idx == 0x0F)
         {
-            glbls9200.demo_idx = 0;
+            glbls9200.attmode_idx = 0;
         }
     } // if (ATTRACT_MODE
 
@@ -1463,7 +1465,7 @@ static void fghtr_ctrl_inp(uint8 inbits)
             // moving right: check right limit for double-ship
 
             // if double ship, return
-            if (0 != plyr_actv.plyr_is_2ship) // bit  0,e
+            if (0 != plyr_actv.dblfghtr) // bit  0,e
             {
                 return;
             }
@@ -1490,7 +1492,7 @@ static void fghtr_ctrl_inp(uint8 inbits)
     }
 
     // l_1FD4_update_two_:
-    if (0 == plyr_actv.plyr_is_2ship)  return;
+    if (0 == plyr_actv.dblfghtr)  return;
 
     mrw_sprite.posn[SPR_IDX_SHIP].b0 += 0x0F; // add  a,#0x0F
 }
