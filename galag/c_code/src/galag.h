@@ -93,6 +93,16 @@ typedef struct
 } mchn_cfg_t;
 
 /*
+ * states for gctl_game_state
+ */
+enum {
+    GAME_ENDED = 0,
+    ATTRACT_MODE = 1,
+    READY_TO_PLAY_MODE = 2,
+    IN_GAME_MODE = 3
+};
+
+/*
  * various globals lumped together in spare bytes of $9200[]
  */
 typedef struct
@@ -350,6 +360,17 @@ typedef enum
 
 
 /*
+ * text string with color and screen-position encoded within
+ */
+typedef struct
+{
+    // posn is not absolute, but an offset into "tileram"
+    uint16 posn;
+    uint8 color; // color code
+    const char *chars; // terminated string
+} str_pe_t;
+
+/*
  * extern declarations
  */
 
@@ -481,12 +502,6 @@ uint16 j_string_out_pe(uint8, uint16, uint8);
 /* new_stage.c */
 void stg_bombr_setparms(void);
 
-enum {
-    GAME_ENDED = 0,
-    ATTRACT_MODE = 1,
-    READY_TO_PLAY_MODE = 2,
-    IN_GAME_MODE = 3
-};
 
 #endif // _GALAG_H_
 
