@@ -649,8 +649,8 @@ void f_1B65(void)
         if (0 == plyr_actv.bmbr_boss_cflag)
         {
             // toggle bit-0 and check if capture mode should be enabled
-            plyr_actv.cboss_enable += 1; // inc  (hl)
-            if (0 == (0x01 & plyr_actv.cboss_enable)) // bit  0,(hl)
+            plyr_actv.bmbr_boss_escort += 1; // inc  (hl)
+            if (0 == (0x01 & plyr_actv.bmbr_boss_escort)) // bit  0,(hl)
             {
                 uint8 b;
 
@@ -672,7 +672,7 @@ void f_1B65(void)
                 {
                     //l_1C24_is_standby
                     plyr_actv.bmbr_boss_cflag = 1;
-                    plyr_actv.bmbr_boss_cobj = de; // 0x30 + 2 * b
+                    plyr_actv.bmbr_boss_captr = de; // 0x30 + 2 * b
 return; //HELP_ME_DEBUG
                     // b, c: only matters for escort selection (ixl != 2)
                     bmbr_boss_activate(de, 2, 0xFF, 0xFF, _flv_d_0454); // jp   j_1CAE ... capture boss
@@ -690,7 +690,8 @@ return; //HELP_ME_DEBUG
         {
             de = d_bmbr_boss_wingm_idcs[hl];
             c <<= 1; // rl   c
-            if (plyr_actv.bonus_bee_obj_offs != de) // jr   z,l_1C44
+
+            if (plyr_actv.squad_lead != de) // jr   z,l_1C44
             {
                 c |= (sprt_mctl_objs[de].state == STAND_BY);
             }

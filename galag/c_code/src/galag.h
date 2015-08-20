@@ -107,7 +107,16 @@ typedef struct
 } tstruct_b9200;
 
 /*
- * player state
+ * Missiles, bombs, fighters, enemey aliens ... all are derived from this
+ * machine's equivalent concept of a sprite object. This typedef is obviously
+ * nothing more than a simple index, but any given sprite has several
+ * attibute fields (x/y location, tile-date index, color) accessed at banks
+ * of memory-mapped hardware registers sharing a common index.
+ */
+typedef uint8 gspr_t;
+
+/*
+ * player context: all the state information needed to alternate between player 1 & 2
  */
 typedef struct
 {
@@ -118,20 +127,21 @@ typedef struct
     uint8 not_chllng_stg;     // stg_ctr+1%4 (0 if challenge stage)
     uint8 attkwv_ct;
     uint8 plyr_is_2ship;      // 1 ...player is two-ship
-    uint8 bmbr_boss_cobj;     // object/index of active capturing boss
+    gspr_t bmbr_boss_captr; // object/index of active capturing boss
     //   0x09    ; set by cpu-b as capturing boss starts dive  (910D?)
     //   0x0A    ; related to ship-capture status
     uint8 bmbr_boss_cflag;    // 1 == suppress select capture boss (force wingman)
-    uint8 cboss_enable;       // only enable every other boss for capture
-    uint8 bonus_bee_obj_offs; // offset of object that spawns the bonus bee
+    uint8 bmbr_boss_escort; // boss is escort, not capturing
+
+    gspr_t squad_lead;      // parent object of a special (three ship) attack squadron
     //   0x0E    ; bonus "bee"... flashing color 'A' for bonus bee
     //   0x0F    ; bonus "bee"... flashing color 'B' for bonus bee
     uint8 bmbr_boss_scode[8]; // bonus code/score attributes e.g. "01B501B501B501B5"... 8 bytes, "01B501B501B501B5"
-    //   0x18-0x1D ?
+    //   unused 0x18-0x1D
     uint8 mcfg_bonus0;        // mach_cfg_bonus[0]...load at game start ... $9980
     uint8 tmr2;               // game_tmr_2, player1/2 switch
     uint8 p1or2;              // 0==plyr1, 1==plyr2
-    uint8 bonus_bee_launch_tmr;
+    uint8 squad_launch_tmr; // timer for launching special (three ship) attack squadron
     uint8 atkwv_enbl;       // 0 when respawning fighter
     uint8 b_nbugs;            // b_bugs_actv_nbr
     uint16 hit_ct;            // total_hits
