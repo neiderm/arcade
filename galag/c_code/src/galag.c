@@ -295,8 +295,8 @@ int _updatescreen(int blocking)
 
 /***************************************************************************
 
-  Main entry point for game executive.
-  Take care of any one time reset functions as needed for the platform
+  Entry point for game executive.
+  Take care of any initialization needed for the platform
   prior to jumping into "Background task" of CPU0 in g_main.
   CPU1 and CPU2 background tasks are empty inf loops and don't need simulated.
   Interrupt processing for all 3 CPU processes happens during update function
@@ -320,9 +320,9 @@ void g_exec(void)
     {
         g_init();
 
-        while(mstate)
+        do
         {
             mstate = g_main();
-        } // while
+        } while(mstate);
     }
 }
