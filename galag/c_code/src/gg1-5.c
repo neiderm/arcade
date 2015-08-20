@@ -679,34 +679,36 @@ void f_05EE(void)
     uint8 tmpSx;
     uint8 hit_notif = 0;
 
-    if ( 0 == task_actv_tbl_0[0x14]) // f_1F85 (input and ship movement)
+    if ( 0 != task_actv_tbl_0[0x14]) // f_1F85 (input and ship movement)
     {
-        return; // ret  z
+
+        // if two_ship ... ... jr   z,l_0613
+        // {
+        //   if (ds_sprite_posn + 0x60)
+        //   {
+        //     hitd_fghtr_hit(SPR_IDX_SHIP + 0, 1); // pass flag to inhibit stage restart
+
+
+        // l_0613: else ... !two_ship
+        if (0 == mrw_sprite.cclr[SPR_IDX_SHIP + 0].b0) return; // ret  z
+
+        tmpSx = mrw_sprite.posn[SPR_IDX_SHIP + 0].b0; // stash fighter sX because it will be 0'd by hitd_fghtr_notif
+        hit_notif = hitd_fghtr_notif(SPR_IDX_SHIP + 0); // ship_collisn_detectn_runner
+
+        if (0 == hit_notif) return; // ret  z
+
+        //if (!two_ship) jr   z,l_0639_not_two_
+
+
+        // l_0639_not_two_:
+        task_actv_tbl_0[0x14] = 0; // f_1F85 (input and fighter movement)
+        task_actv_tbl_0[0x15] = 0; // f_1F04 (fire button input)
+        cpu1_task_en[0x05] = 0;    // f_05EE (this task, fighter hit-detection) 
+        //ld   (ds_99B9_star_ctrl + 0x00),a  ; 0 ... 1 when fighter on screen
+        //ld   (ds_9200_glbls + 0x17),a  // 0 ... no_restart_stg
+
+        hitd_fghtr_hit(tmpSx, SPR_IDX_SHIP + 0, 0); // not docked fighters, pass flag to allow stage restart
     }
-
-    // if two_ship ... jr   z,l_0613
-
-    // hitd_fghtr_hit(SPR_IDX_SHIP + 0, 1); // pass flag to inhibit stage restart
-
-
-    // l_0613: else ... !two_ship
-    if (0 == mrw_sprite.cclr[SPR_IDX_SHIP + 0].b0) return; // ret  z
-
-    tmpSx = mrw_sprite.posn[SPR_IDX_SHIP + 0].b0; // stash fighter sX because it will be 0'd by hitd_fghtr_notif
-    hit_notif = hitd_fghtr_notif(SPR_IDX_SHIP + 0); // ship_collisn_detectn_runner
-
-    if (0 == hit_notif) return; // ret  z
-
-    //if (!two_ship) jr   z,l_0639_not_two_
-
-
-    // l_0639_not_two_:
-    task_actv_tbl_0[0x14] = 0; // f_1F85 (input and fighter movement)
-    task_actv_tbl_0[0x15] = 0; // f_1F04 (fire button input)
-    task_actv_tbl_0[0x05] = 0; // f_05EE (this task, fighter hit-detection)
-    //ld   (ds_99B9_star_ctrl + 0x00),a  ; 0 ... 1 when fighter on screen
-
-    hitd_fghtr_hit(tmpSx, SPR_IDX_SHIP + 0, 0); // not docked fighters, pass flag to allow stage restart
 }
 
 /*=============================================================================

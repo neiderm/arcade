@@ -445,7 +445,7 @@ static void gctl_plyr_init(void)
     uint8 A, HL;
     uint16 DE;
 
-    // get nbr of ships from machine config
+    // get nbr of fighters from machine config
     A = 3; // tmp ...    ld   a,(b8_mchn_cfg_nships)
     plyr_actv.fghtrs_resv = A;
     plyr_susp.fghtrs_resv = A;
@@ -899,7 +899,7 @@ static void plyr_respawn_wait(void)
 static void plyr_respawn_rdy(void)
 {
     task_actv_tbl_0[0x15] = 1; // f_1F04 ...fire button input
-    //ds_cpu1_task_en[0x05] = 1;  // (enable cpu1:f_05EE ... fighter hit detection)
+    cpu1_task_en[0x05] = 1; // cpu1:f_05EE ... fighter hit detection
 
     // attack_wave_enable
     plyr_actv.atkwv_enbl = 1; // 0 when respawning fighter
