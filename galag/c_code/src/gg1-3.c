@@ -923,14 +923,14 @@ void f_2916(void)
             task_actv_tbl_0[0x04] = 1; // f_1A80 special-bonus drones
             task_actv_tbl_0[0x10] = 1; // f_1B65 enemy diving attack
 
-            plyr_actv.nest_lr_flag = 1; // inhibit nest left/right movement
+            plyr_actv.convlr_inh = 1; // inhibit group left/right movement
         }
         return;
     }
 
     if (0x7E == *plyr_actv.p_atkwav_tbl)
     {
-        if (0 == plyr_actv.b_atk_wv_enbl)
+        if (0 == plyr_actv.atkwv_enbl)
         {
             // 0 if restarting the stage (respawning player ship)
             return;
@@ -962,7 +962,7 @@ void f_2916(void)
         // ($7E) so do nothing on this time step.
         // l_2944_attack_wave_start:
         plyr_actv.p_atkwav_tbl += 1;
-        plyr_actv.b_attkwv_ctr += 1;
+        plyr_actv.attkwv_ct += 1;
         return;
     }
     else // ! 0x7E
@@ -1213,7 +1213,7 @@ void f_2A90(void)
         L += 2;
     }
 
-    if (0 == plyr_actv.nest_lr_flag || 0 != fmtn_hpos.offs[0])
+    if (0 == plyr_actv.convlr_inh || 0 != fmtn_hpos.offs[0])
     {
         if (32 == fmtn_hpos.offs[0])
         {

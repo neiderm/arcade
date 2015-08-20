@@ -304,10 +304,11 @@ static void stg_init_env(void)
 
     plyr_actv.cboss_enable = 0; // disable demo boss capture overide
     plyr_actv.bonus_bee_launch_tmr = 0;
-    plyr_actv.b_atk_wv_enbl = 0;
-    plyr_actv.b_attkwv_ctr = 0;
+    plyr_actv.atkwv_enbl = 0;
+    plyr_actv.attkwv_ct = 0;
+
     //b8_99B0_X3attackcfg_ct = 0;
-    plyr_actv.nest_lr_flag = 0;
+    plyr_actv.convlr_inh = 0;
 
     plyr_actv.bonus_bee_obj_offs = 1;
     plyr_susp.bonus_bee_obj_offs = 1;

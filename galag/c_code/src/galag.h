@@ -114,9 +114,9 @@ typedef struct
     uint8 num_ships;          // mchn_cfg_nships
     uint8 stg_ct;
     uint8 *p_atkwav_tbl;      // &8920[n] (see 2896)
-    uint8 nest_lr_flag;       // 1 or 0 .. flag to f_2A90, if 1 signifies nest left/right movement should stop
+    uint8 convlr_inh;       // 1 or 0 .. flag to f_2A90: if 1, convoy left/right movement should stop
     uint8 not_chllng_stg;     // stg_ctr+1%4 (0 if challenge stage)
-    uint8 b_attkwv_ctr;
+    uint8 attkwv_ct;
     uint8 plyr_is_2ship;      // 1 ...player is two-ship
     uint8 bmbr_boss_cobj;     // object/index of active capturing boss
     //   0x09    ; set by cpu-b as capturing boss starts dive  (910D?)
@@ -132,7 +132,7 @@ typedef struct
     uint8 tmr2;               // game_tmr_2, player1/2 switch
     uint8 p1or2;              // 0==plyr1, 1==plyr2
     uint8 bonus_bee_launch_tmr;
-    uint8 b_atk_wv_enbl;      // 0 when respawning player ship
+    uint8 atkwv_enbl;       // 0 when respawning fighter
     uint8 b_nbugs;            // b_bugs_actv_nbr
     uint16 hit_ct;            // total_hits
     uint16 shot_ct;           // shots_fired

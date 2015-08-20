@@ -902,7 +902,7 @@ static void plyr_respawn_rdy(void)
     //ds_cpu1_task_en[0x05] = 1;  // (enable cpu1:f_05EE ... fighter hit detection)
 
     // attack_wave_enable
-    plyr_actv.b_atk_wv_enbl = 1; // 0 when respawning player ship
+    plyr_actv.atkwv_enbl = 1; // 0 when respawning fighter
 
     c_string_out(0x03B0, 0x0B); // erase "READY" or "STAGE X"
 
@@ -1289,7 +1289,7 @@ static int gctl_supv_stage(void)
     else if (0 != glbls9200.restart_stage) // 0x13, restart stage flag
     {
         // fighter destroyed or captured?
-        plyr_actv.b_atk_wv_enbl = 0; // restart_stage_flag has been set
+        plyr_actv.atkwv_enbl = 0; // restart_stage_flag has been set
         // z80 did not return to here (jp'd and pop'd the stack)
     }
     else  return(0);
