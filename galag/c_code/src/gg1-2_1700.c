@@ -323,7 +323,7 @@ void f_17B2()
             {
                 if (1 != ds4_game_tmrs[2])
                 {
-                    if (5 == ds4_game_tmrs[2])
+                    if (6 == ds4_game_tmrs[2]) // jr   z,l_18C6
                     {
                         //l_18C6:
                         mrw_sprite.posn[0x62].b0 = 0;
