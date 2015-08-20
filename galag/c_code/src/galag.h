@@ -473,6 +473,7 @@ void cpu0_rst38(void); //
 void gctl_1uphiscore_displ(void);
 void c_sctrl_playfld_clr(void);
 void stg_init_splash(void);
+void stg_init_env();
 
 /* gg1-2.c */
 void gctl_stg_tokens(uint8);

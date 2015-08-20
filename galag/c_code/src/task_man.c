@@ -55,7 +55,7 @@ static uint8 d_str20000[];
 static uint8 d_strSCORE[];
 
 // function prototypes
-static void stg_init_env();
+
 
 
 /**********************************************************************
@@ -278,7 +278,7 @@ void stg_init_splash(void)
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------*/
-static void stg_init_env(void)
+void stg_init_env(void)
 {
     uint8 B;
 
