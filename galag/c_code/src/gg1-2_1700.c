@@ -33,11 +33,10 @@ bmbr_boss_slot_t bmbr_boss_pool[4]; // index and movement vector
  ** static external definitions in this file
  */
 // variables
-
 static uint8 fmtn_expcon_cinc_curr[16]; // current set of working bitmaps for expand/contract motion
 static uint8 demo_txt_idx;              // index of text string displayed in demo (z80 addr. $9205)
 static uint8 demo_state_tmr;            // timer of demo states (z80 addr. $9207)
-static uint8 attmode_idx_tgt_obj;          // position/index of targetted alien from data (z80 addr. $9209)
+static uint8 attmod_idx_tgt_obj;        // position/index of targetted alien from data (z80 addr. $9209)
 static uint8 const *demo_p_fghtr_mvecs; // pointer to current set of movement vectors for fighter in demo
 static uint8 fghtr_ctrl_dxflag;         // selection flag for dx increment of fighter movement
 
@@ -124,10 +123,7 @@ static const uint8 demo_fghtr_mvecs_tl[] = // d_1928:
 /*=============================================================================
 ;; f_1700()
 ;;  Description:
-;;   Ship-runner in training/demo mode, enabled in main (one time init) for
-;;   training mode (not called in ready or game mode).
-;;   This one is basically an extension of f_17B2:case 0x04 until disabled
-;;   below.
+;;   Fighter control in attract mode (task_[0x03]).
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -137,15 +133,15 @@ void f_1700(void)
 {
     uint8 A;
 
-    switch (*demo_p_fghtr_mvecs & 0xE0) // don't bother with rlca
+    switch (*demo_p_fghtr_mvecs & 0xE0)
     {
-    // appearance of first attack wave in GameOver Demo-Mode
-    case 0xA0: // 172D:
+    // 172D: appearance of first attack wave in demo
+    case 0xA0:
         rckt_sprite_init(); //  init sprite objects for rockets
         // ld   de,(pdb_demo_fghtrvctrs) ... don't need it
         // no break!
 
-    // 1734: drives the simulated inputs to the fighter in training mode
+    // 1734: drives the simulated inputs to the fighter
     case 0x80:
 
         // ld   hl,#ds_plyr_actv +_b_2ship
@@ -157,14 +153,12 @@ void f_1700(void)
 
         if (0 != (*demo_p_fghtr_mvecs & 0x01)) // bit  0,a
         {
-            // move fighter in direction of targeted alien
-            uint8 L = attmode_idx_tgt_obj; // object/index of targeted alien
-
+            // move fighter in direction of target
             A = 0x0A; // 0x08 | 0x02
-            if (mrw_sprite.posn[L].b0 != mrw_sprite.posn[SPR_IDX_SHIP].b0) // sub  (hl)
+            if (mrw_sprite.posn[attmod_idx_tgt_obj].b0 != mrw_sprite.posn[SPR_IDX_SHIP].b0) // sub  (hl)
             {
                 A = 8; // R
-                if (mrw_sprite.posn[L].b0 <= mrw_sprite.posn[SPR_IDX_SHIP].b0)
+                if (mrw_sprite.posn[attmod_idx_tgt_obj].b0 <= mrw_sprite.posn[SPR_IDX_SHIP].b0)
                 {
                     A = 2; // L
                 }
@@ -219,10 +213,10 @@ void f_1700(void)
 
         A = *demo_p_fghtr_mvecs & 0xE0; // don't bother with rlca
 
-        // case_1794: load index/position of target alien
+        // case_1794: load index/position of target
         if (0x00 == A || 0x20 == A)
         {
-            attmode_idx_tgt_obj = (*demo_p_fghtr_mvecs << 1) & 0x7E; // mask out Cy rlca'd into <:0>
+            attmod_idx_tgt_obj = (*demo_p_fghtr_mvecs << 1) & 0x7E; // mask out Cy rlca'd into <:0>
         }
         // case_179C: last token
         else if (0xC0 == A)
@@ -263,8 +257,9 @@ void f_1700(void)
 /*=============================================================================
 ;; f_17B2()
 ;;  Description:
-;;   Frame-update work in training/demo mode.
-;;   Called once/frame not in ready or game mode.
+;;   Manage attract mode, control sequence for training and demo screens.
+;;   The state progression is always the same, ordered by the state-index
+;;   (switch variable).
 ;;
 ;; IN:
 ;;  ...
@@ -273,15 +268,15 @@ void f_1700(void)
 -----------------------------------------------------------------------------*/
 void f_17B2()
 {
-    uint8 B;
+    uint8 B; // loop index variable
 
     if (ATTRACT_MODE == glbls9200.game_state)
     {
         switch (glbls9200.attmode_idx)
         {
-        case 0x0E: // l_17E1
-            // demo or GALACTIC HERO screen
-            if (ds4_game_tmrs[3] == 0)
+         // l_17E1: end of Demo ...  delay, then show GALACTIC HERO screen
+        case 0x0E:
+            if (ds4_game_tmrs[3] == 0) // jr   z,l_17EC
             {
                 // c_mach_hiscore_show();
                 ds4_game_tmrs[3] = 0x0A; // after displ hi-score tbl
@@ -302,8 +297,8 @@ void f_17B2()
             }
             break;
 
-        case 0x0A: // l_1808
-            // boss with captured-ship has just rejoined fleet in demo
+        // l_1808: enable fighter control demo
+        case 0x0A:
             // load fighter vectors for demo level (after capture)
             // call c_133A
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_ac; // d_181F
@@ -362,7 +357,7 @@ void f_17B2()
             for (B = 0; B < 7; B++)
             {
                 sprite_tiles_display(d_attrmode_sptiles_7 + B * 4);
-            }
+            } // djnz while do
 
             plyr_actv.fghtrs_resv = 0;
             task_actv_tbl_0[0x05] = 0; // f_0857
