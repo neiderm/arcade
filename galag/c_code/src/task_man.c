@@ -212,10 +212,10 @@ void stg_init_splash(void)
 {
     uint8 Cy;
 
-    plyr_actv.stage_ctr += 1;
+    plyr_actv.stg_ct += 1;
 
     // determine stage count modulus ... gives 0 for challenge stage
-    plyr_actv.not_chllng_stg = (plyr_actv.stage_ctr + 1) & 0x03; // 0 if challenge stage
+    plyr_actv.not_chllng_stg = (plyr_actv.stg_ct + 1) & 0x03; // 0 if challenge stage
 
     if (0 != plyr_actv.not_chllng_stg)
     {
@@ -223,7 +223,7 @@ void stg_init_splash(void)
         HL = j_string_out_pe(1, -1, 0x06); // string_out_pe "STAGE "
 
         // Print "X" of STAGE X. ...HL == $81B0
-        c_text_out_i_to_d(plyr_actv.stage_ctr, HL);
+        c_text_out_i_to_d(plyr_actv.stg_ct, HL);
 
         // l_01AC: ; start value for wave_bonus_ctr (decremented by cpu-b when bug destroyed)
         w_bug_flying_hit_cnt = 0; // irrelevant if !challenge stage
@@ -296,9 +296,9 @@ static void stg_init_env(void)
         sprt_hit_notif[B] = 0;
     }
 
-    task_actv_tbl_0[0x09] = 0; // f_1DE6 ... collective bug movement
-    task_actv_tbl_0[0x10] = 0; // f_1B65 ... manage flying-bug-attack
-    task_actv_tbl_0[0x04] = 0; // f_1A80 ... bonus-bee manager
+    task_actv_tbl_0[0x09] = 0; // f_1DE6 enemy convoy movement
+    task_actv_tbl_0[0x10] = 0; // f_1B65 enemy diving attack
+    task_actv_tbl_0[0x04] = 0; // f_1A80 special-bonus drones
 
     b_bug_flyng_hits_p_round = 0;
 

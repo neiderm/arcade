@@ -552,7 +552,7 @@ void gctl_stg_new_atk_wavs_init(void)
 
     // if past the highest stage ($17) we can only keep playing the last 4 levels
 
-    A = plyr_actv.stage_ctr; // adjusted level
+    A = plyr_actv.stg_ct; // adjusted level
 
     while (A > 0x17) A -= 4;
 
@@ -572,7 +572,7 @@ void gctl_stg_new_atk_wavs_init(void)
     }
     else /* challenge stage */
     {
-        A = (plyr_actv.stage_ctr >> 2) & 0x07; // divide by 4
+        A = (plyr_actv.stg_ct >> 2) & 0x07; // divide by 4
 
         A = atkw_challg_stg_d_idx[A];
 
@@ -798,14 +798,14 @@ void gctl_stg_new_etypes_init(void)
 
     if (0 == plyr_actv.not_chllng_stg)
     {
-        A = (plyr_actv.stage_ctr >> 3) & 0x03;
+        A = (plyr_actv.stg_ct >> 3) & 0x03;
 
-        if ( 0 != (0xE0 & plyr_actv.stage_ctr))  A = 3;
+        if ( 0 != (0xE0 & plyr_actv.stg_ct))  A = 3;
 
         stg_chllg_rnd_attrib[0] = atkw_chllg_rnd_attrib[A + 0]; // ldi
         stg_chllg_rnd_attrib[1] = atkw_chllg_rnd_attrib[A + 1]; // ldi
 
-        D = atkw_chlg_spcclr[(plyr_actv.stage_ctr >> 2) && 0x07];
+        D = atkw_chlg_spcclr[(plyr_actv.stg_ct >> 2) && 0x07];
         E = D; // ld   e,d
 
         // jr   l_28D0
@@ -901,7 +901,7 @@ static const uint8 atkw_chlg_spcclr[] =
 ;;   Inserts creature objects from the attack wave table into the movement
 ;;   queue. The table of attack wave structures is built in gctl_stg_new_atk_wavs_init.
 ;;   Each struct starts with $7E, and the end of table marker is $7F.
-;;   This task will be enabled by gctl_stg_new_env_init... after the
+;;   This task will be enabled by stg_init_env ... after the
 ;;   creature classes and formation tables are initialized.
 ;; IN:
 ;;  ...
@@ -919,9 +919,9 @@ void f_2916(void)
         if (0 == b_bugs_flying_nbr)
         {
             // the last one has found its position in the collective.
-            task_actv_tbl_0[0x08] = 0; // f_2916 ... end of attack waves
-            task_actv_tbl_0[0x04] = 1; // f_1A80 ... bonus-bee manager
-            task_actv_tbl_0[0x10] = 1; // f_1B65 ... Manage flying-bug-attack
+            task_actv_tbl_0[0x08] = 0; // f_2916 end of attack waves
+            task_actv_tbl_0[0x04] = 1; // f_1A80 special-bonus drones
+            task_actv_tbl_0[0x10] = 1; // f_1B65 enemy diving attack
 
             plyr_actv.nest_lr_flag = 1; // inhibit nest left/right movement
         }

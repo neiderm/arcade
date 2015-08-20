@@ -195,7 +195,7 @@ void gctl_stg_tokens(uint8 sound_disable_flag)
 
     memset(m_tile_ram + 0x22, 0x24, 0x12); // bottom row at right
 
-    A = plyr_actv.stage_ctr;
+    A = plyr_actv.stg_ct;
     B = 0; // tmp_quotient 50
 
     HL = 1; // offset into tileram ($8001)

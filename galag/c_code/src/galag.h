@@ -112,7 +112,7 @@ typedef struct
 typedef struct
 {
     uint8 num_ships;          // mchn_cfg_nships
-    uint8 stage_ctr;
+    uint8 stg_ct;
     uint8 *p_atkwav_tbl;      // &8920[n] (see 2896)
     uint8 nest_lr_flag;       // 1 or 0 .. flag to f_2A90, if 1 signifies nest left/right movement should stop
     uint8 not_chllng_stg;     // stg_ctr+1%4 (0 if challenge stage)
