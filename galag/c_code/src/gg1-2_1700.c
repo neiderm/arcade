@@ -286,14 +286,13 @@ void f_17B2()
             else return;
             break;
 
-        case 0x07: // l_17F5
-            // just cleared the screen from training mode... wait the delay then
-            // shows "game over"
+        // l_17F5: just cleared screen from training mode, delay ~1 sec before puts("game over")
+        case 0x07:
             if ((ds3_92A0_frame_cts[0] & 0x1F) != 0x1F) return;
             else
             {
                 task_actv_tbl_0[0x05] = 1; // f_0857
-                j_string_out_pe(1, -1, 0x02); // string_out_pe ("GAME OVER")
+                j_string_out_pe(1, -1, 0x02); // "GAME OVER"
             }
             break;
 
@@ -304,21 +303,22 @@ void f_17B2()
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_ac; // d_181F
             break;
 
-        case 0x0C: // l_1840
-            // one time at end of demo, just before "HEROES" displayed, ship has been
-            // erased from screen but remaining bugs may not have been erased yet.
+        // l_1840: end of Demo, before "HEROES" screen, fighter has been erased
+        case 0x0C:
             glbls9200.glbl_enemy_enbl = 0;
             break;
 
-        case 0x08: // l_1852
+        // l_1852: init demo, just cleared screen with "GAME OVER" shown
+        case 0x08:
+
             // load fighter vectors for demo level (before capture)
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_bc;
 
             glbls9200.glbl_enemy_enbl = 1;
             break;
 
-        // in demo, as the last boss shot second time
-        case 0x05: // l_18AC
+        // l_18AC:  synchronize copyright text with completion of explosion of last boss
+        case 0x05:
             if (0 != ds4_game_tmrs[2])
             {
                 if (1 != ds4_game_tmrs[2])
@@ -341,10 +341,10 @@ void f_17B2()
             }
             break;
 
-        // fighter just appeared in training mode (state active until f_1700 disables itself)
-        case 0x04: // l_18D1
-        case 0x09: // l_18D1
-        case 0x0B: // l_18D1
+        // l_18D1: wait for fighter control task to complete
+        case 0x04:
+        case 0x09:
+        case 0x0B:
             if (0 != task_actv_tbl_0[0x03])
             {
                 return; // get out, no update state-machine index
@@ -352,8 +352,8 @@ void f_17B2()
             // jp   z,l_19A7_end_switch
             break;
 
-        case 0x03: // l_18D9
-            // one time init for training mode ... 7 bugs etc.
+        // l_18D9:  one time init for 7 enemies in training mode
+        case 0x03:
             for (B = 0; B < 7; B++)
             {
                 sprite_tiles_display(d_attrmode_sptiles_7 + B * 4);
@@ -439,14 +439,14 @@ void f_17B2()
 
         default:
             break;
-        } // l_19A7_end_switch:
+        } // switch
 
         glbls9200.attmode_idx++;
         if (glbls9200.attmode_idx == 0x0F)
         {
             glbls9200.attmode_idx = 0;
         }
-    } // if (ATTRACT_MODE
+    } // if ATTRACT_MODE
 
     return;
 }
