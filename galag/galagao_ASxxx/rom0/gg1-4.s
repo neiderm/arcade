@@ -21,11 +21,10 @@
 
 
 ;;=============================================================================
-;; c_top5_dlg_proc()
+;; _top5_dlg_proc()
 ;;  Description:
 ;;   Checks players score for ranking in the Best 5. Scores are 6 characters
 ;;   BCD format, stored highest digit (100000's) at highest address of array.
-;;   Player enters initials for high score.
 ;;   This is called from game_ctrl (background task) and is blocking on the
 ;;   game-timers.
 ;;   Returns from 317F
@@ -36,14 +35,14 @@
 ;; Note: 83ED-83F2 is high score in tile RAM.
 ;;-----------------------------------------------------------------------------
 c_top5_dlg_proc:
-       ld   hl,#m_tile_ram + 0x03FD               ; 100000's digit of plyr1 score (83F8-FD)
+       ld   hl,#m_tile_ram + 0x03E0 + 0x1D        ; 100000's digit of plyr1 score (83F8-FD)
        ld   a,(ds_plyr_actv +_b_plyr_nbr)         ; 0==plyr1, 1==plyr2
        and  a
        jr   z,l_300C
-       ld   hl,#m_tile_ram + 0x03E0 + 0x08        ; 100000's digit of ply2 score (83E3-E8)
+       ld   hl,#m_tile_ram + 0x03E0 + 0x08        ; 100000's digit of plyr2 score (83E3-E8)
 
 l_300C:
-; setup pointer to active player score in HL. Note the offset 5 advances the pointer to the 100000's place character.
+; setup pointer to active player score in HL. Offset 5 advances pointer to 100000's place character.
        ld   (b_8A00 + 0x00),hl                    ; ptr to plyr1 score or plyr2 score on screen.
 
        ld   de,#b_best5_score5 + 0x05
@@ -71,11 +70,12 @@ l_300C:
        jr   nc,l_3047
 
        ld   a,#0xFF
-       ld   (0x9AAC),a                            ; special tune for 1st place
+       ld   (0x9AA0 + 0x0C),a                     ; special tune for 1st place
        ld   a,#1
        jr   l_304A
 l_3047:
-       ld   (0x9AB0),a                            ; select the tune
+       ld   (0x9AA0 + 0x10),a                     ; select the tune
+
 l_304A:
 ; set the jp address for the subroutine.
        ld   (b_8A00 + 0x11),a                     ; 1==1ST place etc.
@@ -111,16 +111,17 @@ l_3073:
 
        ld   a,#0x49
        ld   (b_8A00 + 0x10),a                     ; $49 ... lower address byte of first character of name entry in tile-ram
+
        ld   hl,#s_327F_enter_your_initials
-       call c_text_out_ce                         ; puts "ENTER YOUR INITIALS !"
-       call c_text_out                            ; HL==3298, puts 'SCORE  NAME' below 'ENTER YOUR INITIALS'
-       call c_text_out_ce                         ; HL==32AB (string "TOP 5")
+       call c_text_out_ce                         ; "ENTER YOUR INITIALS !"
+       call c_text_out                            ; "SCORE  NAME"          HL==3298
+       call c_text_out_ce                         ; "TOP 5"                HL==32AB
 
        ld   de,#m_tile_ram + 0x0300 + 0x09
        ld   hl,(b_8A00 + 0x00)                    ; ptr to plyr1 score or plyr2 score on screen.
        call c_3275                                ; puts players score below "SCORE"
 
-; puts_AAA (default intiials of new score entry) below NAME
+; puts_AAA (default initials of new score entry) below NAME
        ld   hl,#m_tile_ram + 0x0140 + 0x09        ; row below 'A' in "NAME"
        ld   de,#-32                               ; offset 1 column right
        ld   (hl),#0x0A
@@ -173,7 +174,7 @@ l_30BF_frame_sync:
 l_30D8_chk_button:
        bit  4,(hl)                                ; check for button (active low)
        jp   z,j_314C_select_char                  ; jp l_30B5 on 1st or 2nd letter selection...
-                                                  ; ... ret from c_top5_dlg_proc after 3rd letter selection
+                                                  ; ... ret from _top5_dlg_proc after 3rd letter selection
        ld   a,(hl)
        and  #0x0A
        ld   hl,#b_8A00 + 0x02                     ; L==2, R==8 X=A   previous controller state
@@ -324,7 +325,7 @@ c_3141_xor_char_color:
 ;; j_314C_select_char()
 ;;  Description:
 ;;    'enter your intiials', handle fire button input.
-;;    Returns from c_top5_dlg_proc after 3rd initial entered.
+;;    Returns from _top5_dlg_proc after 3rd initial entered.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -368,7 +369,7 @@ l_3179:
        ld   a,(ds3_92A0_frame_cts + 0)
        and  a
        jr   nz,l_3179
-       ret                                        ; end c_top5_dlg_proc
+       ret
 
 ;;=============================================================================
 ;; c_plyr_initials_entry_hilite_line()
@@ -448,10 +449,11 @@ case_31CE:
        ld   hl,#b_best5_score4 + 0x05
        ld   bc,#0x0006
        lddr
+
 case_31D9:
        ld   a,(b_8A00 + 0x11)                     ; 1==1ST place etc. ... index into hi-score table ... d_31ED[ 2 * (A - 1) ]
        dec  a
-       ld   hl,#d_31ED_hi_score_tbl
+       ld   hl,#d_31ED_hi_score_tbl               ; array of addresses of score table elements
        rst  0x08                                  ; HL += 2A
        ld   e,(hl)
        inc  hl
@@ -463,6 +465,7 @@ case_31D9:
 
 ;;=============================================================================
 ;; pointers to individual score strings of Top 5 table (documented elsewhere)
+;; scores only, complete table structure in s_32C5
 d_31ED_hi_score_tbl:
        .dw b_best5_score1 + 0x05
        .dw b_best5_score2 + 0x05
@@ -473,33 +476,34 @@ d_31ED_hi_score_tbl:
 ;;=============================================================================
 ;; c_31F7_chk_score_rank()
 ;;  Description:
-;;  called by c_top5_dlg_proc, once for each of 5th place score, 4th place etc.
+;;  called by _top5_dlg_proc, once for each of 5th place score, 4th place etc.
 ;;
 ;; IN:
 ;;  DE == pointer to 100000's digit (highest address) of score table entry.
 ;;  $8A00 == pointer to 100000's digit (highest address) of either plyr1
 ;;           or plyr2 score (6 characters in tile-ram).
 ;; OUT:
-;;  If Player Score > Table Entry, then Cy is set, i.e.  { *(DE) - *( *p8A00 ) }
+;;  Cy (Player Score > Table Entry)
 ;;-----------------------------------------------------------------------------
 c_31F7_chk_score_rank:
        ld   hl,(b_8A00 + 0x00)                    ; ptr to plyr1 score or plyr2 score on screen.
        ld   b,#6
 l_31FC:
-       ld   a,(de)
+       ld   a,(de)                                ; score digit
 
-; skip "spaces" (note: only the 100000 place of table entry chould be "space" character)
+; skip "spaces" (only the 100000 place of table entry could be "space" character)
        cp   #0x24
        jr   z,l_320E
 
 ; ... and since table entries are all at least 20000, then any space in the player score will not place.
-       ld   a,(hl)
+       ld   a,(hl)                                ; ptr to plyr1 score or plyr2 score on screen
        cp   #0x24
        ret  z
 
        ld   a,(de)
 l_3206:
-       cp   (hl)
+; sets Cy if score digit > table digit
+       cp   (hl)                                  ; ptr to plyr1 score or plyr2 score on screen
        ret  nz
 l_3208:
        dec  l
@@ -510,13 +514,15 @@ l_3208:
        ret
 
 l_320E:
-       cp   (hl)
-       jr   z,l_3208
-       xor  a
+; table digit == $24
+       cp   (hl)                                  ; ptr to plyr1 score or plyr2 score on screen
+       jr   z,l_3208                              ; if both spaces, jp to next
+; score digit != $24 ...
+       xor  a                                     ; "table digit"
        jr   l_3206
 
 ;;=============================================================================
-;; c_mach_hiscore_show()
+;; hiscore_heroes()
 ;;  Description:
 ;; IN:
 ;;  ...
@@ -524,27 +530,20 @@ l_320E:
 ;;  ...
 ;;-----------------------------------------------------------------------------
 c_mach_hiscore_show:
-       ld   hl,#str_3345                          ; ld the table address, 'GALACTIC HEROES'
+       ld   hl,#str_3345                          ; 'GALACTIC HEROES'
        call c_text_out_ce
-       call c_text_out_ce                         ; hl==335c (BEST 5)
+       call c_text_out_ce                         ; 'BEST 5'  hl==335c
 
 ;;=============================================================================
-;; c_puts_top5scores()
+;; hiscore_scrn()
 ;;  Description:
-;;   Each score entry under "TOP 5" is displayed.
-;;   Each call to c_3231 displays one line. Note that the 5th "call" is
-;;   "inlined" by simply allowing execution to contine on into c_3231.
+;;   Common sub for Enter Initials and Galactic Heroes - display each score
+;;   entry under "TOP 5".
+;;
 ;; IN:
 ;;  ...
 ;; OUT:
 ;;  ...
-;; Here is what is on screen right now:
-;; ENTER YOUR INITIALS !
-;;
-;;    SCORE     NAME
-;;    30770      AAA
-;;
-;;         TOP 5
 ;;-----------------------------------------------------------------------------
 c_puts_top5scores:
        ld   hl,#s_32B4_score_name
@@ -746,7 +745,7 @@ l_32FB_check_for_timeout:
 
 ; Time up. Copy available characters from input to Top 5 score name table.
 
-; The pop forces 1 stack frame to be skipped (returns to caller of c_top5_dlg_proc)
+; The pop forces 1 stack frame to be skipped (returns to caller of _top5_dlg_proc)
 l_3300_finish:
        pop  hl
 
@@ -781,23 +780,27 @@ l_3315:
 ;;  Description:
 ;;  Text out, color attribute not encoded. Text blocks are length-encoded.
 ;; IN:
-;;  HL=start address of src string
+;;  HL=start address of string
 ;; OUT:
-;;  ...
+;;  HL=start address at next string
 ;;-----------------------------------------------------------------------------
 c_text_out:
+; destination address
        ld   e,(hl)                                ; LSB
        inc  hl
        ld   d,(hl)                                ; MSB
        inc  hl
-       ld   b,(hl)                                ; strlen
+; byte count of string
+       ld   b,(hl)
        inc  hl
+
 l_3321:
-       ld   a,(hl)                                ; A:=character
+       ld   a,(hl)                                ; character code
        ld   (de),a                                ; putc
-       inc  hl                                    ; next character in src
+       inc  hl                                    ; src++
        rst  0x20                                  ; DE-=$20
        djnz l_3321
+
        ret
 
 ;;=============================================================================
@@ -819,9 +822,9 @@ c_text_out_ce:
        inc  hl
        ld   c,(hl)                                ; color
        inc  hl
-       ex   de,hl                                 ; hl=dest, de=src
+       ex   de,hl
 l_3331:
-       ld   a,(de)
+       ld   a,(de)                                ; data address
        ld   (hl),a
        set  2,h                                   ; dest+=$0400 (tile color regs)
        ld   (hl),c
@@ -835,18 +838,21 @@ l_3331:
 l_3340:
        ld   l,a
        djnz l_3331
+
        ex   de,hl
        ret
 
 ;;=============================================================================
+;; strings for mach_hiscore_show
+;;=============================================================================
 str_3345:
-; string, "2 THE GALACTIC HEROES"
+; "THE GALACTIC HEROES"
        .dw m_tile_ram + 0x0320 + 0x05
        .db 0x13
        .db 0x02
        .db 0x1D,0x11,0x0E,0x24,0x10,0x0A,0x15,0x0A,0x0C,0x1D,0x12,0x0C,0x24,0x11,0x0E,0x1B,0x18,0x0E,0x1C
 ;_335C:
-; string, "4-- BEST 5 --"
+; "-- BEST 5 --"
        .dw m_tile_ram + 0x02C0 + 0x0C
        .db 0x0C
        .db 0x04

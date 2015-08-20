@@ -30,16 +30,19 @@ _STRUCT  ; plyr_state
   _DS  _b_not_chllg_stg      1   ; 0x05  stg_ctr+1%4 (1 if not challenge stage)
   _DS  _b_attkwv_ctr         1   ; 0x06  atack_wave_ctr++
   _DS  _b_2ship              1   ; 0x07  1 ...player is two-ship
+
   _DS  _b_bmbr_boss_cobj     1   ; 0x08  object/index of active capturing boss
   _DS  _b_cboss_slot         1   ; 0x09  offset of slot used by capture boss, referenced by cpu0:f_21CB
   _DS  _b_captr_flag         1   ; 0x0A  related to ship-capture status
   _DS  _b_bmbr_boss_cflag    1   ; 0x0B  1 as capturing boss initiates his dive
   _DS  _b_bmbr_boss_wingm    1   ; 0x0C  bomber boss wingman-enable toggled to select boss-bomber mode i.e. capture or wingman
-  _DS  _b_bbee_obj           1   ; 0x0D  bonus "bee"... offset of object that spawns the bonus bee.
-  _DS  _b_bbee_clr_a         1   ; 0x0E  bonus "bee"... flashing color 'A' for bonus bee
-  _DS  _b_bbee_clr_b         1   ; 0x0F  bonus "bee"... flashing color 'B' for bonus bee
+
+  _DS  _b_bbee_obj           1   ; 0x0D  offset of object that spawns special bonus convoys
+  _DS  _b_bbee_clr_a         1   ; 0x0E  flashing color 'A' for special bonus convoys
+  _DS  _b_bbee_clr_b         1   ; 0x0F  flashing color 'B' for special bonus convoys
+
   _DS  _ds_bmbr_boss_scode   8   ; 0x10  bonus code/score attributes e.g. "01B501B501B501B5"
-  _DS  _ds_affay6            6   ; 0x18-0x1D ?
+  _DS  _unused               6   ; 0x18-0x1D ?
   _DS  _b_mcfg_bonus         1   ; 0x1E  load at game start from w_mchn_cfg_bonus ... $9980
   _DS  _b_plyr_swap_tmr      1   ; 0x1F  game_tmr_2, player1/2 switch
   _DS  _b_plyr_nbr           1   ; 0x20  0==plyr1, 1==plyr2
@@ -48,5 +51,5 @@ _STRUCT  ; plyr_state
   _DS  _b_enmy_ct_actv       1   ; 0x23  bugs_actv_nbr
   _DS  _w_hit_ct             2   ; 0x24  game number of hits
   _DS  _w_shot_ct            2   ; 0x26  game shots fired count
-  _DS  _b_sndflag            1   ; 0x28  9AA0[0] ... sound mgr
+  _DS  _b_sndflag            1   ; 0x28  enable "pulsing_sound" (_fx[0])
 

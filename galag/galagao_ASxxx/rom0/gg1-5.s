@@ -2380,7 +2380,7 @@ l_0D8D_got_a_bullet:
        ld   h,#>ds_sprite_posn
        ld   d,h
        dec  e                                     ; ... E from &sprite.ctrl[L].b1
-; sprite.posn[BOMB0 + n].b0 = sprite.posn[L].b0
+; sprite.posn[BOMB0 + n].b0 = sprite.posn[e].b0
        ld   a,(de)                                ; bomber.x
        ld   c,a
        ld   (hl),a                                ; bomb.x
@@ -2390,7 +2390,7 @@ l_0D8D_got_a_bullet:
        ld   a,(de)                                ; bomber.y<7:0>
        ld   b,a
        ld   (hl),a                                ; bomb.y<7:0>
-
+; sprite.ctrl[BOMB0 + n].b1 = sprite.ctrl[e].b1
        ld   h,#>ds_sprite_ctrl
        ld   d,h
        ld   a,(de)                                ; bomber.y<8> (in :0 ... ctrl in :1)
@@ -2399,14 +2399,15 @@ l_0D8D_got_a_bullet:
        rl   (hl)                                  ; sY<8> from Cy to bomb.ctrl.b1<0>
        rlca                                       ; restore A with sY<8> left in Cy
        rr   b                                     ; bomber.y<8:1>
-
+; if (mrw_sprite.posn[bomber_idx].b0 > sprite.posn[FGHTR].b0)
        ld   a,(ds_sprite_posn + 0x62)             ; fighter.x
        sub  c                                     ; bomb.x
        push af                                    ; stash fighter.x - bomber.x
        jr   nc,l_0DB1                             ; if bomber.x > fighter.x ...
        neg                                        ; ... then dX = -dX
 l_0DB1:
-       ld   h,a                                   ; dX ... what about L?
+; dX passed to c_0EAA()in hl16 ... lsb of &bomb.ctrl.b1 remaining in L is insignificant
+       ld   h,a
 
        ld   a,(b_9215_flip_screen)
        and  a

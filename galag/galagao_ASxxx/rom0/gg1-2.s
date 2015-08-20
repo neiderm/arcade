@@ -178,7 +178,7 @@ l_1074:                                           ; handle overflow out of A
 ;;   Called once for each of boss + 1 or 2 wingmen.
 ;; IN:
 ;;   HL == &b_8800[n] ... bits 0:6 ... loaded at l_1B8B from boss_wing_slots[n + 0]
-;;         bit-7 if set then negate rotation angle to (ix)0x0C
+;;         if bit-7 set then negate rotation angle to (ix)0x0C
 ;;         (creature originating on right side)
 ;;   DE == pointer to object data (in cpu-sub1 code space)
 ;; OUT:
@@ -469,6 +469,7 @@ l_1194_while:
 l_119F:
        ex   de,hl                                 ; stash the tileram offset in DE
        ld   l,a                                   ; stage_ctr % 50
+
        ld   h,#0
        ld   a,#10
        call c_divmod                              ; HL = HL / 10
@@ -747,9 +748,11 @@ task_enable_tbl_def:
   .db  0x0A ; f_0977  ; Handles coinage and changes in game-state
 
 ;;=============================================================================
-;; c_game_or_demo_init()
+;; g_mssl_init()
 ;;  Description:
 ;;   For game or "demo-mode" (f_17B2) setup
+;;   Initialize "missile" objects (bombs and/or rockets).
+;;   One-time init for codes, colors and tiles.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -1151,7 +1154,7 @@ l_1390:
 ;;  IN:
 ;;    HL: position in tile RAM.
 ;;    C: index into table of string pointers (d_cstring_tbl)
-;;    CY="set" if jumped to j_string_out_pe
+;;    CY: "set" if jumped to j_string_out_pe
 ;;  OUT:
 ;;    HL contains final string character display position.
 ;;
@@ -1238,8 +1241,11 @@ l_13D4_out:
 ;;=============================================================================
 ; strings for c_string_out
 d_cstring_tbl:
+  ; 0x00
         .dw s_1414,s_1429,s_1436,s_1441,s_144B,s_1457,s_1461,s_1476,s_1488,s_1493
+  ; 0x0A
         .dw s_14A7,s_14C6,s_14D3,s_14EE,s_14F8,s_1507,s_1514,s_1521,s_1525,s_153A
+  ; 0x14
         .dw s_1545,s_1552,s_1569,s_1577,s_1590,s_15A7,s_15AD,s_15C1,s_15D5,s_15E7
 
 

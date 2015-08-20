@@ -178,7 +178,7 @@ c_sctrl_playfld_clr:
 ; end
 
 ;;=============================================================================
-;; gctl_stg_splash_scrn()
+;; stg_splash_scrn()
 ;;  Description:
 ;;   clears a stage (on two-player game, runs at the first turn of each player)
 ;;   Increments stage_ctr (and dedicated challenge stage %4 indicator)
@@ -242,15 +242,13 @@ l_01BF:
        and  a
        jr   nz,l_01BF
 
-; c_01C5_new_stg_game_or_demo();
+; _init_env();
 
 ;;=============================================================================
-;; c_01C5_new_stg_game_or_demo()
+;; stg_init_env()
 ;;  Description:
-;;   Continue new_stg_game_only, or called in the demo to allow skipping
-;;   of the "STAGE X" text.
-;;   If Rack Advance set, continues looping back through new_stg_game_only
-;;   If Rack Advance not set, it does a normal return.
+;;   Initialize new stage environment and handle rack-advance if enabled.
+;;   This section is broken out so that splash screen can be skipped in demo.
 ;; IN:
 ;;  ...
 ;; OUT:
@@ -280,8 +278,9 @@ l_01DF:
        djnz l_01DF
 
        ld   (ds_cpu0_task_actv + 0x09),a          ; 0  (f_1DE6 ... collective bug movement)
-       ld   (ds_cpu0_task_actv + 0x10),a          ; 0  (f_1B65 ... Manage flying-bug-attack )
+       ld   (ds_cpu0_task_actv + 0x10),a          ; 0  (f_1B65 ... manage bomber attack )
        ld   (ds_cpu0_task_actv + 0x04),a          ; 0  (f_1A80 ... bonus-bee manager)
+
        ld   (b_bug_flyng_hits_p_round),a          ; 0
 
        ld   (ds_plyr_actv +_b_bmbr_boss_wingm),a  ; 0: bomber boss wingman-enable will toggle to 1 on first boss-bomber launch
@@ -311,10 +310,10 @@ l_0220:
        inc  l
        djnz l_0220
 
-;  if ( !RackAdvance ) return
+;  if ( !RackAdvance ) return (active low)
        ld   a,(_sfr_dsw6)                         ; DSWA rack advance operation
        bit  1,a
-       ret  nz                                    ; return if !RackAdvance (active low)
+       ret  nz                                    ; _plyr_startup
 ;  else handle rack advance operation
        ld   c,#0x0B
        ld   hl,#m_tile_ram + 0x03A0 + 0x10

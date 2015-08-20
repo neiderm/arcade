@@ -1499,7 +1499,7 @@ db_attk_wav_IDs:
 ;;=============================================================================
 ;; c_2896()
 ;;  Description:
-;;   c_01C5_new_stg_game_or_demo
+;;   stg_init_env
 ;;   Called at beginning of each stage, including challenge stages and demo.
 ;;   Initializes mrw_sprite[n].cclr.b0 for 3 sets of creatures. Color code is
 ;;   packed into b<0:2>, and bomb-drop parameter packed into b<7>
@@ -1650,7 +1650,7 @@ d_290E:
 ;;   queue. Essentially, it launches the attack formations swarming into the
 ;;   screen. The table of attack wave structures is built in c_25A2.
 ;;   Each struct starts with $7E, and the end of table marker is $7F.
-;;   This task will be enabled by c_01C5_new_stg_game_or_demo... after the
+;;   This task will be enabled by stg_init_env... after the
 ;;   creature classes and formation tables are initialized.
 ;; IN:
 ;;  ...
@@ -1907,7 +1907,7 @@ l_2A29_attack_waves_complete:
        ld   (ds_cpu0_task_actv + 0x08),a          ; 0  (f_2916 ... end of attack waves)
        inc  a
        ld   (ds_cpu0_task_actv + 0x04),a          ; 1  (f_1A80 ... bonus-bee manager)
-       ld   (ds_cpu0_task_actv + 0x10),a          ; 1  (f_1B65 ... Manage flying-bug-attack )
+       ld   (ds_cpu0_task_actv + 0x10),a          ; 1  (f_1B65 ... manage bomber attack )
        ld   (ds_plyr_actv +_b_nestlr_inh),a       ; 1  ... inhibit nest left/right movement
 
        ret

@@ -189,7 +189,7 @@ c_nmi_proc:
        and  a
        jr   z,l_00D3
 ; then ...
-;  b_9AA0[8] += snd_add_credit_cnt
+;  _fx[$08] += snd_add_credit_cnt
        ld   hl,#b_9AA0 + 0x08                     ; += b_9A70[9] ... sound-fx count/enable registers, credit-in sound
        add  a,(hl)
        ld   (hl),a
@@ -389,7 +389,7 @@ l_01F6:
 
 ; sound mgr capture beam
 l_0204:
-; if ( !b_9AA0[5] )  {  }  else { goto l_0236 }
+; if ( !_fx[$05] )  {  }  else { goto l_0236 }
        ld   a,(b_9AA0 + 0x05)                     ; sound-fx count/enable registers, capture beam active uno
        and  a
        jr   z,l_0236
@@ -427,7 +427,7 @@ l_0236:
        ld   (b_9AC0 + 0x05),a                     ; 0 ... capture beam count/enable uno == 0, so clear the active flag
 
 j_0239:
-; if ( sound_active )  { }  else  b_9AA0[6] = 0
+; if ( sound_active )  { }  else  _fx[$06] = 0
        ld   a,(b_9AA0 + 0x06)                     ; sound-fx count/enable registers, capture beam active deux
        and  a
        jr   z,l_0263

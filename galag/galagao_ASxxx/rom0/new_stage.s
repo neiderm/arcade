@@ -16,7 +16,7 @@
 .area CSEG2C
 
 ;;=============================================================================
-;; c_2C00()
+;; stg_bombr_setparms()
 ;;  Description:
 ;;   new stage setup
 ;;   selects table based on level and difficulty setting, loads the new
@@ -200,7 +200,7 @@ bmbr_stg_cfg_dat:
 
 
 _l_2E75:
-;           00003000  c_top5_dlg_proc
+;           00003000  _top5_dlg_proc
 
 ;;
 
