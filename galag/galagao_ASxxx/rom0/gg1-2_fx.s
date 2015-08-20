@@ -226,7 +226,7 @@ case_17E1:
        jr   z,l_17EC
 ; else if ( game_timers[3] == 1 )  advance state
        dec  a
-       jp   z,l_19A7_end_switch
+       jp   z,l_attmode_state_step
 ; else break
        ret
 l_17EC:
@@ -247,7 +247,7 @@ case_17F5:
        ld   (ds_cpu0_task_actv + 0x05),a          ; 1 ... f_0857
        ld   c,#2                                  ; index of string
        rst  0x30                                  ; string_out_pe ("GAME OVER")
-       jp   l_19A7_end_switch
+       jp   l_attmode_state_step
 
 ; 10: enable fighter control demo
 case_1808:
@@ -260,7 +260,7 @@ case_1808:
        ld   (ds_cpu0_task_actv + 0x03),a          ; 1  (f_1700 ... fighter control in training/demo mode)
        ld   (ds_cpu0_task_actv + 0x15),a          ; 1  (f_1F04 ... fire button input))
        ld   (ds_cpu1_task_actv + 0x05),a          ; 1  (cpu1:f_05EE ... fighter collision detection)
-       jp   l_19A7_end_switch
+       jp   l_attmode_state_step
 
 ; demo fighter vectors demo level after capture
 d_181F:
@@ -280,7 +280,7 @@ case_1840:
        inc  a
        ld   (ds_cpu0_task_actv + 0x02),a          ; 1 ... f_17B2 (attract-mode control)
 
-       jp   l_19A7_end_switch
+       jp   l_attmode_state_step
 
 ; 08: init demo (following training mode) ... "GAME OVER" showing
 case_1852:
@@ -295,7 +295,7 @@ case_1852:
 
        ld   hl,#d_1887
        ld   (pdb_demo_fghtrvctrs),hl              ; &d_1887[0]
-       call c_01C5_new_stg_game_or_demo
+       call stg_init_env
        call c_133A                                ; apparently erases some stuff from screen?
 
        ld   a,#1
@@ -305,7 +305,7 @@ case_1852:
        inc  a
        ld   (ds_new_stage_parms + 0x04),a         ; 2 ... max_bombers (demo)
        ld   (ds_new_stage_parms + 0x05),a         ; 2 ... increases max bombers in certain conditions (demo)
-       jp   l_19A7_end_switch
+       jp   l_attmode_state_step
 
 ; demo fighter vectors demo level before capture
 d_1887:
@@ -321,8 +321,8 @@ case_18AC:
        and  a
        jr   z,l_18BB
 ; else  if (1 == tmr[2])  state++ ; break
-       dec  a                                     ; a little bit more of that explosion
-       jp   z,l_19A7_end_switch
+       dec  a
+       jp   z,l_attmode_state_step
 ; else  if (6 == tmr)  copyright_info ; break
        cp   #5
        jr   z,l_18C6
@@ -351,15 +351,14 @@ case_18D1:
 ; if (0 == task_actv_tbl_0[0x03])  attmode_state_step()
        ld   a,(ds_cpu0_task_actv + 0x03)          ; wait for task[f_1700 fighter ctrl ]==0 before advance state
        and  a
-       jp   z,l_19A7_end_switch
+       jp   z,l_attmode_state_step
        ret
 
 ; 03: one time init for 7 enemies in training mode
 case_18D9:
        ld   b,#7                                  ; 4 bosses + 3 moths
 l_18DB_while:
-; note: pointer to _attrmode_sptiles[n] is a function "parameter", but it is updated inside the function
-       call c_sprite_tiles_displ
+       call c_sprite_tiles_displ                  ; updates offset of pointer to _attrmode_sptiles[0]
        djnz l_18DB_while
 
        xor  a
@@ -400,7 +399,7 @@ l_18DB_while:
 
        call c_game_or_demo_init
 
-       jp   l_19A7_end_switch
+       jp   l_attmode_state_step
 
 ; demo fighter vectors training mode
 d_1928:
@@ -411,7 +410,7 @@ d_1928:
 case_1940:
        call c_sctrl_playfld_clr
        call c_sctrl_sprite_ram_clr
-       jr   l_19A7_end_switch
+       jr   l_attmode_state_step
 
 ; 01: setup info-screen: sprite tbl index, text index, timer[2]
 case_1948:
@@ -424,7 +423,7 @@ case_1948:
 
        ld   a,#2
        ld   (ds4_game_tmrs + 2),a                 ; 2 (1 sec)
-       jr   l_19A7_end_switch
+       jr   l_attmode_state_step
 
 ;; parameters for sprite tiles used in attract mode, 4-bytes each:
 ;;  0: offset/index of object to use
@@ -461,7 +460,7 @@ case_1984:
 ; . if (index == 5) then  state++ ; break
        ld   a,(ds_9200_glbls + 0x05)              ; if 5 ... demo_scrn_txt_indx
        cp   #5
-       jr   z,l_19A7_end_switch
+       jr   z,l_attmode_state_step
 ; . else
 ; .. txt_index++ ; show text
        inc  a
@@ -478,7 +477,7 @@ case_1984:
 
        ret
 
-l_19A7_end_switch:
+l_attmode_state_step:
 ; .demo_idx++
        ld   hl,#ds_9200_glbls + 0x03              ; advance state variable
        inc  (hl)

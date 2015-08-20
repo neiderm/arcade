@@ -187,7 +187,7 @@ c_sctrl_playfld_clr:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-gctl_stg_splash_scrn:
+stg_init_splash:
 
 ; plyr_state_active.stage_ctr++
        ld   hl,#ds_plyr_actv +_b_stgctr           ; ++
@@ -254,7 +254,7 @@ l_01BF:
 ;; OUT:
 ;;  ...
 ;;-----------------------------------------------------------------------------
-c_01C5_new_stg_game_or_demo:
+stg_init_env:
        ld   a,#120
        ld   (ds4_game_tmrs + 2),a                 ; load the timer ($78 - new stage)
        call c_2896                                ; Initializes each creature by position
@@ -319,7 +319,7 @@ l_0220:
        ld   hl,#m_tile_ram + 0x03A0 + 0x10
        call c_string_out                          ; erase "stage X" text"
 
-       jp   gctl_stg_splash_scrn                  ; start over again
+       jp   stg_init_splash                       ; start over again
 
 
 ;;=============================================================================

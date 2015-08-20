@@ -571,7 +571,7 @@ l_04C1_while:
 l_04DC_break:
 
 ; end of stage ... "normal"
-       call gctl_stg_splash_scrn
+       call stg_init_splash
        jp   plyr_respawn_rdy
 
 
@@ -825,7 +825,7 @@ plyr_respawn_1up:
        and  a
        jr   nz,gctl_plyr_respawn_wait
 ; ... then ...
-       call gctl_stg_splash_scrn                  ; new stage setup, shows "STAGE X"
+       call stg_init_splash                       ; new stage setup, shows "STAGE X"
 
        jr   gctl_plyr_respawn_wait
 
@@ -835,7 +835,7 @@ plyr_respawn_1up:
 ; change, or at start of new game loop.
 ; If on a new game, PLAYER 1 text has been erased.
 plyr_respawn_splsh:
-       call gctl_stg_splash_scrn                  ; shows "STAGE X" and does setup
+       call stg_init_splash                       ; shows "STAGE X" and does setup
 
        ;; plyr_respawn_plyrup()
 
