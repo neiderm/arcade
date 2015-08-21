@@ -53,7 +53,7 @@ static void fghtr_ctrl_inp(uint8);
 static void rckt_sprite_init(void);
 static uint8 bmbr_boss_activate(uint8, uint8, uint8, uint8, uint16);
 static void bmbr_boss_escort_sel(uint16, uint8, uint8 *, r16_t *, uint8);
-
+static void attmode_state_step(void);
 
 /*============================================================================
 ;; data source for sprite tiles used in attract mode
@@ -280,19 +280,20 @@ void f_17B2()
             {
                 // c_mach_hiscore_show();
                 ds4_game_tmrs[3] = 0x0A; // after displ hi-score tbl
-                return;
             }
-            else if (1 == ds4_game_tmrs[3]) break;
-            else return;
+            else if (1 == ds4_game_tmrs[3])
+            {
+                attmode_state_step(); // jp   z,l_19A7_end_switch
+            }
             break;
 
         // l_17F5: just cleared screen from training mode, delay ~1 sec before puts("game over")
         case 0x07:
-            if ((ds3_92A0_frame_cts[0] & 0x1F) != 0x1F) return;
-            else
+            if ((ds3_92A0_frame_cts[0] & 0x1F) == 0x1F)
             {
                 task_actv_tbl_0[0x05] = 1; // f_0857
                 j_string_out_pe(1, -1, 0x02); // "GAME OVER"
+                attmode_state_step();
             }
             break;
 
@@ -301,11 +302,15 @@ void f_17B2()
             // load fighter vectors for demo level (after capture)
             // call c_133A
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_ac; // d_181F
+
+            attmode_state_step();
             break;
 
         // l_1840: end of Demo, before "HEROES" screen, fighter has been erased
         case 0x0C:
             glbls9200.glbl_enemy_enbl = 0;
+
+            attmode_state_step();
             break;
 
         // l_1852: init demo, just cleared screen with "GAME OVER" shown
@@ -315,29 +320,28 @@ void f_17B2()
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_bc;
 
             glbls9200.glbl_enemy_enbl = 1;
+
+            attmode_state_step();
             break;
 
         // l_18AC:  synchronize copyright text with completion of explosion of last boss
         case 0x05:
-            if (0 != ds4_game_tmrs[2])
+            if (0 == ds4_game_tmrs[2]) // jr   z,l_18BB
             {
-                if (1 != ds4_game_tmrs[2])
-                {
-                    if (6 == ds4_game_tmrs[2]) // jr   z,l_18C6
-                    {
-                        //l_18C6:
-                        mrw_sprite.posn[0x62].b0 = 0;
-                        j_string_out_pe(1, -1, 0x13); // "(C) 1981 NAMCO LTD."
-                        j_string_out_pe(1, -1, 0x14); // "NAMCO" - 6 tiles
-                    }
-                    return;
-                } // else ... jp   z,l_19A7_end_switch
-            }
-            else // jr   z,l_18BB
-            {
+                // l_18BB:
                 sprt_hit_notif[0x34] = 0x34;
                 ds4_game_tmrs[2] = 9;
-                return;
+            }
+            else if (1 == ds4_game_tmrs[2]) // jp   z,l_attmode_state_step
+            {
+                attmode_state_step();
+            }
+            else if (6 == ds4_game_tmrs[2]) // jr   z,l_18C6
+            {
+                //l_18C6:
+                mrw_sprite.posn[0x62].b0 = 0;
+                j_string_out_pe(1, -1, 0x13); // "(C) 1981 NAMCO LTD."
+                j_string_out_pe(1, -1, 0x14); // "NAMCO" - 6 tiles
             }
             break;
 
@@ -345,11 +349,8 @@ void f_17B2()
         case 0x04:
         case 0x09:
         case 0x0B:
-            if (0 != task_actv_tbl_0[0x03])
-            {
-                return; // get out, no update state-machine index
-            }
-            // jp   z,l_19A7_end_switch
+            if (0 == task_actv_tbl_0[0x03])  attmode_state_step();
+
             break;
 
         // l_18D9:  one time init for 7 enemies in training mode
@@ -389,6 +390,8 @@ void f_17B2()
             b_9AA0[0x17] = 0; // (_sfr_dsw4 >> 1) & 0x01;
 
             g_mssl_init();
+            attmode_state_step();
+
             break;
 
         // l_1940: clear tile and sprite ram
@@ -398,6 +401,7 @@ void f_17B2()
             // used during "CREDIT 0"
             c_sctrl_playfld_clr();
             c_sctrl_sprite_ram_clr();
+            attmode_state_step();
             break;
 
         // l_1948: setup info-screen: sprite tbl index, text index, timer[2]
@@ -406,6 +410,7 @@ void f_17B2()
             demo_txt_idx = 0;
             w_bug_flying_hit_cnt = 0;
             ds4_game_tmrs[2] = 2; // 1 second
+            attmode_state_step();
             break; // jr   l_19A7_end_switch
 
         // l_1984: info-screen sequencer, advance text and sprite tiles indices
@@ -414,7 +419,11 @@ void f_17B2()
             {
                 ds4_game_tmrs[2] = 2; // 1 second
 
-                if (5 != demo_txt_idx)
+                if (5 == demo_txt_idx)
+                {
+                    attmode_state_step();
+                }
+                else
                 {
                     demo_txt_idx += 1; // _glbls[0x05]
 
@@ -428,27 +437,28 @@ void f_17B2()
 
                         idx_attrmode_sptiles_3 += 1; // advance pointer to _attrmode_sptiles_3[n]
                     }
-                    return;
                 } // jr   z,l_19A7_end_switch
-            }
-            else
-            {
-                return; // ret  nz
             }
             break;
 
         default:
             break;
         } // switch
+    } // if ATTRACT_MODE
 
-        glbls9200.attmode_idx++;
+    return;
+}
+
+/*
+ * convenience sub to avoid return's all over previous function
+ */
+static void attmode_state_step(void)
+{
+        glbls9200.attmode_idx += 1;
         if (glbls9200.attmode_idx == 0x0F)
         {
             glbls9200.attmode_idx = 0;
         }
-    } // if ATTRACT_MODE
-
-    return;
 }
 
 /*=============================================================================
