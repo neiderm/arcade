@@ -271,6 +271,7 @@ void stg_init_splash(void)
 /*=============================================================================
 ;; init_env()
 ;;  Description:
+;;   Setup enemies for new stage.
 ;;   Initialize new stage environment and handle rack-advance if enabled.
 ;;   This section is broken out so that splash screen can be skipped in demo.
 ;; IN:

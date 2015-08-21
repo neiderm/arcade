@@ -221,7 +221,7 @@ void f_1700(void)
         // case_179C: last token
         else if (0xC0 == A)
         {
-            task_actv_tbl_0[0x03] = 0; // this task
+            task_actv_tbl_0[0x03] = 0; // DISABLE this task
         }
         // case_17A1: wait for target in sights
         else if (0x40 == A)
@@ -274,7 +274,7 @@ void f_17B2()
     {
         switch (glbls9200.attmode_idx)
         {
-         // l_17E1: end of Demo ...  delay, then show GALACTIC HERO screen
+         // l_17E1: end of Demo ... delay, then show GALACTIC HERO screen
         case 0x0E:
             if (ds4_game_tmrs[3] == 0) // jr   z,l_17EC
             {
@@ -287,7 +287,7 @@ void f_17B2()
             }
             break;
 
-        // l_17F5: just cleared screen from training mode, delay ~1 sec before puts("game over")
+        // l_17F5: cleared screen from training mode, delay ~1 sec before "game over"
         case 0x07:
             if ((ds3_92A0_frame_cts[0] & 0x1F) == 0x1F)
             {
@@ -297,11 +297,14 @@ void f_17B2()
             }
             break;
 
-        // l_1808: enable fighter control demo
+        // l_1808: setup fighter control (demo, after capture)
         case 0x0A:
-            // load fighter vectors for demo level (after capture)
-            // call c_133A
-            demo_p_fghtr_mvecs = demo_fghtr_mvecs_ac; // d_181F
+            fghtr_onscreen();
+            demo_p_fghtr_mvecs = demo_fghtr_mvecs_ac; // d_181F fighter control vectors
+
+            // task disabled itself so re-enable it
+            task_actv_tbl_0[0x03] = 1; // f_1700 fighter control attract/training mode
+
 
             attmode_state_step();
             break;
@@ -310,14 +313,21 @@ void f_17B2()
         case 0x0C:
             glbls9200.glbl_enemy_enbl = 0;
 
+            // re-enable task (default 0 loaded by taskman_init())
+
             attmode_state_step();
             break;
 
         // l_1852: init demo, just cleared screen with "GAME OVER" shown
         case 0x08:
 
-            // load fighter vectors for demo level (before capture)
+
+            task_actv_tbl_0[0x03] = 1; // f_1700 fighter control in attract/demo mode
+
+            // set fighter vectors for demo level (before capture)
             demo_p_fghtr_mvecs = demo_fghtr_mvecs_bc;
+
+            fghtr_onscreen();
 
             glbls9200.glbl_enemy_enbl = 1;
 
@@ -349,8 +359,10 @@ void f_17B2()
         case 0x04:
         case 0x09:
         case 0x0B:
-            if (0 == task_actv_tbl_0[0x03])  attmode_state_step();
-
+            if (0 == task_actv_tbl_0[0x03])  //  // f_1700 fighter control in attract/demo mode
+            {
+                attmode_state_step();
+            }
             break;
 
         // l_18D9:  one time init for 7 enemies in training mode
