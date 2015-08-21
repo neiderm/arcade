@@ -5,10 +5,207 @@
  **  Hi-score dialog, power-on memory tests, and service-mode menu functions
  **
  *******************************************************************************/
+
+/*
+ ** header file includes
+ */
+#include <string.h> // strlen
 #include "galag.h"
 
+/*
+ ** defines and typedefs
+ */
+
+/*
+ ** extern declarations of variables defined in other files
+ */
+
+/*
+ ** non-static external definitions this file or others
+ */
 mchn_cfg_t mchn_cfg;
 
+/*
+ ** static external definitions in this file
+ */
+
+// variables
+static str_pe_t hiscore_scrn_txt[];
+static str_pe_t hiscore_initials_txt[];
+
+
+
+// declarations
+
+// function prototypes
+//static uint8 hiscore_chkrank(uint8, uint16 );
+//static void insert_score(uint8, uint16 );
+static void hiscore_scrn(void);
+static void text_out(str_pe_t);
+static void text_out_ce(str_pe_t);
+
+
+
+/*=============================================================================
+;; hiscore_scrn
+;;  Description:
+;;  display hi-score screen (Galactic Heroes) in attract mode
+;; IN:
+;;  ...
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+void hiscore_heroes(void)
+{
+    text_out_ce(hiscore_scrn_txt[0]);  // "THE GALACTIC HEROES"
+    text_out_ce(hiscore_scrn_txt[1]);  // "-- BEST 5 --"  '-' == $26
+
+    hiscore_scrn();
+}
+
+/*=============================================================================
+;; hiscore_scrn
+;;  Description:
+;;  display hi-score screen (common sub)
+;;  Caller will setup title text for a) Top 5 (hiscore entry) or b) Galactic
+;;  Heroes (in attract-mode)
+;; IN:
+;;  ...
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+static void hiscore_scrn(void)
+{
+/*
+       ld   hl,#s_32B4_score_name
+       call c_text_out                            ; puts 'SCORE     NAME' below 'TOP 5'
+*/
+       text_out(hiscore_initials_txt[1])    ; // "SCORE  NAME"
+/*
+       ld   b,#1                                  ; starting index for c_3231
+       call c_3231                                ; '1ST............'
+       call c_3231                                ; '2ND............'
+       call c_3231                                ; '3RD............'
+       call c_3231                                ; '4RD............'
+                                                  ; continue to '5TH' ...
+*/
+}
+
+
+/*=============================================================================
+;;  Description:
+;;   High score table strings.
+;;---------------------------------------------------------------------------*/
+static str_pe_t hiscore_initials_txt[] = {
+    {
+        // $01
+        0x0320 + 0x04,
+        0x04,
+        "ENTER YOUR INITIALS !"
+    },
+    {
+        0x02E0 + 0x07, // _dea(r, c)
+        0xFF, // no color-encode
+        "SCORE       NAME"
+    },
+    {
+        0x0240 + 0x10, // _dea(r, c)
+        0x04,
+        "TOP 5"
+    },
+    {
+        0x0280 + 0x12, // _dea(r, c)
+        0xFF, // no color-encode
+        "SCORE     NAME" // c_puts_top5scores
+    },
+};
+
+
+/*=============================================================================
+;; text_out()
+;;  Description:
+;;  Text out, color attribute not encoded. Text blocks are length-encoded.
+;;
+;;  Z80 source does NOT deal in ASCII.
+;;  C source to use ASCII, but need special sauce for code translation.
+;;
+;; IN:
+;;  n = index into array of string table
+;; OUT:
+;;
+;;---------------------------------------------------------------------------*/
+static void text_out(str_pe_t n)
+{
+    int l; // loop index count
+    int b = strlen(n.chars); // byte count of string
+    uint16 de = n.posn;
+
+    for (l = 0; l < b; l++)
+    {
+        uint8 ch = n.chars[l];
+
+        if (ch == 32) ch = 0x24; // convert from ASCII space character
+        else if (ch < '0') ch += 11; // convert from ASCII symbols (! == $2C), ASCII $21
+        else if (ch <= '9') ch -= '0'; // convert from ASCII digits
+        else if (ch <= 'Z') ch = ch - 'A' + 10; // convert from ASCII upper-case letter
+
+        m_tile_ram[de] = ch;
+        //m_color_ram[de] = clr;
+        de -= 0x20;
+    }
+}
+
+/*=============================================================================
+;; c_text_out_ce()
+;;  Description:
+;;   Text out, color attribute encoded. Text blocks are length-encoded.
+;;
+;;  Z80 source does NOT deal in ASCII.
+;;  C source to use ASCII, but need special sauce for code translation.
+;;
+;; IN:
+;;  n = index into array of string table
+;; OUT:
+;;  ...
+;;---------------------------------------------------------------------------*/
+static void text_out_ce(str_pe_t n)
+{
+    int l; // loop index count
+    int b = strlen(n.chars); // byte count of string
+    uint16 de = n.posn;
+    uint8 clr = n.color;
+
+    for (l = 0; l < b; l++)
+    {
+        uint8 ch = n.chars[l];
+
+        if (ch == 32) ch = 0x24; // convert from ASCII space character
+        else if (ch == '-') ch = 0x26; // convert from ASCII '-' character
+        else if (ch < '0') ch += 11; // convert from ASCII symbols (! == $2C), ASCII $21
+        else if (ch <= '9') ch -= '0'; // convert from ASCII digits
+        else if (ch <= 'Z') ch = ch - 'A' + 10; // convert from ASCII upper-case letter
+
+        m_tile_ram[de] = ch;
+        m_color_ram[de] = clr;
+        de -= 0x20;
+    }
+}
+
+/*=============================================================================
+;; strings for mach_hiscore_show
+;;===========================================================================*/
+static str_pe_t hiscore_scrn_txt[] = {
+    {
+        0x0320 + 0x05,
+        0x02,
+        "THE GALACTIC HEROES"
+    },
+    {
+        0x02C0 + 0x0C,
+        0x04,
+        "-- BEST 5 --"
+    },
+};
 
 /*=============================================================================
 ;;  Description: machine power-on/self-test

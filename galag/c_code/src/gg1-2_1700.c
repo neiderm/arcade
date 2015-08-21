@@ -278,7 +278,7 @@ void f_17B2()
         case 0x0E:
             if (ds4_game_tmrs[3] == 0) // jr   z,l_17EC
             {
-                // c_mach_hiscore_show();
+                hiscore_heroes();
                 ds4_game_tmrs[3] = 0x0A; // after displ hi-score tbl
             }
             else if (1 == ds4_game_tmrs[3])
