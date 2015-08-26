@@ -20,6 +20,7 @@ extern unsigned char *colorram;
 extern unsigned char *galaga_starcontrol;
 #define  sfr_A000_starctl galaga_starcontrol
 
+
 /*
  * basic types
  */
@@ -379,31 +380,14 @@ extern uint8 irq_acknowledge_enable_cpu0;
 extern uint8 irq_acknowledge_enable_cpu1;
 extern uint8 nmi_acknowledge_enable_cpu2;
 
-extern uint8 _sfr_dsw1; //  $$6800
-extern uint8 _sfr_dsw2; //  $$6801
-extern uint8 _sfr_dsw3; //  $$6802
-extern uint8 _sfr_dsw4; //  $$6803
-extern uint8 _sfr_dsw5; //  $$6804
-extern uint8 _sfr_dsw6; //  $$6805
-extern uint8 _sfr_dsw7; //  $$6806
-extern uint8 _sfr_dsw8; //  $$6807
-
-extern uint8 _sfr_6820; //  $$6820  ; maincpu IRQ acknowledge/enable
-extern uint8 _sfr_6821; //  $$6821  ; CPU-sub1 IRQ acknowledge/enable)
-extern uint8 _sfr_6822; //  $$6822  ; CPU-sub2 nmi acknowledge/enable
-extern uint8 _sfr_6823; //  $$6823  ; 0:halt 1:enable CPU-sub1 and CPU-sub2
-
-extern uint8 _sfr_watchdog; // $$6830
-
-
 /* game_ctrl.c */
 extern uint8 b_bug_flyng_hits_p_round;
 extern tstruct_b9200 glbls9200;
 extern uint8 ds_99B9_star_ctrl[];
 extern uint8 io_input[];
 extern uint8 ds_bug_collsn[];
-
 extern uint8 fmtn_mv_tmr; // 99B4_bugnest_onoff_scrn_tmr
+
 /* task_man.c */
 extern t_plyr_state plyr_actv;
 extern t_plyr_state plyr_susp;
@@ -455,6 +439,9 @@ extern uint8 ds_new_stage_parms[];
 /*
  * function prototypes
  */
+/* gg1-4.c */
+void cpu0_post(void);
+void hiscore_heroes(void);
 
 /* galag.c */
 int _updatescreen(int);
@@ -465,10 +452,13 @@ void gctl_stg_new_etypes_init(void);
 void gctl_stg_new_atk_wavs_init(void);
 
 /* game_ctrl.c */
+void g_init(void);
+int g_main(void);
 uint16 c_text_out_i_to_d(uint16, uint16);
 void c_sctrl_sprite_ram_clr(void);
 
 /* task_man.c */
+void cpu0_init(void);
 void cpu0_rst38(void); //
 void gctl_1uphiscore_displ(void);
 void c_sctrl_playfld_clr(void);
@@ -490,6 +480,7 @@ void c_player_active_switch(void);
 void fghtr_resv_draw(void);
 
 /* gg1-5.c */
+void cpu1_init(void);
 void cpu1_rst38(void); //
 
 /* gg1-7.c */

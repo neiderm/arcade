@@ -60,7 +60,7 @@ void hiscore_heroes(void)
     text_out_ce(hiscore_scrn_txt[0]);  // "THE GALACTIC HEROES"
     text_out_ce(hiscore_scrn_txt[1]);  // "-- BEST 5 --"  '-' == $26
 
-    hiscore_scrn();
+//    hiscore_scrn(); // c_puts_top5scores
 }
 
 /*=============================================================================
@@ -80,7 +80,7 @@ static void hiscore_scrn(void)
        ld   hl,#s_32B4_score_name
        call c_text_out                            ; puts 'SCORE     NAME' below 'TOP 5'
 */
-       text_out(hiscore_initials_txt[1])    ; // "SCORE  NAME"
+       text_out(hiscore_initials_txt[1]); // "SCORE  NAME"
 /*
        ld   b,#1                                  ; starting index for c_3231
        call c_3231                                ; '1ST............'
@@ -100,21 +100,25 @@ static str_pe_t hiscore_initials_txt[] = {
     {
         // $01
         0x0320 + 0x04,
+        // len
         0x04,
         "ENTER YOUR INITIALS !"
     },
     {
         0x02E0 + 0x07, // _dea(r, c)
+        // len
         0xFF, // no color-encode
         "SCORE       NAME"
     },
     {
         0x0240 + 0x10, // _dea(r, c)
+        // len
         0x04,
         "TOP 5"
     },
     {
         0x0280 + 0x12, // _dea(r, c)
+        // len
         0xFF, // no color-encode
         "SCORE     NAME" // c_puts_top5scores
     },
@@ -222,7 +226,7 @@ static str_pe_t hiscore_scrn_txt[] = {
 ;; OUT:
 ;;  ...
 ;;---------------------------------------------------------------------------*/
-uint8 cpu0_post(void)
+void cpu0_post(void)
 {
     uint16 HL, DE, BC;
 
@@ -353,11 +357,14 @@ uint8 cpu0_post(void)
     while (ds3_92A0_frame_cts[0] < 0x80)
     {
         BC = _updatescreen(1); // before checking Test-switch.
+/*
         if (0 != BC)
         {
             return BC;
         }
+*/
     }
-    return 0; //        jp   j_Game_init ... g_init
+
+    return; //        jp   j_Game_init ... g_init
 }
 

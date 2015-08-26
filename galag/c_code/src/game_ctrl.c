@@ -689,7 +689,7 @@ static int gctl_plyr_terminate(void)
        if (0 == gctl_two_plyr_game || -1 == plyr_susp.fghtrs_resv)
        {
            g_halt(); // jp   z,end_game_halt ... only place to reference this symbol
-           return 1; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner < g_main < g_exec
+           return 1; // gctl_stg_restart_hdlr < gctl_supv_stage < gctl_game_runner < g_main < sim_run
        }
        else if (glbls9200.restart_stage > 1)
        {
