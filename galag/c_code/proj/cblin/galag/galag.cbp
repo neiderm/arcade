@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="galag" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/galag" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+				<Option parameters="-rompath ." />
+				<Compiler>
+					<Add option="-g" />
+					<Add option="-DSIM" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/galag" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add option="-DLSB_FIRST" />
+			<Add option='-DVERSION=\&apos;&quot;0.36.1&quot;\&apos;' />
+			<Add option="-DTINY_COMPILE" />
+			<Add option="-DTINY_NAME=driver_galaga" />
+			<Add option='-DINLINE=&quot;static __inline__&quot;' />
+			<Add option="-DNODSOUND" />
+			<Add option="-DM_LITE" />
+			<Add option="-DSUPPORTSTREAMS" />
+			<Add option="-DSIM" />
+			<Add option="-DHAS_SAMPLES" />
+			<Add option="-DHAS_NAMCO" />
+			<Add option="-DHAS_Z80" />
+			<Add option='-DNAME=\&apos;&quot;xmame&quot;\&apos;' />
+			<Add option='-DXMAMEROOT=\&apos;&quot;/usr/games/lib/xmame&quot;\&apos;' />
+			<Add option='-DDISPLAY_METHOD=\&apos;&quot;x11&quot;\&apos;' />
+			<Add option="-Dx11" />
+			<Add option="-DUSE_MITSHM" />
+			<Add option="-Dstricmp=strcasecmp" />
+			<Add directory="../../../xmame/src" />
+			<Add directory="../../../xmame/zlib" />
+			<Add directory="../../../xmame/src/cpu/z80" />
+			<Add directory="../../../xmame/src/unix" />
+		</Compiler>
+		<Linker>
+			<Add library="libz.a" />
+			<Add library="libX11.a" />
+			<Add library="libXext.a" />
+		</Linker>
+		<Unit filename="../../../src/galag.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../src/galag.h" />
+		<Unit filename="../../../src/game_ctrl.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../src/gg1-2.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../src/gg1-2_1700.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../src/gg1-3.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../src/gg1-4.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../src/gg1-5.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../src/gg1-7.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../src/new_stage.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../src/pe_string.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../src/task_man.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../src/task_man.h" />
+		<Unit filename="../../../xmame/src/artwork.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/artwork.h" />
+		<Unit filename="../../../xmame/src/audit.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/audit.h" />
+		<Unit filename="../../../xmame/src/cheat.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/cheat.h" />
+		<Unit filename="../../../xmame/src/common.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/common.h" />
+		<Unit filename="../../../xmame/src/cpu/z80/z80.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/cpu/z80/z80.h" />
+		<Unit filename="../../../xmame/src/cpu/z80/z80daa.h" />
+		<Unit filename="../../../xmame/src/cpuintrf.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/cpuintrf.h" />
+		<Unit filename="../../../xmame/src/datafile.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/datafile.h" />
+		<Unit filename="../../../xmame/src/drawgfx.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/drawgfx.h" />
+		<Unit filename="../../../xmame/src/driver.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/driver.h" />
+		<Unit filename="../../../xmame/src/drivers/galaga.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/gfxobj.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/gfxobj.h" />
+		<Unit filename="../../../xmame/src/hiscore.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/hiscore.h" />
+		<Unit filename="../../../xmame/src/info.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/info.h" />
+		<Unit filename="../../../xmame/src/inptport.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/inptport.h" />
+		<Unit filename="../../../xmame/src/input.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/input.h" />
+		<Unit filename="../../../xmame/src/machine/galaga.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/mame.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/mame.h" />
+		<Unit filename="../../../xmame/src/memory.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/memory.h" />
+		<Unit filename="../../../xmame/src/palette.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/palette.h" />
+		<Unit filename="../../../xmame/src/png.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/png.h" />
+		<Unit filename="../../../xmame/src/profiler.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/profiler.h" />
+		<Unit filename="../../../xmame/src/sndintrf.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/sndintrf.h" />
+		<Unit filename="../../../xmame/src/sound/mixer.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/sound/mixer.h" />
+		<Unit filename="../../../xmame/src/sound/namco.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/sound/namco.h" />
+		<Unit filename="../../../xmame/src/sound/samples.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/sound/samples.h" />
+		<Unit filename="../../../xmame/src/sound/streams.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/sound/streams.h" />
+		<Unit filename="../../../xmame/src/sprite.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/sprite.h" />
+		<Unit filename="../../../xmame/src/state.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/state.h" />
+		<Unit filename="../../../xmame/src/tilemap.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/tilemap.h" />
+		<Unit filename="../../../xmame/src/timer.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/timer.h" />
+		<Unit filename="../../../xmame/src/unix/config.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/debug.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/devices.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/devices.h" />
+		<Unit filename="../../../xmame/src/unix/dirty.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/fileio.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/frameskip-drivers/barath.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/frameskip-drivers/dos.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/fronthlp.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/ident.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/joystick-drivers/joy_i386.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/joystick-drivers/joy_pad.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/joystick-drivers/joy_x11.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/joystick-drivers/pad.h" />
+		<Unit filename="../../../xmame/src/unix/keyboard.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/keyboard.h" />
+		<Unit filename="../../../xmame/src/unix/main.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/mode.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/nec765_dummy.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/network.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/osd_cpu.h" />
+		<Unit filename="../../../xmame/src/unix/osd_dbg.h" />
+		<Unit filename="../../../xmame/src/unix/osinline.h" />
+		<Unit filename="../../../xmame/src/unix/snprintf.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/sound.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/sysdep/begin_code.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/blit_2.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/blit_3.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/dsp-drivers/oss.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/sysdep/end_code.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/fifo.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/misc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/sysdep/misc.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/mixer-drivers/oss.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/sysdep/plugin_manager.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/sysdep/plugin_manager.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/plugin_manager_priv.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/rc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/sysdep/rc.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/rc_priv.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/sound_stream.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/sysdep/sound_stream.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/sound_stream_priv.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_display.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_display_priv.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_dsp.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_dsp.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_dsp_plugins.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_dsp_priv.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_mixer.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_mixer.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_mixer_plugins.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_mixer_priv.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_palette.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/sysdep/sysdep_palette.h" />
+		<Unit filename="../../../xmame/src/unix/sysdep/unused/parser.h" />
+		<Unit filename="../../../xmame/src/unix/video-drivers/SDL-keytable.h" />
+		<Unit filename="../../../xmame/src/unix/video-drivers/blit.h" />
+		<Unit filename="../../../xmame/src/unix/video-drivers/blit_core.h" />
+		<Unit filename="../../../xmame/src/unix/video-drivers/glmame.h" />
+		<Unit filename="../../../xmame/src/unix/video-drivers/twkmodes.h" />
+		<Unit filename="../../../xmame/src/unix/video-drivers/twkuser.h" />
+		<Unit filename="../../../xmame/src/unix/video-drivers/vectorgen.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/video-drivers/vroot.h" />
+		<Unit filename="../../../xmame/src/unix/video-drivers/x11.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/video-drivers/x11.h" />
+		<Unit filename="../../../xmame/src/unix/video-drivers/x11_window.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/video-drivers/xf86_dga.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/video-drivers/xinput.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/video-drivers/xkeyboard.h" />
+		<Unit filename="../../../xmame/src/unix/video.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unix/xmame.h" />
+		<Unit filename="../../../xmame/src/unzip.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/unzip.h" />
+		<Unit filename="../../../xmame/src/usrintrf.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/usrintrf.h" />
+		<Unit filename="../../../xmame/src/version.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/vidhrdw/avgdvg.h" />
+		<Unit filename="../../../xmame/src/vidhrdw/galaga.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/vidhrdw/generic.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../../xmame/src/vidhrdw/vector.h" />
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
