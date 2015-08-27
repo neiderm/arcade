@@ -10,7 +10,9 @@
 /*
  ** header file includes
  */
+#if defined(_MSC_VER) || defined(__VC32__)
 #include "uclock.h" // src/Win32
+#endif
 #include "driver.h" // references to MAME code
 
 #include "galag.h"
