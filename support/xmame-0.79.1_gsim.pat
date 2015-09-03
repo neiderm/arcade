@@ -12,7 +12,7 @@ index 15687fc..e7c064b 100644
  }
  
 diff --git a/src/mame.c b/src/mame.c
-index aad4b3c..580c185 100644
+index aad4b3c..8991501 100644
 --- a/src/mame.c
 +++ b/src/mame.c
 @@ -566,7 +566,11 @@ void run_machine_core(void)
@@ -20,7 +20,7 @@ index aad4b3c..580c185 100644
  
  				/* run the emulation! */
 +#ifdef SIM
-+				sim_run();
++				sim_run((int)Machine->drv->frames_per_second);
 +#else
  				cpu_run();
 +#endif

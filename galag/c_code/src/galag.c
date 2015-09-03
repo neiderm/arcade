@@ -12,17 +12,18 @@
  */
 #if defined(_MSC_VER) || defined(__VC32__)
 #include "uclock.h" // src/Win32
+#else
+#include "osinline.h" // src/unix/ ... uclock_t
 #endif
-#include "driver.h" // references to MAME code
+
+#include "driver.h" // for "xmame/src/input.h"
 
 #include "galag.h"
 
 /*
  ** static external definitions in this file
  */
-
-// local copy of pointer to MAME machine info
-static struct MachineDriver *sim_drv;
+static int sim_fps;
 
 /*
  ** non-static external definitions this file or others
@@ -100,6 +101,7 @@ int _updatescreen(int blocking)
     static int this3, last3;
     static int thisct, lastct;
 
+    float fps = sim_fps;
 
     thisct = code_pressed(KEYCODE_LCONTROL);
 
@@ -179,7 +181,7 @@ int _updatescreen(int blocking)
         {
             curr = uclock();
         }
-        while (curr - prev < UCLOCKS_PER_SEC / sim_drv->frames_per_second);
+        while (curr - prev < UCLOCKS_PER_SEC / fps);
 
         vblank_work();
         prev = curr;
@@ -200,11 +202,11 @@ int _updatescreen(int blocking)
   will take very little time to process all the code in the background task, so
   most time will be spent in the update, waiting for 1/60th-second to expire.
  ***************************************************************************/
-void sim_run(struct MachineDriver *drv)
+void sim_run(int fps)
 {
     int mstate = 1;
 
-    sim_drv = drv;
+    sim_fps = fps;
 
     cpu0_init();
     cpu1_init();
