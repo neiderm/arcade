@@ -17,8 +17,8 @@ ROM1BIN= ga1.bin
 ROM2BIN= ga2.bin
 
 ROM0S19= rom0/ga0.i86
-ROM1S19= rom1/ga1.i86
-ROM2S19= rom2/ga2.i86
+ROM1S19= rom0/ga1.i86
+ROM2S19= rom0/ga2.i86
 
 ROM0SIZE= 16384
 ROM1SIZE= 4096
@@ -68,11 +68,11 @@ $(ROM0S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
 
 $(ROM1S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
 	cd rom0 ; make
-	cd rom0 ; cat ga0_sub.i86 | sed /:00000004FC/d > ../rom1/ga1.i86
+	cd rom0 ; cat ga0_sub.i86 | sed /:00000004FC/d > ../$(ROM1S19)
 
 $(ROM2S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
 	cd rom0 ; make
-	cd rom0 ; cat ga0_sub2.i86 | sed /:00000004FC/d > ../rom2/ga2.i86
+	cd rom0 ; cat ga0_sub2.i86 | sed /:00000004FC/d > ../$(ROM2S19)
 
 # MAME specific setup.
 MAMED= /cygdrive/c/home/myjunk/mame0136/mamed.exe
@@ -107,6 +107,4 @@ clean:
 	$(RM) *.rel *.bin *.s19 
 	cd $(OFDIR) ; $(RM) $(R1_1) $(R1_2) $(R1_3) $(R1_4) $(R2_1) $(R3_1)
 	cd rom0 ; make clean
-	cd rom1 ;  $(RM) *.rel *.s19 *.lst *.map *.noi *.lk *.ihx *.sym *.asm *.i86
-	cd rom2 ;  $(RM) *.rel *.s19 *.lst *.map *.noi *.lk *.ihx *.sym *.asm *.i86
 
