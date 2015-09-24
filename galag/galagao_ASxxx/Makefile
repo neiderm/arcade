@@ -24,32 +24,23 @@ ROM0SIZE= 16384
 ROM1SIZE= 4096
 ROM2SIZE= 4096
 
-OFDIR= ./galagao
+# These are for xmame(0.36), xmame(0.79)
+OFDIR= ./galaga
+R1_1= 04m_g01.bin
+R1_2= 04k_g02.bin
+R1_3= 04j_g03.bin
+R1_4= 04h_g04.bin
+R2_1= 04e_g05.bin
+R3_1= 04d_g06.bin
 
+# These are for xmame(0.136)
+OFDIR= ./galagao
 R1_1= gg1-1.3p
 R1_2= gg1-2.3m
 R1_3= gg1-3.2m
 R1_4= gg1-4.2l
 R2_1= gg1-5.3f
 R3_1= gg1-7.2c
-
-# These are for xmame(0.95)
-ifdef UNIX
-R1_1= gg1-1
-R1_2= gg1-2
-R1_4= gg1-4
-R2_1= gg1-5
-R3_1= gg1-7
-endif
-ifdef OLD
-R1_1= 3200a.bin
-R1_2= 3300b.bin
-R1_3= 3400c.bin
-R1_4= 3500d.bin
-R2_1= 3600e.bin
-R3_1= 3700g.bin
-OFDIR=../c_code/galaga
-endif
 
 
 #all: $(ROM0BIN) $(ROM1BIN) $(ROM2BIN) ident
@@ -78,37 +69,22 @@ $(ROM0S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
 $(ROM1S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
 	cd rom0 ; make
 	cd rom0 ; cat ga0_sub.i86 | sed /:00000004FC/d > ../rom1/ga1.i86
-#$(ROM1S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom1/*.s)
-#	cd rom1 ; make
 
 $(ROM2S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
 	cd rom0 ; make
 	cd rom0 ; cat ga0_sub2.i86 | sed /:00000004FC/d > ../rom2/ga2.i86
-#$(ROM2S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom2/*.s)
-#	cd rom2 ; make
 
 # MAME specific setup.
-MAMED=xmamed.x11
-MAMEOPTS= -debug -skip_gameinfo -rompath .
-GAMENAME= galagao
-ifdef UNIX
-PADSP= padsp
-else
 MAMED= /cygdrive/c/home/myjunk/mame0136/mamed.exe
+MAMEOPTS= -debug -skip_gameinfo -rompath .
 MAMEOPTS+= -window -nomaximize
-endif
-
-
-# OLD
-old: mkrom
-	cd ../c_code; ./bin/Debug/mame215D.exe  galaga
+GAMENAME= galagao
 
 
 ##############
 # test
 #
 test: mkrom
-	$(PADSP) \
 	$(MAMED) $(MAMEOPTS) \
 	$(GAMENAME)
 

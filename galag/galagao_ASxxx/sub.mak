@@ -1,8 +1,6 @@
 # This needs to go away: now that the asXXX .bank directive is successfully 
 # used to unify all 3 CPUs into a single build.
 
-#.SUFFIXES : .x .o .c .s .rel
-
 RM=rm -f
 
 
@@ -34,21 +32,8 @@ LD= $(ASXDIR)/aslink $(LDFLAGS)
 HEADERS= $(wildcard rom0/*.inc)
 
 
-
 # Code segment addresses are set by the include'ing makefile and the linker 
-# arguments are slightly modified if ld is called via sdcc...see rom0/makefile.
 LDFLAGS+= $(CSEGDEF)
-
-# One dummy C file is linked in rom0, just for proof-of-concept.
-# The C file can be compiled with sdcc, but then let all assembly and linkage  
-# done by asz80. This gets past the limitations of sdasz80 with hand-code 
-# assembly files (no macro support). 
-# Make inline work... http://sourceforge.net/projects/sdcc/forums/forum/1864/topic/4515873
-CFLAGS=--std-sdcc99 
-# Code segment can be relocated to fixed address on a per-file basis by 
-# specifying the code segment and defining it at link by passing -b to the 
-# linker (i.e.  sdcc '-Wl -b_XXXX')
-#CFLAGS+=--codeseg ASDF
 
 
 # here come the rules .... 
@@ -66,13 +51,11 @@ incs: mrw.s $(wildcard *.s)
 	cat *.s | sed -r -n '/^[_a-zA-Z0-9]+:/p' | sed 's/:.*// ; s/^/.globl /' | sort -u > exfuncs.inc
 
 
-
 $(S19): $(OBJS)
 	@-echo "Linking bin object: $*"
 	$(LD) $@ $(OBJS)
 
 
-#.s.rel:
 %.rel: %.s $(HEADERS) incs
 	@-echo "Making component: $*"
 	$(AS) $(ASFLAGS) -o $<
