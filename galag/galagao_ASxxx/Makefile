@@ -48,19 +48,21 @@ all: test
 
 
 SREC_ARGS= -intel -fill 0xff 0x0
+SREC_CKSUM_LENEG= -checksum-neg-l-e
+SREC_CKSUM_BTNOT= -checksum-bitnot-l-e
 
 # note: negative sign on offsets is intentional.
 $(ROM0BIN): $(ROM0S19)
-	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x0000 0x0FFF  -offset -0x0000  -l-e-checksum-neg 0x0FFF 1 1  -o $(OFDIR)/$(R1_1) -Binary
-	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x1000 0x1FFF  -offset -0x1000  -l-e-checksum-neg 0x0FFF 1 1  -o $(OFDIR)/$(R1_2) -Binary
-	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x2000 0x2FFF  -offset -0x2000  -l-e-checksum-neg 0x0FFF 1 1  -o $(OFDIR)/$(R1_3) -Binary
-	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x3000 0x3FFF  -offset -0x3000  -l-e-checksum-neg 0x0FFF 1 1  -o $(OFDIR)/$(R1_4) -Binary
+	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x0000 0x0FFF  -offset -0x0000  $(SREC_CKSUM_LENEG) 0x0FFF 1 1  -o $(OFDIR)/$(R1_1) -Binary
+	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x1000 0x1FFF  -offset -0x1000  $(SREC_CKSUM_LENEG) 0x0FFF 1 1  -o $(OFDIR)/$(R1_2) -Binary
+	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x2000 0x2FFF  -offset -0x2000  $(SREC_CKSUM_LENEG) 0x0FFF 1 1  -o $(OFDIR)/$(R1_3) -Binary
+	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x3000 0x3FFF  -offset -0x3000  $(SREC_CKSUM_LENEG) 0x0FFF 1 1  -o $(OFDIR)/$(R1_4) -Binary
 
 $(ROM1BIN): $(ROM1S19)
-	$(OBJC) $< $(SREC_ARGS) $(ROM1SIZE) -crop 0x0000 0x0FFF  -offset -0x0000  -l-e-checksum-bitnot 0x0FFF 1 1  -o $(OFDIR)/$(R2_1) -Binary
+	$(OBJC) $< $(SREC_ARGS) $(ROM1SIZE) -crop 0x0000 0x0FFF  -offset -0x0000  $(SREC_CKSUM_BTNOT) 0x0FFF 1 1  -o $(OFDIR)/$(R2_1) -Binary
 
 $(ROM2BIN): $(ROM2S19)
-	$(OBJC) $< $(SREC_ARGS) $(ROM2SIZE) -crop 0x0000 0x0FFF  -offset -0x0000  -l-e-checksum-bitnot 0x0FFF 1 1  -o $(OFDIR)/$(R3_1) -Binary
+	$(OBJC) $< $(SREC_ARGS) $(ROM2SIZE) -crop 0x0000 0x0FFF  -offset -0x0000  $(SREC_CKSUM_BTNOT) 0x0FFF 1 1  -o $(OFDIR)/$(R3_1) -Binary
 
 
 $(ROM0S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
@@ -73,6 +75,7 @@ $(ROM1S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
 $(ROM2S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
 	cd rom0 ; make
 	cd rom0 ; cat ga0_sub2.i86 | sed /:00000004FC/d > ../$(ROM2S19)
+
 
 # MAME specific setup.
 MAMED= /cygdrive/c/home/myjunk/mame0136/mamed.exe
@@ -104,7 +107,6 @@ mkrom: $(ROM0BIN) $(ROM1BIN) $(ROM2BIN)
 # clean
 #
 clean:
-	$(RM) *.rel *.bin *.s19 
 	cd $(OFDIR) ; $(RM) $(R1_1) $(R1_2) $(R1_3) $(R1_4) $(R2_1) $(R3_1)
 	cd rom0 ; make clean
 
