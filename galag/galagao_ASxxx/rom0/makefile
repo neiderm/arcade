@@ -18,19 +18,13 @@ OBJS= \
       gg1-5.rel \
       gg1-7.rel
 
-# Set linker arguments for code segment locations which are specific to the CPU
-# address space. 
-CSEGDEF= \
-  -b CSEG00=0x0096 -b CSEG10=0x1000 -b CSEG17=0x1700 \
-  -b CSEG20=0x2000 -b CSEG2C=0x2C00 -b CSEG30=0x3000 
-
-
 
 RM=rm -f
 
 
 ASXDIR=/usr/local/bin
-
+AS= $(ASXDIR)/asez80
+LD= $(ASXDIR)/aslink 
 
 #  -g   Undefined symbols made global
 #  -l   Create list output (out)file[.lst]
@@ -48,14 +42,11 @@ LDFLAGS= -i -m -w
 # RAM segments are common to all CPUs.
 LDFLAGS+=  -b RAM0=0x8800 -b RAM1=0x9000 -b RAM2=0x9800
 
-AS= $(ASXDIR)/asez80
-LD= $(ASXDIR)/aslink $(LDFLAGS)
-
-
-# TODO: doesn' work right.
-# Probably need to make  inc's shared between all CPUs
-HEADERS= $(wildcard rom0/*.inc)
-
+# Set linker arguments for code segment locations which are specific to the CPU
+# address space. 
+CSEGDEF= \
+  -b CSEG00=0x0096 -b CSEG10=0x1000 -b CSEG17=0x1700 \
+  -b CSEG20=0x2000 -b CSEG2C=0x2C00 -b CSEG30=0x3000 
 
 # Code segment addresses are set by the include'ing makefile and the linker 
 LDFLAGS+= $(CSEGDEF)
@@ -65,7 +56,6 @@ LDFLAGS+= $(CSEGDEF)
 
 all: $(S19)
 
-
 # Auto-generated includes must be made dependent upon source files.
 # We use asm "-a" option and export all global symbols in code space.
 # Data space globals are defined in common "mrw.S" file in parent directory but
@@ -74,22 +64,23 @@ all: $(S19)
 # http://www.cprogramming.com/tutorial/makefiles_continued.html
 #  The $? macro stores the list of dependents more recent than the target
 #  $^ gives you all dependencies, regardless of whether they are more recent than the target. 
-incs: $(wildcard *.s)
-	echo "; deprecated" > exfuncs.inc
-	cat *.s | sed -r -n '/^[_a-zA-Z0-9]+:/p' | sed 's/:.*// ; s/^/.globl /' | sort -u > exvars.inc
+
+ASMSRC= $(wildcard *.s)
+
+deps: $(ASMSRC)
+	@echo "; deprecated" > exfuncs.inc
+	cat $(ASMSRC) | sed -r -n '/^[_a-zA-Z0-9]+:/p' | sed 's/:.*// ; s/^/.globl /' | sort -u > exvars.inc
 
 
 $(S19): $(OBJS)
 	@-echo "Linking bin object: $*"
-	$(LD) $@ $(OBJS)
+	$(LD) $(LDFLAGS) $@ $(OBJS)
 
-
-%.rel: %.s $(HEADERS) incs
+%.rel: %.s $(wildcard *.inc) deps
 	@-echo "Making component: $*"
 	$(AS) $(ASFLAGS) -o $<
 
 
 clean:
-	$(RM) *\.rel *\.s19 *\.lst *\.map *\.i86 *\.hlr *\.dep
-
-
+	$(RM) *\.rel *\.s19 *\.lst *\.map *\.i86 *\.hlr *\.dep 
+	$(RM) exfuncs.inc exvars.inc
