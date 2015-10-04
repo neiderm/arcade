@@ -16,9 +16,9 @@ ROM0BIN= ga0.bin
 ROM1BIN= ga1.bin
 ROM2BIN= ga2.bin
 
-ROM0S19= rom0/ga0.i86
-ROM1S19= rom0/ga1.i86
-ROM2S19= rom0/ga2.i86
+ROM0IHX= ga0.ihx
+ROM1IHX= ga1.ihx
+ROM2IHX= ga2.ihx
 
 ROM0SIZE= 16384
 ROM1SIZE= 4096
@@ -43,7 +43,6 @@ R2_1= gg1-5.3f
 R3_1= gg1-7.2c
 
 
-#all: $(ROM0BIN) $(ROM1BIN) $(ROM2BIN) ident
 all: test
 
 
@@ -52,35 +51,39 @@ SREC_CKSUM_LENEG= -checksum-neg-l-e
 SREC_CKSUM_BTNOT= -checksum-bitnot-l-e
 
 # note: negative sign on offsets is intentional.
-$(ROM0BIN): $(ROM0S19)
+# $< when you have only a single dependency
+#
+$(ROM0BIN): $(ROM0IHX)
 	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x0000 0x0FFF  -offset -0x0000  $(SREC_CKSUM_LENEG) 0x0FFF 1 1  -o $(OFDIR)/$(R1_1) -Binary
 	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x1000 0x1FFF  -offset -0x1000  $(SREC_CKSUM_LENEG) 0x0FFF 1 1  -o $(OFDIR)/$(R1_2) -Binary
 	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x2000 0x2FFF  -offset -0x2000  $(SREC_CKSUM_LENEG) 0x0FFF 1 1  -o $(OFDIR)/$(R1_3) -Binary
 	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x3000 0x3FFF  -offset -0x3000  $(SREC_CKSUM_LENEG) 0x0FFF 1 1  -o $(OFDIR)/$(R1_4) -Binary
 
-$(ROM1BIN): $(ROM1S19)
+$(ROM1BIN): $(ROM1IHX)
 	$(OBJC) $< $(SREC_ARGS) $(ROM1SIZE) -crop 0x0000 0x0FFF  -offset -0x0000  $(SREC_CKSUM_BTNOT) 0x0FFF 1 1  -o $(OFDIR)/$(R2_1) -Binary
 
-$(ROM2BIN): $(ROM2S19)
+$(ROM2BIN): $(ROM2IHX)
 	$(OBJC) $< $(SREC_ARGS) $(ROM2SIZE) -crop 0x0000 0x0FFF  -offset -0x0000  $(SREC_CKSUM_BTNOT) 0x0FFF 1 1  -o $(OFDIR)/$(R3_1) -Binary
 
 
-$(ROM0S19):
+# this one does not contain type 04 so just do a straight cp
+$(ROM0IHX):
 	cd rom0 ; make
+	cp rom0/ga0.i86  $@
 
 # Using .BANK directive to separate code space of cpus, which causes 
 # type 04 "Extended Linear Address" record to be emitted in sub and sub2. 
 # srec_cat does not agree with aslink as to the format of this record, so I
-# discard it.
+# discard it. (TODO: try fake base e.g. BASE=0x010000 etc.)
 #  http://srecord.sourceforge.net/man/man5/srec_intel.html
 
-$(ROM1S19): 
+$(ROM1IHX): 
 	cd rom0 ; make
-	cd rom0 ; cat ga0_sub.i86 | sed /:00000004FC/d > ../$(ROM1S19)
+	cat rom0/ga0_sub.i86 | sed /:00000004FC/d > $@
 
-$(ROM2S19): 
+$(ROM2IHX): 
 	cd rom0 ; make
-	cd rom0 ; cat ga0_sub2.i86 | sed /:00000004FC/d > ../$(ROM2S19)
+	cat rom0/ga0_sub2.i86 | sed /:00000004FC/d > $@
 
 
 # MAME specific setup.
@@ -112,5 +115,6 @@ ident: mkrom
 # clean
 #
 clean:
+	$(RM) -f *\.ihx
 	cd $(OFDIR) ; $(RM) $(R1_1) $(R1_2) $(R1_3) $(R1_4) $(R2_1) $(R3_1)
 	cd rom0 ; make clean
