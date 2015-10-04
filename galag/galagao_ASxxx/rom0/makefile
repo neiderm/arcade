@@ -34,10 +34,10 @@ ASXDIR=/usr/local/bin
 
 #  -g   Undefined symbols made global
 #  -l   Create list output (out)file[.lst]
+#  -w   Wide listing format for symbol table
 #  -p   Disable listing pagination
 #  -a   All user symbols made global
 ASFLAGS=-l -p -a
-
 
 #  -m   Map output generated as (out)file[.map]
 #  -w   Wide listing format for map file
@@ -70,10 +70,13 @@ all: $(S19)
 # We use asm "-a" option and export all global symbols in code space.
 # Data space globals are defined in common "mrw.S" file in parent directory but
 # external functions and data in code space are specific to each ROM module.
-incs: mrw.s $(wildcard *.s)
-	echo ";.include "\"..\/sfrs.inc\" > exvars.inc 
-	cat $< | sed -r -n '/^[_a-zA-Z0-9]+:/p' | sed 's/:.*// ; s/^/.globl /' | sort -u >> exvars.inc
-	cat *.s | sed -r -n '/^[_a-zA-Z0-9]+:/p' | sed 's/:.*// ; s/^/.globl /' | sort -u > exfuncs.inc
+# A little help here:
+# http://www.cprogramming.com/tutorial/makefiles_continued.html
+#  The $? macro stores the list of dependents more recent than the target
+#  $^ gives you all dependencies, regardless of whether they are more recent than the target. 
+incs: $(wildcard *.s)
+	echo "; deprecated" > exfuncs.inc
+	cat *.s | sed -r -n '/^[_a-zA-Z0-9]+:/p' | sed 's/:.*// ; s/^/.globl /' | sort -u > exvars.inc
 
 
 $(S19): $(OBJS)
@@ -87,6 +90,6 @@ $(S19): $(OBJS)
 
 
 clean:
-	$(RM) *.rel *.s19 *.lst *.map *.noi *.lk *.ihx *.sym *.asm *.i86
+	$(RM) *\.rel *\.s19 *\.lst *\.map *\.i86 *\.hlr *\.dep
 
 
