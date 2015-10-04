@@ -66,17 +66,17 @@ all: $(S19)
 #  $^ gives you all dependencies, regardless of whether they are more recent than the target. 
 
 ASMSRC= $(wildcard *.s)
+GLBLHDR= exvars.inc
 
-deps: $(ASMSRC)
+$(GLBLHDR): $(ASMSRC)
 	@echo "; deprecated" > exfuncs.inc
-	cat $(ASMSRC) | sed -r -n '/^[_a-zA-Z0-9]+:/p' | sed 's/:.*// ; s/^/.globl /' | sort -u > exvars.inc
-
+	cat $(ASMSRC) | sed -r -n '/^[_a-zA-Z0-9]+:/p' | sed 's/:.*// ; s/^/.globl /' | sort -u > $(GLBLHDR)
 
 $(S19): $(OBJS)
 	@-echo "Linking bin object: $*"
 	$(LD) $(LDFLAGS) $@ $(OBJS)
 
-%.rel: %.s $(wildcard *.inc) deps
+%.rel: %.s $(wildcard *.inc) $(GLBLHDR)
 	@-echo "Making component: $*"
 	$(AS) $(ASFLAGS) -o $<
 

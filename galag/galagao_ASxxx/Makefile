@@ -65,14 +65,20 @@ $(ROM2BIN): $(ROM2S19)
 	$(OBJC) $< $(SREC_ARGS) $(ROM2SIZE) -crop 0x0000 0x0FFF  -offset -0x0000  $(SREC_CKSUM_BTNOT) 0x0FFF 1 1  -o $(OFDIR)/$(R3_1) -Binary
 
 
-$(ROM0S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
+$(ROM0S19):
 	cd rom0 ; make
 
-$(ROM1S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
+# Using .BANK directive to separate code space of cpus, which causes 
+# type 04 "Extended Linear Address" record to be emitted in sub and sub2. 
+# srec_cat does not agree with aslink as to the format of this record, so I
+# discard it.
+#  http://srecord.sourceforge.net/man/man5/srec_intel.html
+
+$(ROM1S19): 
 	cd rom0 ; make
 	cd rom0 ; cat ga0_sub.i86 | sed /:00000004FC/d > ../$(ROM1S19)
 
-$(ROM2S19): $(wildcard *.inc) $(wildcard *.s) $(wildcard rom0/*.s)
+$(ROM2S19): 
 	cd rom0 ; make
 	cd rom0 ; cat ga0_sub2.i86 | sed /:00000004FC/d > ../$(ROM2S19)
 
@@ -83,6 +89,8 @@ MAMEOPTS= -debug -skip_gameinfo -rompath .
 MAMEOPTS+= -window -nomaximize
 GAMENAME= galagao
 
+
+mkrom: $(ROM0BIN) $(ROM1BIN) $(ROM2BIN)
 
 ##############
 # test
@@ -100,13 +108,9 @@ ident: mkrom
 	$(MAMED) -rompath . -romident  $(GAMENAME) | sed -n /NO\ MATCH/p	
 
 
-mkrom: $(ROM0BIN) $(ROM1BIN) $(ROM2BIN)
-
-
 ##############
 # clean
 #
 clean:
 	cd $(OFDIR) ; $(RM) $(R1_1) $(R1_2) $(R1_3) $(R1_4) $(R2_1) $(R3_1)
 	cd rom0 ; make clean
-
