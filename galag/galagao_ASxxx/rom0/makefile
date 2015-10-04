@@ -1,5 +1,10 @@
 # ROM0 sub-makefile
-S19= ga0.i86
+
+# aslink generates "Intel I86 Output Format (24 or 32-Bit)" since I am using
+# .BANK directive to separate CPU spaces. This causes a type 4 "segment record" 
+# to be emitted into the .i86 file.
+                        
+I86= ga0.i86
 
 # Note that ld adds code to a given section as it loads each file, so the order
 # in which items are added to OBJS is important in order to keep the original 
@@ -54,7 +59,7 @@ LDFLAGS+= $(CSEGDEF)
 
 # here come the rules .... 
 
-all: $(S19)
+all: $(I86)
 
 # Auto-generated includes must be made dependent upon source files.
 # We use asm "-a" option and export all global symbols in code space.
@@ -62,19 +67,21 @@ all: $(S19)
 # external functions and data in code space are specific to each ROM module.
 # A little help here:
 # http://www.cprogramming.com/tutorial/makefiles_continued.html
-#  The $? macro stores the list of dependents more recent than the target
+#  $? macro stores the list of dependents more recent than the target
 #  $^ gives you all dependencies, regardless of whether they are more recent than the target. 
+#  $@ is the name of the target. 
+#  $< when you have only a single dependency
+# TODO: don't remember difference between @- and @
 
 ASMSRC= $(wildcard *.s)
 GLBLHDR= exvars.inc
 
 $(GLBLHDR): $(ASMSRC)
 	@echo "; deprecated" > exfuncs.inc
-	cat $(ASMSRC) | sed -r -n '/^[_a-zA-Z0-9]+:/p' | sed 's/:.*// ; s/^/.globl /' | sort -u > $(GLBLHDR)
+	cat $? | sed -r -n '/^[_a-zA-Z0-9]+:/p' | sed 's/:.*// ; s/^/.globl /' | sort -u > $@
 
-$(S19): $(OBJS)
-	@-echo "Linking bin object: $*"
-	$(LD) $(LDFLAGS) $@ $(OBJS)
+$(I86): $(OBJS)
+	$(LD) $(LDFLAGS) $@ $?
 
 %.rel: %.s $(wildcard *.inc) $(GLBLHDR)
 	@-echo "Making component: $*"
