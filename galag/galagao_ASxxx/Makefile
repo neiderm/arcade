@@ -6,6 +6,24 @@
 # including the generation and placment of the proper checksum in each chip image!
 #
 
+# Select configuration, these are the two I use: 
+#
+ARCH= `uname -s`
+
+ifeq ($ARCH, linux)
+ # MAME 0.79, *nix
+ MAMED= mamed.x11 # in /usr/local/bin
+ MAMEOPTS= -debug -skip_gameinfo -rompath .
+ MAMEOPTS+= -window -nomaximize
+ GAMENAME= galaga
+else
+ # MAME 0.136, Windows
+ MAMED= /cygdrive/c/home/myjunk/mame0136/mamed.exe
+ MAMEOPTS= -debug -skip_gameinfo -rompath .
+ MAMEOPTS+= -window -nomaximize
+ GAMENAME= galagao
+endif
+
 OBJC= srec_cat 
 RM= rm -f
 
@@ -20,23 +38,26 @@ ROM0SIZE= 16384
 ROM1SIZE= 4096
 ROM2SIZE= 4096
 
-# These are for xmame(0.36), xmame(0.79)
-OFDIR= ./galaga
-R1_1= $(OFDIR)/04m_g01.bin
-R1_2= $(OFDIR)/04k_g02.bin
-R1_3= $(OFDIR)/04j_g03.bin
-R1_4= $(OFDIR)/04h_g04.bin
-R2_1= $(OFDIR)/04e_g05.bin
-R3_1= $(OFDIR)/04d_g06.bin
 
-# These are for xmame(0.136)
-OFDIR= ./galagao
-R1_1= $(OFDIR)/gg1-1.3p
-R1_2= $(OFDIR)/gg1-2.3m
-R1_3= $(OFDIR)/gg1-3.2m
-R1_4= $(OFDIR)/gg1-4.2l
-R2_1= $(OFDIR)/gg1-5.3f
-R3_1= $(OFDIR)/gg1-7.2c
+OFDIR= ./$(GAMENAME)
+
+ifeq ($GAMENAME, galaga)
+ # These are for xmame(0.36), xmame(0.79)
+ R1_1= $(OFDIR)/04m_g01.bin
+ R1_2= $(OFDIR)/04k_g02.bin
+ R1_3= $(OFDIR)/04j_g03.bin
+ R1_4= $(OFDIR)/04h_g04.bin
+ R2_1= $(OFDIR)/04e_g05.bin
+ R3_1= $(OFDIR)/04d_g06.bin
+else
+ # These are for xmame(0.136)
+ R1_1= $(OFDIR)/gg1-1.3p
+ R1_2= $(OFDIR)/gg1-2.3m
+ R1_3= $(OFDIR)/gg1-3.2m
+ R1_4= $(OFDIR)/gg1-4.2l
+ R2_1= $(OFDIR)/gg1-5.3f
+ R3_1= $(OFDIR)/gg1-7.2c
+endif
 
 ROMS= $(R1_1) $(R1_2) $(R1_3) $(R1_4) $(R2_1) $(R3_1)
 
@@ -86,13 +107,6 @@ $(ROM1IHX):
 $(ROM2IHX):
 	cd rom0 ; make
 	cat rom0/ga0_sub2.i86 | sed /:00000004FC/d > $@
-
-
-# MAME specific setup.
-MAMED= /cygdrive/c/home/myjunk/mame0136/mamed.exe
-MAMEOPTS= -debug -skip_gameinfo -rompath .
-MAMEOPTS+= -window -nomaximize
-GAMENAME= galagao
 
 
 mkrom: $(ROMS)
