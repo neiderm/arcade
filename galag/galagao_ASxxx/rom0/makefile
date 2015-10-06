@@ -87,7 +87,9 @@ $(I86): $(OBJS)
 	@-echo "Making component: $*"
 	$(AS) $(ASFLAGS) -o $<
 
-
 clean:
-	$(RM) *\.rel *\.s19 *\.lst *\.map *\.i86 *\.hlr *\.dep 
+	$(RM) *\.rel *\.s19 *\.lst *\.map *\.i86 *\.hlr 
 	$(RM) exfuncs.inc exvars.inc
+
+distclean: clean
+	$(RM) *\.dep 
