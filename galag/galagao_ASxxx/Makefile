@@ -130,10 +130,12 @@ ident: mkrom
 ##############
 # clean
 #
-clean:
-	$(RM) -f *\.ihx
-	$(RM) $(ROMS)
-	cd rom0 ; make clean
-
 cleanroms:
 	$(RM) $(ROMS)
+
+clean: cleanroms
+	$(RM) -f *\.ihx
+	cd rom0 ; make clean
+
+distclean: clean
+	cd rom0 ; make distclean
