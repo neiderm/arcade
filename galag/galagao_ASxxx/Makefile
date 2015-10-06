@@ -8,13 +8,15 @@
 
 # Select configuration, these are the two I use: 
 #
-ARCH= `uname -s`
+ARCH := $(shell uname -s)
 
-ifeq ($ARCH, linux)
- # MAME 0.79, *nix
- MAMED= mamed.x11 # in /usr/local/bin
+ifeq ($(ARCH), Linux)
+ # MAME 0.79, *nix ... srec_cat, asxxxx, xmame binaries in /usr/local/bin
+ MAMED= xmamed.x11
+ MAMED= xmame.x11
  MAMEOPTS= -debug -skip_gameinfo -rompath .
- MAMEOPTS+= -window -nomaximize
+ MAMEOPTS=  -skip_gameinfo -rompath .
+# MAMEOPTS+= -window -nomaximize
  GAMENAME= galaga
 else
  # MAME 0.136, Windows
@@ -41,7 +43,7 @@ ROM2SIZE= 4096
 
 OFDIR= ./$(GAMENAME)
 
-ifeq ($GAMENAME, galaga)
+ifeq ($(GAMENAME), galaga)
  # These are for xmame(0.36), xmame(0.79)
  R1_1= $(OFDIR)/04m_g01.bin
  R1_2= $(OFDIR)/04k_g02.bin
@@ -72,6 +74,8 @@ SREC_CKSUM_BTNOT= -checksum-bitnot-l-e
 # note: negative sign on offsets is intentional.
 # $< when you have only a single dependency
 # $@ is the name of the target. 
+#
+# TODO: mkdir $(OFDIR) target
 #
 $(R1_1): $(ROM0IHX)
 	$(OBJC) $< $(SREC_ARGS) $(ROM0SIZE) -crop 0x0000 0x0FFF  -offset -0x0000  $(SREC_CKSUM_LENEG) 0x0FFF 1 1  -o $@ -Binary
