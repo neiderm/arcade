@@ -5,8 +5,8 @@
 .module cpu_sub
 
 .include "sfrs.inc"
-.include "exvars.inc"
 .include "structs.inc"
+.include "gg1-5.dep"
 
 .BANK cpu_sub (BASE=0x000000, FSFX=_sub)
 .area ROM (ABS,OVR,BANK=cpu_sub)

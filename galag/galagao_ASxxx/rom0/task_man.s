@@ -23,9 +23,8 @@
 .module task_man
 
 .include "sfrs.inc"
-.include "exvars.inc"
-.include "exfuncs.inc"
 .include "structs.inc"
+.include "task_man.dep"
 
 ;           00000096  _l_0096                            int0
 ;.area ROM (ABS,OVR)

@@ -8,8 +8,7 @@
 .module new_stage
 
 .include "structs.inc"
-.include "exvars.inc"
-.include "exfuncs.inc"
+.include "new_stage.dep"
 
 ;.area ROM (ABS,OVR)
 ; .org 0x2C00

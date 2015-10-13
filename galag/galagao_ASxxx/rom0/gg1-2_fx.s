@@ -10,9 +10,8 @@
 ;.area ROM (ABS,OVR)
 
 .include "sfrs.inc"
-.include "exvars.inc"
-.include "exfuncs.inc"
 .include "structs.inc"
+.include "gg1-2_fx.dep"
 
 ;       .org  0x1700
 .area CSEG17

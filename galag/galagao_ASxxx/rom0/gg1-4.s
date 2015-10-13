@@ -10,9 +10,8 @@
 .module game_over
 
 .include "sfrs.inc"
-.include "exvars.inc"
-.include "exfuncs.inc"
 .include "structs.inc"
+.include "gg1-4.dep"
 
 ;.area ROM (ABS,OVR)
 ;       .org 0x2FFF

@@ -5,8 +5,7 @@
 .module cpu_sub2
 
 .include "sfrs.inc"
-.include "exvars.inc"
-
+.include "gg1-7.dep"
 
 .BANK cpu_sub2 (BASE=0x000000, FSFX=_sub2)
 .area ROM2 (ABS,OVR,BANK=cpu_sub2)

@@ -8,9 +8,8 @@
 .module borg
 
 .include "sfrs.inc"
-.include "exvars.inc"
-.include "exfuncs.inc"
 .include "structs.inc"
+.include "gg1-2.dep"
 
 ;.area ROM (ABS,OVR)
 ;       .org 0x0FFF

@@ -21,9 +21,8 @@
 .module game_ctrl
 
 .include "sfrs.inc"
-.include "exvars.inc"
-.include "exfuncs.inc"
 .include "structs.inc"
+.include "game_ctrl.dep"
 
 ;.area ROM (ABS,OVR)
 ;      .org 0x02D3

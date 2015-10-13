@@ -7,10 +7,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .module int0
 .area INTVEC (ABS,OVR)
-;.include "../macros.inc" ; macros not supported in sdasz80
-.include "exvars.inc"
-.include "exfuncs.inc"
 
+.include "int.dep"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

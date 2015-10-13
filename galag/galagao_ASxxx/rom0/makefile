@@ -71,19 +71,22 @@ all: $(I86)
 #  $^ gives you all dependencies, regardless of whether they are more recent than the target. 
 #  $@ is the name of the target. 
 #  $< when you have only a single dependency
-# TODO: don't remember difference between @- and @
 
-ASMSRC= $(wildcard *.s)
-GLBLHDR= exvars.inc
+# prevent make from deleting "interediate" .dep files
+#  http://darrendev.blogspot.com/2008/06/stopping-make-delete-intermediate-files.html
+.SECONDARY:
 
-$(GLBLHDR): $(ASMSRC)
-	@echo "; deprecated" > exfuncs.inc
-	cat $? | sed -r -n '/^[_a-zA-Z0-9]+:/p' | sed 's/:.*// ; s/^/.globl /' | sort -u > $@
+%.dep: %.s
+	@-echo "Making dependency: $*"
+	@-asez80 -l -w -p  $<  2>/dev/null
+	@cat $(basename $<).lst | grep ' \*\*\*\*\*\* X' \
+	| sed 's/^\ *// ; s/\ .*$$// ; s/^/.globl /' > $@
+
 
 $(I86): $(OBJS)
-	$(LD) $(LDFLAGS) $@ $?
+	$(LD) $(LDFLAGS) $@ $^
 
-%.rel: %.s $(wildcard *.inc) $(GLBLHDR)
+%.rel: %.s %.dep $(wildcard *.inc)
 	@-echo "Making component: $*"
 	$(AS) $(ASFLAGS) -o $<
 
@@ -92,4 +95,5 @@ clean:
 	$(RM) exfuncs.inc exvars.inc
 
 distclean: clean
+	@echo "distclean: clean"
 	$(RM) *\.dep 
