@@ -55,3 +55,6 @@ The following files should be generated in the ROM directory:
 MAME should run with the newly generated program ROMs, and there should be no SHA errors.
 If the source is modified and then rebuilt, MAME should report SHA errors on the affected ROM image(s).
 
+<p align="center">
+<img width="282" height="400" alt="image" src="https://github.com/user-attachments/assets/d24adc13-fc35-44a9-9d01-6d8567525e4c" />
+</p>
