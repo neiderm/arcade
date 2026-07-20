@@ -1,95 +1,57 @@
-ARCADE! (formerly ... eightysArcade)
-====================================
+# Gyaraga
 
-Precise translation of arcade games from the 1980's
+Commented and compilable assembly source for a popular arcade game from the 1980's
 
-This project and repository supercedes the previous one at 
- https://github.com/gary-seven/eightysArcade
+## Prerequisites:
 
-Summary:
- - ASxxx project:  
-    Assembly sources to generate exact image of machine code.  
-    Requires asez80 assembler by Alan R. Baldwin to build:  
-     ftp://shop-pdp.net/pub/asxxxx/av5p10.zip  
-    Requires srecord-1.64:  
-     http://srecord.sourceforge.net/srecord-1.64.tar.gz  
-    Code::Blocks project (.cbp) is provided to browse/edit the assembly code  
-    (C::B lexer config in _ASxxx/contrib/lexer_zilog_z80.xml).  
- - c_code project:  
-    All of the game logic is to be tranlated from assembly language - MAME is 
-    used only to render graphics and sound.  
+* Ubuntu Linux
+* `srec_cat` - install from package distro: `apt install srecord`
+* Optional: _Code::Blocks_
+    * A Code::Blocks project file (.cbp) is provided that can make use of a lexer config file for Z80:
+   (_ASxxx/contrib/lexer_zilog_z80.xml)
+* _MAME_ (Multi Arcade Machine Emulator) for verifying rom checksums
+    * `apt-get install mame`
+    * Currently v0.242
+    * See [here](https://github.com/neiderm/MAME_hack.git) for instructions to build legacy xmame sources.
+* The following binary files (Namco rev. B):
+    * gg1-9.4l (07h_g09.bin)  gfx1
+    * gg1-11.4d (07m_g08.bin)  gfx2
+    * gg1-10.4f (07e_g10.bin)  gfx2
+    * prom-5.5n (5n.bin)  palette
+    * prom-4.2n (2n.bin)  char lookup
+    * prom-3.1c (1c.bin)  sprite lookup
+    * prom-1.1d (1d.bin)  custom chip firmware
+    * prom-2.5c (5c.bin)  custom chip firmware
+* asxxxx assembler suite by Alan R. Baldwin:
+    * https://shop-pdp.net/ashtml/asxget.php
+    * https://shop-pdp.net/_ftp/asxxxx/av5p10.zip
 
-The following applies specifically to Linux:  
+## Build
 
-  c_code project found in c_code/proj/cblin/  
+The build relies upon the asxxxx assembler by Alan R. Baldwin, which has necessary capability of assembling to individual relocatable files, that are then linked into ROM images with the proper address range. 
 
-  In the c_code/ directory:  
-    tar xvjf ../../support/xmame-0.79.1.tar.bz2  
-    ln -s xmame-0.79.1/ xmame  
-    cd xmame  
-    cat ../../../support/xmame-0.79.1_gsim.pat | patch -p1  
+The assembly and linker must be built from an older asxxxx source (5.10), as the newer versions seem to be breaking the build (todo investigate).
 
- On Debian-like systems, several development packages may need to be 
- installed, including:  
+``` shell
+cd asxv5pxx/asxmak/linux/build
+make
+`cp asez8 aslink /usr/local/bin/`
+```
 
-   zlib1g-dev  
-   libx11-dev  
-   libxext-dev  
-   libz-dev  
-   libxi-dev  
-   libxv-dev  
-   libexpat1-dev  
-   libncurses-dev  
-   libusb-dev  
-   libasound2-dev  
-   libxxf86dga-dev  
-   libxxf86vm-dev  
+``` shell
+cd galagao_ASxxx
+make distclean
+make
+```
 
- I mostly use older versions of MAME, as I am working on low-spec
- machines like single-core PCs and ARM boards. I have provided 
-  "arcade/support/xmame-0.79.1.tar.bz2" (xmame archives are really hard to find
- on the internet these days). The patch is required to make a few small fixes
- and for integration with the game code.
+The following files should be generated in the ROM directory:
+* gg1-1.3p (04m_g01.bin)  main cpu
+* gg1-2.3m (04k_g02.bin)  main cpu
+* gg1-3.2m (04j_g03.bin)  main cpu
+* gg1-4.2l (04h_g04.bin)  main cpu
+* gg1-5.3f (04e_g05.bin)  sub cpu 1
+* gg1-7.2c (04d_g06.bin)  sub cpu 2
 
- The c_code project .cbp will incorporate the xmame sources and provide build
- configurations for both the C translation as well as the xmame emulator.
- In order to run the binaries produced by the ASxxx configuration, use xmame 
- executable built in the Code::Blocks project, or build with make as follows:
-
-     make -f makefile.unix SOUND_ALSA=1
-
- Before make, set CPU selection appropriate to architecture e.g.:  
-     > #MY_CPU = i386  
-     > MY_CPU = risc_lsb  # i.MX6  
-
-
- Assembly files are also built by make ... see _ASxxx/Makefile, there are 
- different names which are created - this needs to be handled better, but the 
- purpose was to allow operation in multiple OS environments where I ended up 
- with different versions of (x)mame to support.
-
- You will undoubtably end up finding that there are some other binary files 
- needed by MAME to get this all working - eventually I intend to eliminate 
- these dependencies, and am currently experimenting with Turaco utility to 
- dynamically generate graphics files ("04D_G06.BIN" and others which are not 
- distributed here). For now, you'll just have to find these on your own!
-
-
-Windows configuration:
-
- Unfortunately I haven't had a chance to finish this part of the setup
- documentation, other than making a note of a couple blatant differences in
- the project configuration compared to the Linux configuration.
-
- c_code project found in c_code/proj/cbwin
-
- c_code is based on MAME v0.36:
-
-   https://github.com/gary-seven/MAME_hack.git
- 
- Copy or link MAME_hack/mame36/mame/ to into c_code/ directory.
-
- Note: different versions of binary files are needed because the c_code is 
- tied to MAME-0.36, whereas the ASxxx/Makefile I had generally used MAME-0.136.
- You are left to your own resourcefulness to obtain these files.
+MAME should run with the newly generated program ROMs, and there should be no SHA errors.
+If the source is modified and then rebuilt, MAME should report SHA errors on the affected ROM image(s).
 

@@ -1,28 +1,24 @@
 # Top-level Makefile.
 #
-# Running "make" builds the code, generates ROM files and runs mame ($MAMED).
+# Running "make" builds the code, generates ROM files and runs mame to verify them.
 #
 # All binary file generation is done by srec_cat, which has lots of tricks...
 # including the generation and placment of the proper checksum in each chip image!
 #
+# Defaults to generating "galagao" (Namco rev. B) romset compatible with current MAME).
+# Use `make BUILD=xmame` to generate the romset with the legacy "socket" naming 
+# convention and with suitable options for xmame. 
 
-# Select configuration, these are the two I use: 
-#
-ARCH := $(shell uname -s)
-
-ifeq ($(ARCH), Linux)
- # MAME 0.79, *nix ... srec_cat, asxxxx, xmame binaries in /usr/local/bin
- MAMED= xmamed.x11
+ifeq ($(BUILD), xmame)
  MAMED= xmame.x11
+ ROMIDENT= -ident
  MAMEOPTS= -debug -skip_gameinfo -rompath .
- MAMEOPTS=  -skip_gameinfo -rompath .
-# MAMEOPTS+= -window -nomaximize
+ MAMEOPTS= -skip_gameinfo -rompath .
  GAMENAME= galaga
 else
- # MAME 0.136, Windows
- MAMED= /cygdrive/c/home/myjunk/mame0136/mamed.exe
- MAMEOPTS= -debug -skip_gameinfo -rompath .
- MAMEOPTS+= -window -nomaximize
+ MAMED= mame
+ ROMIDENT= -romident
+ MAMEOPTS= -window -nomaximize -skip_gameinfo -rompath .
  GAMENAME= galagao
 endif
 
@@ -43,8 +39,7 @@ ROM2SIZE= 4096
 
 OFDIR= ./$(GAMENAME)
 
-ifeq ($(GAMENAME), galaga)
- # These are for xmame(0.36), xmame(0.79)
+ifeq ($(BUILD), xmame)
  R1_1= $(OFDIR)/04m_g01.bin
  R1_2= $(OFDIR)/04k_g02.bin
  R1_3= $(OFDIR)/04j_g03.bin
@@ -52,7 +47,6 @@ ifeq ($(GAMENAME), galaga)
  R2_1= $(OFDIR)/04e_g05.bin
  R3_1= $(OFDIR)/04d_g06.bin
 else
- # These are for xmame(0.136)
  R1_1= $(OFDIR)/gg1-1.3p
  R1_2= $(OFDIR)/gg1-2.3m
  R1_3= $(OFDIR)/gg1-3.2m
@@ -128,7 +122,7 @@ test: mkrom
 #
 ident: mkrom
 	@-echo "Running mame -ident..."
-	$(MAMED) -rompath . -romident  $(GAMENAME) | sed -n /NO\ MATCH/p	
+	$(MAMED) -rompath . $(ROMIDENT)  $(GAMENAME) | sed -n /NO\ MATCH/p	
 
 
 ##############
