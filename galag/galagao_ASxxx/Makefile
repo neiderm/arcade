@@ -5,7 +5,7 @@
 # All binary file generation is done by srec_cat, which has lots of tricks...
 # including the generation and placment of the proper checksum in each chip image!
 #
-# Defaults to generating "galagao" (Namco rev. B) romset compatible with current MAME).
+# Defaults to generating "Galaga (Namco)" romset (galagao) compatible with current MAME.
 # Use `make BUILD=xmame` to generate the romset with the legacy "socket" naming 
 # convention and with suitable options for xmame. 
 
